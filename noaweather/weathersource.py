@@ -86,7 +86,7 @@ class GribWeatherSource(WeatherSource):
         adjs = 0
         if cnow.day != now.day:
             adjs = +24
-        forecast = (adjs + now.hour - lcycle) / 3 * 3
+        forecast = (adjs + now.hour - lcycle) // 3 * 3
 
         return '%d%02d%02d' % (cnow.year, cnow.month, cnow.day), lcycle, forecast
 
