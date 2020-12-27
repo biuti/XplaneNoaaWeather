@@ -608,7 +608,9 @@ class Data:
                 self.metar_visibility.value = wdata['metar']['visibility']
 
             if 'gfs' in wdata:
+                print('thar be gfs, keys: {}'.format(wdata['gfs'].keys()))
                 if 'winds' in wdata['gfs']:
+                    print('thar be winds in gfs')
 
                     alts = []
                     hdgs = []
@@ -624,6 +626,7 @@ class Data:
 
                     self.nwinds = len(alts)
                     self.wind_alt.value = alts
+                    print('updated alts to {}'.format(alts))
                     self.wind_hdg.value = hdgs
                     self.wind_speed.value = speeds
                     self.wind_temp.value = temps
