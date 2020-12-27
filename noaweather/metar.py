@@ -84,7 +84,7 @@ class Metar(WeatherSource):
         # Metar stations update
         if (time.time() - conf.ms_update) > self.STATION_UPDATE_RATE * 86400:
             self.ms_download = AsyncTask(GribDownloader.download, self.METAR_STATIONS_URL, 'stations.txt',
-                                         cancel_event=self.die)
+                                         binary=True, cancel_event=self.die)
             self.ms_download.start()
 
         self.last_timestamp = 0
@@ -460,7 +460,7 @@ class Metar(WeatherSource):
             url = self.IVAO_METAR_URL
 
         cache_file = os.path.sep.join([self.cache_path, '%s_%d_%sZ.txt' % (prefix, timestamp, cycle)])
-        self.download = AsyncTask(GribDownloader.download, url, cache_file, cancel_event=self.die)
+        self.download = AsyncTask(GribDownloader.download, url, cache_file, binary=True, cancel_event=self.die)
         self.download.start()
 
     def update_metar_rwx_file(self, db):
