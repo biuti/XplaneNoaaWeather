@@ -16,7 +16,6 @@ except ImportError:
 import sys
 import subprocess
 import json
-
 try:
     from c import c
 except ImportError:
@@ -44,10 +43,7 @@ class Conf:
 
         if xplane_path:
             self.syspath = xplane_path
-            if sys.version_info.major == 2:
-                self.respath = os.sep.join([xplane_path, 'Resources', 'plugins', 'PythonScripts', 'noaweather'])
-            else:
-                self.respath = os.sep.join([xplane_path, 'Resources', 'plugins', 'PythonPlugins', 'noaweather'])
+            self.respath = os.sep.join([xplane_path, 'Resources', 'plugins', 'PythonPlugins', 'noaweather'])
         else:
             self.respath = os.path.dirname(os.path.abspath(__file__))
 
@@ -59,7 +55,7 @@ class Conf:
         if not os.path.exists(self.cachepath):
             os.makedirs(self.cachepath)
 
-        self.setDefautls()
+        self.setDefaults()
         self.pluginLoad()
         self.serverLoad()
 
@@ -103,34 +99,8 @@ class Conf:
         except:
             pass
 
-        if sys.version_info.major == 2:
-            self.pythonpath = self.find_python_path('python2.7')
-        else:
-            self.pythonpath = self.find_python_path('python3.8')
 
-        if not self.pythonpath:
-            raise Exception('Unable to find the python binary.')
-
-    def find_python_path(self, filename="python2.7"):
-        """Where's the fish"""
-        path = sys.executable
-        print("finding, sys.executable is {}".format(path))
-
-        if Conf.can_exec(path) and '/python' in path.lower():
-            return path
-        elif self.win32:
-            filename = 'python.exe'
-            path = os.sep.join([sys.exec_prefix, filename])
-            if Conf.can_exec(path):
-                return path
-            separator = ';'
-        else:
-            separator = ':'
-
-        print("Found Python path: {}".format(Conf.find_in_path(filename, separator)))
-        return Conf.find_in_path(filename, separator)
-
-    def setDefautls(self):
+    def setDefaults(self):
         """Default settings"""
 
         # User settings

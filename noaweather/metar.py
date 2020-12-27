@@ -106,7 +106,7 @@ class Metar(WeatherSource):
         cursor = db.cursor()
         parsed = 0
 
-        print("Opening stations path as {}".format(path))
+        print("Opening stations path as '{}'".format(path))
         with open(path, 'r') as f:
             try:
                 for line in f.readlines():
@@ -407,9 +407,9 @@ class Metar(WeatherSource):
                 if isinstance(metar_file, GribDownloaderError):
                     print("Error downloading METAR: %s" % str(metar_file))
                 else:
-                    print('Successfully downloaded: %s' % metar_file.split(os.path.sep)[-1])
+                    # print('Successfully downloaded: %s' % metar_file.split(os.path.sep)[-1])
                     updated, parsed = self.update_metar(self.th_db, metar_file)
-                    print("METAR updated/parsed: %d/%d" % (updated, parsed))
+                    # print("METAR updated/parsed: %d/%d" % (updated, parsed))
 
                 self.download = False
 
@@ -423,7 +423,6 @@ class Metar(WeatherSource):
         # Update stations table if required
         if self.ms_download and not self.ms_download.pending():
             stations = self.ms_download.result
-            print("ms_dwonload result is: '{}'".format(self.ms_download.result))
 
             if isinstance(stations, GribDownloaderError):
                 print("Error downloading metar stations file %s" % stations.message)
@@ -461,7 +460,6 @@ class Metar(WeatherSource):
             url = self.IVAO_METAR_URL
 
         cache_file = os.path.sep.join([self.cache_path, '%s_%d_%sZ.txt' % (prefix, timestamp, cycle)])
-        print("Downloading METAR: %s" % cache_file.split(os.path.sep)[-1])
         self.download = AsyncTask(GribDownloader.download, url, cache_file, cancel_event=self.die)
         self.download.start()
 

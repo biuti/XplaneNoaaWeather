@@ -73,26 +73,15 @@ class EasyDref:
                 if writable: self.setCB = self.set_cb
                 self.getCB = self.get_cb
 
-            if sys.version_info.major == 2:
-                self.DataRef = XPLMRegisterDataAccessor(self.plugin, dataref, self.dr_type,
-                                                        writable,
-                                                        self.getCB, self.setCB,
-                                                        self.getCB, self.setCB,
-                                                        self.getCB, self.setCB,
-                                                        self.rgetCB, self.rsetCB,
-                                                        self.rgetCB, self.rsetCB,
-                                                        self.rgetCB, self.rsetCB,
-                                                        0, 0)
-            else:
-                self.DataRef = XPLMRegisterDataAccessor(dataref, self.dr_type,
-                                                        writable,
-                                                        self.getCB, self.setCB,
-                                                        self.getCB, self.setCB,
-                                                        self.getCB, self.setCB,
-                                                        self.rgetCB, self.rsetCB,
-                                                        self.rgetCB, self.rsetCB,
-                                                        self.rgetCB, self.rsetCB,
-                                                        0, 0)
+            self.DataRef = XPLMRegisterDataAccessor(dataref, self.dr_type,
+                                                    writable,
+                                                    self.getCB, self.setCB,
+                                                    self.getCB, self.setCB,
+                                                    self.getCB, self.setCB,
+                                                    self.rgetCB, self.rsetCB,
+                                                    self.rgetCB, self.rsetCB,
+                                                    self.rgetCB, self.rsetCB,
+                                                    0, 0)
 
             self.__class__.datarefs.append(self)
 
@@ -217,11 +206,7 @@ class EasyDref:
     @classmethod
     def cleanup(cls):
         for dataref in cls.datarefs:
-            if sys.version_info.major == 2:
-                XPLMUnregisterDataAccessor(cls.plugin, dataref.DataRef)
-            else:
-                XPLMUnregisterDataAccessor(dataref.DataRef)
-            pass
+            XPLMUnregisterDataAccessor(dataref.DataRef)
 
     @classmethod
     def DataRefEditorRegister(cls):
@@ -246,10 +231,7 @@ class EasyCommand:
         command = 'xjpc/XPNoaaWeather/' + command
         self.command = XPLMCreateCommand(command, description)
         self.commandCH = self.commandCHandler
-        if sys.version_info.major == 2:
-            XPLMRegisterCommandHandler(plugin, self.command, self.commandCH, 1, 0)
-        else:
-            XPLMRegisterCommandHandler(self.command, self.commandCH, 1, 0)
+        XPLMRegisterCommandHandler(self.command, self.commandCH, 1, 0)
 
         self.function = function
         self.args = args
@@ -268,7 +250,4 @@ class EasyCommand:
         return 0
 
     def destroy(self):
-        if sys.version_info.major == 2:
-            XPLMUnregisterCommandHandler(self.plugin, self.command, self.commandCH, 1, 0)
-        else:
-            XPLMUnregisterCommandHandler(self.command, self.commandCH, 1, 0)
+        XPLMUnregisterCommandHandler(self.command, self.commandCH, 1, 0)

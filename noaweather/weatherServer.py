@@ -50,7 +50,7 @@ class LogFile:
 
     def write(self, data):
         if len(data) > 1:
-            self.f.write('%s  %s' % (datetime.utcnow().strftime('%b %d %H:%M:%S'), data))
+            self.f.write('%s  %s' % (datetime.now().strftime('%b %d %H:%M:%S'), data))
         else:
             self.f.write(data)
 
@@ -116,10 +116,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
 
     def handle(self):
         response = False
-        if sys.version_info.major == 2:
-            data = self.request[0].strip("\n\c\t ")
-        else:
-            data = self.request[0].decode('utf-8').strip("\n\c\t ")
+        data = self.request[0].decode('utf-8').strip("\n\c\t ")
 
         if len(data) > 1:
             if data[0] == '?':
@@ -158,10 +155,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
 
         if response:
             response = cPickle.dumps(response)
-            if sys.version_info.major == 2:
-                socket.sendto(response + "\n", self.client_address)
-            else:
-                socket.sendto(response + b"\n", self.client_address)
+            socket.sendto(response + b"\n", self.client_address)
             nbytes = sys.getsizeof(response)
 
         print('%s:%s: %d bytes sent.' % (self.client_address[0], data, nbytes))
@@ -180,7 +174,7 @@ if __name__ == "__main__":
     conf = Conf(path)
 
     if not debug:
-        logfile = LogFile(os.sep.join([conf.respath, 'weatherServerLog.txt']), 'a')
+        logfile = LogFile(os.sep.join([conf.respath, 'weatherServerLog.txt']), 'w')
 
         sys.stderr = logfile
         sys.stdout = logfile
