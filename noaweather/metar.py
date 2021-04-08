@@ -106,7 +106,6 @@ class Metar(WeatherSource):
         cursor = db.cursor()
         parsed = 0
 
-        print("Opening stations path as '{}'".format(path))
         with open(path, 'r') as f:
             try:
                 for line in f.readlines():
@@ -135,7 +134,6 @@ class Metar(WeatherSource):
 
     def update_metar(self, db, path):
         """Updates metar table from Metar file"""
-        print("Updating from metar file {}".format(path))
         f = open(path, 'r')
         nupdated = 0
         nparsed = 0

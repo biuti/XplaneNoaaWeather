@@ -608,9 +608,7 @@ class Data:
                 self.metar_visibility.value = wdata['metar']['visibility']
 
             if 'gfs' in wdata:
-                print('thar be gfs, keys: {}'.format(wdata['gfs'].keys()))
                 if 'winds' in wdata['gfs']:
-                    print('thar be winds in gfs')
 
                     alts = []
                     hdgs = []
@@ -626,7 +624,6 @@ class Data:
 
                     self.nwinds = len(alts)
                     self.wind_alt.value = alts
-                    print('updated alts to {}'.format(alts))
                     self.wind_hdg.value = hdgs
                     self.wind_speed.value = speeds
                     self.wind_temp.value = temps
@@ -835,7 +832,6 @@ class PythonInterface:
         XPSetWidgetProperty(self.maxVisInput, xpProperty_Enabled, 1)
         y -= 20
         XPCreateWidget(x + 5, y - 40, x + 80, y - 60, 1, 'Max cloud height (ft)', 0, window, xpWidgetClass_Caption)
-        print("Setting maccloud high widget value to {}".format(self.conf.max_cloud_height))
         self.maxCloudHeightInput = XPCreateWidget(x + 119, y - 40, x + 160, y - 62, 1,
                                                   c.convertForInput(self.conf.max_cloud_height, 'm2ft'), 0, window,
                                                   xpWidgetClass_TextField)
