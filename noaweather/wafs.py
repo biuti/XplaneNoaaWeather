@@ -83,7 +83,10 @@ class WAFS(GribWeatherSource):
         cat = {}
         for line in it:
             print(line)
-            sline = line.split(':')
+            if sys.version_info.major == 2:
+                sline = line.split(':')
+            else:
+                sline = line.decode('utf-8').split(':')
             m = self.RE_PRAM.search(sline[3])
 
             parmcat, parm = m.groups()
