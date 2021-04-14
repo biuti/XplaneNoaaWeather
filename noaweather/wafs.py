@@ -113,7 +113,7 @@ class WAFS(GribWeatherSource):
         else:
             turb_items = iter(cat.items())
         for key, value in turb_items:
-            turbulence.append([key, value / 6.0])
+            turbulence.append([key, value * 10])
         turbulence.sort()
 
         return turbulence
