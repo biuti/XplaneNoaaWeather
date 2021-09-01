@@ -174,7 +174,6 @@ class Weather:
         except Exception as e:
             print("Exception while executing subprocess: {}".format(e))
 
-
     def shutdown(self):
         # Shutdown client and server
         self.weatherClientSend('!shutdown')
@@ -675,7 +674,6 @@ class PythonInterface:
         # Menu Items
         XPLMAppendMenuItem(self.mMain, 'Configuration', 1)
         XPLMAppendMenuItem(self.mMain, 'Metar Query', 2)
-
 
         # Register commands
         self.metarWindowCMD = EasyCommand(self, 'metar_query_window_toggle', self.metarQueryWindowToggle,
