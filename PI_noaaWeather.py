@@ -206,6 +206,7 @@ class Weather:
 
     def setWinds(self, winds, elapsed):
         """Set winds: Interpolate layers and transition new data"""
+        from random import randrange
 
         winds = winds[:]
 
@@ -213,19 +214,26 @@ class Weather:
         if 'metar' in self.weatherData and 'wind' in self.weatherData['metar']:
             alt = self.weatherData['metar']['elevation']
             hdg, speed, gust = self.weatherData['metar']['wind']
+            if not gust:
+                '''add random wind speed variability'''
+                gust = randrange(5)
             extra = {'gust': gust, 'metar': True}
 
             if 'variable_wind' in self.weatherData['metar'] and self.weatherData['metar']['variable_wind']:
-
                 h1, h2 = self.weatherData['metar']['variable_wind']
-                h1 %= 360
-                if h1 > h2:
-                    var = 360 - h1 + h2
-                else:
-                    var = h2 - h1
+            else:
+                '''add random wind direction variability'''
+                r = randrange(5)
+                h1, h2 = hdg - r, hdg + r
 
-                hdg = h1
-                extra['variation'] = c.randPattern('metar_wind_hdg', var, elapsed, min_time=20, max_time=50)
+            h1 %= 360
+            if h1 > h2:
+                var = 360 - h1 + h2
+            else:
+                var = h2 - h1
+
+            hdg = h1
+            extra['variation'] = c.randPattern('metar_wind_hdg', var, elapsed, min_time=20, max_time=50)
 
             alt += self.conf.metar_agl_limit
             alt = c.transition(alt, '0-metar_wind_alt', elapsed, 0.3048)  # 1f/s
