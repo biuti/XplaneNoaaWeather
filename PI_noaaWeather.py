@@ -304,8 +304,17 @@ class Weather:
             elif altLayer and 'dew' in altLayer[3]:
                 self.msldewp.value = c.oat2msltemp(altLayer[3]['dew'] - 273.15, altLayer[0])
 
+            '''add surface wind shear'''
+            if self.thunderstorm.value > 0.5:
+                self.winds[0]['gust_hdg'].value = randrange(30, 60)
+            elif self.thunderstorm.value > 0.25:
+                self.winds[0]['gust_hdg'].value = randrange(15, 30)
+            elif self.thunderstorm.value > 0:
+                self.winds[0]['gust_hdg'].value = randrange(5, 15)
+            else:
+                self.winds[0]['gust_hdg'].value = 0
+
             # Force shear direction 0
-            self.winds[0]['gust_hdg'].value = 0
             self.winds[1]['gust_hdg'].value = 0
             self.winds[2]['gust_hdg'].value = 0
 
