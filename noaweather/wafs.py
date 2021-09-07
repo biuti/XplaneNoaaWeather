@@ -121,7 +121,8 @@ class WAFS(GribWeatherSource):
         else:
             turb_items = iter(cat.items())
         for key, value in turb_items:
-            turbulence.append([key, value * 10])
+            '''tweaking turbulence intensity using a factor'''
+            turbulence.append([key, value * 8])
         turbulence.sort()
 
         return turbulence
