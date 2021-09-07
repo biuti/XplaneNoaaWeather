@@ -327,7 +327,7 @@ class Weather:
         alt, hdg, speed, extra = wlayer
 
         hdg = c.transitionHdg(hdg, id + '-hdg', elapsed, self.conf.windHdgTransSpeed)
-        speed = c.transition(speed, id + '-speed', elapsed, self.conf.windHdgTransSpeed)
+        speed = c.transition(speed, id + '-speed', elapsed, self.conf.windTransSpeed)
 
         # Extra vars
         for var in ['gust', 'rh', 'dew']:

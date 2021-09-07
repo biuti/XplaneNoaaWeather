@@ -145,9 +145,9 @@ class Conf:
         self.maxRandomWindGust = 5  # kt
 
         # Transitions
-        self.windTransSpeed = 0.14  # kt/s
-        self.windGustTransSpeed = 0.5  # kt/s
-        self.windHdgTransSpeed = 0.5  # degrees/s
+        self.windTransSpeed = 0.5  # kt/s
+        self.windGustTransSpeed = 1  # kt/s
+        self.windHdgTransSpeed = 1  # degrees/s
 
         self.metar_source = 'NOAA'
         self.metar_updaterate = 5  # minutes
