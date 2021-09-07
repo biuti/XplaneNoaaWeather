@@ -6,11 +6,11 @@ from XPLMDefs import *
 
 
 class EasyDref:
-    '''
+    """
     Easy Dataref access
 
     Copyright (C) 2011  Joan Perez i Cauhe
-    '''
+    """
 
     datarefs = []
     plugin = False
@@ -223,9 +223,9 @@ class EasyDref:
 
 
 class EasyCommand:
-    '''
+    """
     Creates a command with an assigned callback with arguments
-    '''
+    """
 
     def __init__(self, plugin, command, function, args=False, description=''):
         command = 'xjpc/XPNoaaWeather/' + command

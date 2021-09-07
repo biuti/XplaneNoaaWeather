@@ -1,5 +1,5 @@
 #!/usr/bin/python
-'''
+"""
 Example weather test client
 
 X-plane NOAA GFS weather plugin.
@@ -9,7 +9,7 @@ This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
 as published by the Free Software Foundation; either version 2
 of the License, or any later version.
-'''
+"""
 import socket
 try:
     import cPickle

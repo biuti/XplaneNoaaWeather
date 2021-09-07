@@ -253,7 +253,7 @@ class c:
 
     @classmethod
     def transitionHdg(cls, new, id, elapsed, speed=0.25):
-        '''Time based wind heading transition '''
+        """Time based wind heading transition """
 
         if not id in cls.transrefs:
             cls.transrefs[id] = new

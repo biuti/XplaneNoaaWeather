@@ -532,9 +532,9 @@ class Weather:
 
 
 class Data:
-    '''
+    """
     Plugin dataref data publishing
-    '''
+    """
 
     def __init__(self, plugin):
 
@@ -641,9 +641,9 @@ class Data:
 
 
 class PythonInterface:
-    '''
+    """
     Xplane plugin
-    '''
+    """
 
     def XPluginStart(self):
         self.syspath = []
@@ -1054,7 +1054,7 @@ class PythonInterface:
         self.updateStatus()
 
     def updateStatus(self):
-        '''Updates status window'''
+        """Updates status window"""
 
         sysinfo = self.weatherInfo()
 
