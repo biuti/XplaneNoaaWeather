@@ -99,7 +99,6 @@ class Conf:
         except:
             pass
 
-
     def setDefaults(self):
         """Default settings"""
 
@@ -140,6 +139,10 @@ class Conf:
         self.ms_update = 0
 
         self.weatherServerPid = False
+
+        # Surface wind random variability range
+        self.maxRandomWindHdg = 5  # degrees
+        self.maxRandomWindGust = 5  # kt
 
         # Transitions
         self.windTransSpeed = 0.14  # kt/s

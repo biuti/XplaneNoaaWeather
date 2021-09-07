@@ -216,14 +216,14 @@ class Weather:
             hdg, speed, gust = self.weatherData['metar']['wind']
             if not gust:
                 '''add random wind speed variability'''
-                gust = randrange(5)
+                gust = randrange(self.conf.maxRandomWindGust)
             extra = {'gust': gust, 'metar': True}
 
             if 'variable_wind' in self.weatherData['metar'] and self.weatherData['metar']['variable_wind']:
                 h1, h2 = self.weatherData['metar']['variable_wind']
             else:
                 '''add random wind direction variability'''
-                r = randrange(5)
+                r = randrange(self.conf.maxRandomWindHdg)
                 h1, h2 = hdg - r, hdg + r
 
             h1 %= 360
