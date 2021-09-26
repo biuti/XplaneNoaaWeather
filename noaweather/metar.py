@@ -134,7 +134,7 @@ class Metar(WeatherSource):
 
     def update_metar(self, db, path):
         """Updates metar table from Metar file"""
-        f = open(path, 'r')
+        f = open(path, encoding='utf-8', errors='replace')  # deal with non utf-8 characters, avoiding error
         nupdated = 0
         nparsed = 0
         timestamp = 0
