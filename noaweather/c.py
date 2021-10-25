@@ -140,6 +140,12 @@ class c:
         return (80 - rh) / 20 * 24634
 
     @staticmethod
+    def isaDev(alt, temp):
+        """Calculates Temperature ISA Deviation"""
+        isa = 15 - 0.65*alt/100
+        return temp - isa
+
+    @staticmethod
     def toFloat(string, default=0):
         """Convert to float or return default"""
         try:

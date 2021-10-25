@@ -27,7 +27,7 @@ class Conf:
     syspath, dirsep = '', os.sep
     printableChars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ '
 
-    __VERSION__ = '2.5.4'
+    __VERSION__ = '2.5.5'
 
     GFS_JSON_HELP = '''Here you can edit which wind levels will be downloaded from NOAA without hacking the code.
                     Keep the list short to optimize the download size and parsing times.
@@ -105,17 +105,19 @@ class Conf:
         # User settings
         self.enabled = True
         self.set_wind = True
+        self.set_tropo = True
         self.set_clouds = True
         self.set_temp = True
         self.set_visibility = False
         self.set_turb = True
         self.set_pressure = True
+        self.set_thermals = True
         self.turbulence_probability = 1
 
         self.inputbug = False
 
         # From this AGL level METAR values are interpolated to GFS ones.
-        self.metar_agl_limit = 10  # In meters
+        self.metar_agl_limit = 20  # In meters
         # From this distance from the airport gfs data is used for temp, dew, pressure and clouds
         self.metar_distance_limit = 100000  # In meters
 
@@ -205,6 +207,8 @@ class Conf:
             'set_wind': self.set_wind,
             'set_turb': self.set_turb,
             'set_pressure': self.set_pressure,
+            'set_tropo': self.set_tropo,
+            'set_thermals': self.set_thermals,
             'enabled': self.enabled,
             'updaterate': self.updaterate,
             'metar_source': self.metar_source,

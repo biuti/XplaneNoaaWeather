@@ -63,6 +63,7 @@ class LogFile:
         else:
             self.__dict__[name] = value
 
+
 class ClientHandler(SocketServer.BaseRequestHandler):
 
     @staticmethod
@@ -82,7 +83,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
                      }
         }
 
-        lat, lon = float(data[0]), float(data[1])
+        # lat, lon = float(data[0]), float(data[1])
 
         if lat > 98 and lon > 98:
             return False

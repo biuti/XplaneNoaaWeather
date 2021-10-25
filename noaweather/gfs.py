@@ -68,6 +68,8 @@ class GFS(GribWeatherSource):
         data = {}
         clouds = {}
         pressure = False
+        tropo = {}
+
         for line in it:
             if sys.version_info.major == 2:
                 r = line[:-1].split(':')
@@ -110,10 +112,11 @@ class GFS(GribWeatherSource):
                 alt = int(c.mb2alt(float(level)))
 
                 # Optional varialbes
-                temp, rh, dew = False, False, False
+                temp, dev, rh, dew = False, False, False, False
                 # Temperature
                 if 'TMP' in wind:
                     temp = float(wind['TMP'])
+                    dev = c.isaDev(alt, temp)
                 # Relative Humidity
                 if 'RH' in wind:
                     rh = float(wind['RH'])
@@ -121,8 +124,15 @@ class GFS(GribWeatherSource):
                 if temp and rh:
                     dew = c.dewpoint(temp, rh)
 
-                windlevels.append([alt, hdg, c.ms2knots(vel), {'temp': temp, 'rh': rh, 'dew': dew, 'gust': 0}])
+                windlevels.append([alt, hdg, c.ms2knots(vel), {'temp': temp,
+                                                               'dev': dev,
+                                                               'rh': rh,
+                                                               'dew': dew,
+                                                               'gust': 0}])
                 # print 'alt: %i rh: %i vis: %i' % (alt, float(wind['RH']), vis)
+
+                if float(level) == 200 and temp:
+                    tropo = {'alt': float(alt), 'temp': temp, 'dev': dev}
 
         # Convert cloud level
         for level in clouds:
@@ -142,7 +152,8 @@ class GFS(GribWeatherSource):
         data = {
             'winds': windlevels,
             'clouds': cloudlevels,
-            'pressure': pressure
+            'pressure': pressure,
+            'tropo': tropo
         }
 
         return data

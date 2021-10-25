@@ -95,17 +95,25 @@ class Weather:
 
         self.windata = []
 
+        self.xpTime = EasyDref('sim/time/local_time_sec', 'float')  # sim time (sec from midnight)
+
         self.xpWeatherOn = EasyDref('sim/weather/use_real_weather_bool', 'int')
         self.xpWeatherDownloadOn = EasyDref('sim/weather/download_real_weather', 'int')
         self.msltemp = EasyDref('sim/weather/temperature_sealevel_c', 'float')
         self.msldewp = EasyDref('sim/weather/dewpoi_sealevel_c', 'float')
-        self.thermalAlt = EasyDref('sim/weather/thermal_altitude_msl_m', 'float')
         self.visibility = EasyDref('sim/weather/visibility_reported_m', 'float')
         self.pressure = EasyDref('sim/weather/barometer_sealevel_inhg', 'float')
 
         self.precipitation = EasyDref('sim/weather/rain_percent', 'float')
         self.thunderstorm = EasyDref('sim/weather/thunderstorm_percent', 'float')
         self.runwayFriction = EasyDref('sim/weather/runway_friction', 'float')
+
+        self.tropo_temp = EasyDref('sim/weather/temperature_tropo_c', 'float')  # default -56.5C
+        self.tropo_alt = EasyDref('sim/weather/tropo_alt_mtr', 'float')  # default 11100 meter
+
+        self.thermals_prob = EasyDref('sim/weather/thermal_percent', 'float')  # 0 - 0.25
+        self.thermals_rate = EasyDref('sim/weather/thermal_rate_ms', 'float')  # seems ft/m 0 - 1000
+        self.thermals_alt = EasyDref('sim/weather/thermal_altitude_msl_m', 'float')  # meters, default 10000
 
         self.mag_deviation = EasyDref('sim/flightmodel/position/magnetic_variation', 'float')
 
@@ -305,12 +313,13 @@ class Weather:
                 self.msldewp.value = c.oat2msltemp(altLayer[3]['dew'] - 273.15, altLayer[0])
 
             '''add surface wind shear'''
-            if self.thunderstorm.value > 0.5:
-                self.winds[0]['gust_hdg'].value = randrange(30, 60)
-            elif self.thunderstorm.value > 0.25:
-                self.winds[0]['gust_hdg'].value = randrange(15, 30)
-            elif self.thunderstorm.value > 0:
-                self.winds[0]['gust_hdg'].value = randrange(5, 15)
+            if self.thunderstorm.value > 0:
+                if self.thunderstorm.value > 0.5:
+                    self.winds[0]['gust_hdg'].value = randrange(30, 60)
+                elif self.thunderstorm.value > 0.25:
+                    self.winds[0]['gust_hdg'].value = randrange(15, 30)
+                else:
+                    self.winds[0]['gust_hdg'].value = randrange(5, 15)
             else:
                 self.winds[0]['gust_hdg'].value = 0
 
@@ -537,6 +546,102 @@ class Weather:
     def setPressure(self, pressure, elapsed):
         c.datarefTransition(self.pressure, pressure, elapsed, 0.005)
 
+    def setTropo(self, tropo, elapsed):
+        c.datarefTransition(self.tropo_alt, tropo['alt'], elapsed, 5)
+        c.datarefTransition(self.tropo_temp, tropo['temp'] - 273.15, elapsed, 1)
+
+    def setThermals(self):
+        """if TS is in METAR, simulates uplift
+            otherwise calculates thermal activity based on temperature delta and lower cloud layer"""
+        from random import randrange
+
+        thermals = {
+            'alt': 10000,
+            'prob': 0,
+            'rate': 0,
+            'status': ['', '', '']
+        }
+
+        '''check if we need to update thermal activity'''
+        time = int(self.xpTime.value)
+        thermals['status'][0] += f"newData: {self.newData}; time: {time}; "
+        if self.newData or 'thermals' not in self.weatherData:
+            if self.thunderstorm.value > 0:
+                '''add simulated uplift under thunderstorms'''
+                thermals['status'][0] += f"sit.: TS ({round(self.thunderstorm.value, 3)}); "
+                thermals['prob'] = max(0.15, min(0.25, self.thunderstorm.value / 2))
+                if self.thunderstorm.value > 0.5:
+                    thermals['rate'] = randrange(1500, 3000)
+                elif self.thunderstorm.value > 0.25:
+                    thermals['rate'] = randrange(1000, 2000)
+                else:
+                    thermals['rate'] = randrange(500, 1500)
+            elif 'metar' in self.weatherData:
+                alt0, t0, alt1, t1, base, top = False, False, False, False, False, False
+                metar = self.weatherData['metar']
+                thermals['status'][0] += f"sit.: Normal; ICAO: {metar['icao']}; "
+                '''get surface info'''
+                if 'temperature' in metar:
+                    t0 = metar['temperature'][0]
+                if 'elevation' in metar:
+                    alt0 = metar['elevation']
+                thermals['status'][0] += f"t0: {round(metar['temperature'][0], 1)}C; alt0: {int(metar['elevation'])}m; "
+                '''check if there are conditions for thermal activity'''
+                # clouds = self.weatherData['clouds']
+                thermals['status'][1] += f"night?: {time < 36000 or time > 66600}; " \
+                                         f"OVC?: {any(el['coverage'].value > 3for el in self.clouds)}; " \
+                                         f"VIS?: {metar['visibility'] < 2000}; "
+                if not ((time < 36000 or time > 66600)  # no thermals before 10 and after 18:30
+                        or any(el['coverage'].value > 3 for el in self.clouds)  # no thermals if overcast
+                        or metar['visibility'] < 2000):  # no thermals with fog or mist
+                    if any(el['coverage'].value > 0 for el in self.clouds):
+                        '''get cloud base'''
+                        thermals['status'][1] += f"base: {int(self.clouds[0]['bottom'].value)}m; " \
+                                                 f"delta: {self.clouds[0]['bottom'].value - alt0 > 500}; "
+                        base = self.clouds[0]['bottom'].value
+                        top = self.clouds[0]['top'].value
+                    else:
+                        thermals['status'][1] += f"CAVOK; "
+                    if not base or base - alt0 > 500:  # at least 500m high base
+                        if 'gfs' in self.weatherData and 'winds' in self.weatherData['gfs']:
+                            thermals['status'][2] += f"check wind layer with T: "
+                            winds = self.weatherData['gfs']['winds']
+                            w = next((el for el in winds if 'temp' in el[3].keys() and el[0]), None)
+                            if w:
+                                thermals['status'][2] += f"found wind layer:"
+                                alt1 = w[0]
+                                t1 = w[3]['temp'] - 273.15
+                                thermals['status'][2] += f"alt1: {w[0]}; t1: {round(w[3]['temp'] - 273.15, 1)}; "
+
+                if alt0 and alt1 and t0 and t1:
+                    gradient = (t1 - t0) / (alt1 - alt0) * 100
+                    thermals['status'][2] += f"gradient: {round(gradient, 3)}; "
+                    if gradient < -0.5:
+                        '''create thermals'''
+                        if base and top:
+                            thermals['alt'] = top
+                        else:
+                            thermals['alt'] = alt0 + 2000
+                        if -0.7 <= gradient:
+                            thermals['prob'] = 0.1
+                            thermals['rate'] = randrange(200, 400)  # 1-2 m/s
+                        if -1 <= gradient <= -0.65:
+                            thermals['prob'] = 0.2
+                            thermals['rate'] = randrange(400, 800)  # 2-4 m/s
+                        else:
+                            thermals['prob'] = 0.25
+                            thermals['rate'] = randrange(600, 1200)  # 3-6 m/s
+            else:
+                '''nothing to do'''
+                return
+
+            self.weatherData['thermals'] = thermals
+
+            '''update dataRef if needed'''
+            self.setDrefIfDiff(self.thermals_prob, thermals['prob'], 0.1)
+            self.setDrefIfDiff(self.thermals_rate, thermals['rate'], 100)
+            self.setDrefIfDiff(self.thermals_alt, thermals['alt'], 20)
+
     @classmethod
     def cc2xp(self, cover):
         # Cloud cover to X-plane
@@ -572,6 +677,10 @@ class Data:
                                           register=True, writable=True)
         self.override_precipitation = EasyDref('xjpc/XPNoaaWeather/config/override_precipitation', 'int',
                                                register=True, writable=True)
+        self.override_tropo = EasyDref('xjpc/XPNoaaWeather/config/override_tropo', 'int',
+                                       register=True, writable=True)
+        self.override_thermals = EasyDref('xjpc/XPNoaaWeather/config/override_thermals', 'int',
+                                          register=True, writable=True)
         self.override_runway_friction = EasyDref('xjpc/XPNoaaWeather/config/override_runway_friction', 'int',
                                                  register=True, writable=True)
 
@@ -584,6 +693,13 @@ class Data:
         self.wind_hdg = EasyDref('xjpc/XPNoaaWeather/weather/gfs_wind_hdg[16]', 'float', register=True)
         self.wind_speed = EasyDref('xjpc/XPNoaaWeather/weather/gfs_wind_speed[16]', 'float', register=True)
         self.wind_temp = EasyDref('xjpc/XPNoaaWeather/weather/gfs_wind_temp[16]', 'float', register=True)
+
+        self.tropo_alt = EasyDref('xjpc/XPNoaaWeather/weather/tropo_alt', 'float', register=True)
+        self.tropo_temp = EasyDref('xjpc/XPNoaaWeather/weather/tropo_temp', 'float', register=True)
+
+        self.thermals_prob = EasyDref('xjpc/XPNoaaWeather/weather/thermals_prob', 'float', register=True)
+        self.thermals_rate = EasyDref('xjpc/XPNoaaWeather/weather/thermals_rate', 'float', register=True)
+        self.thermals_alt = EasyDref('xjpc/XPNoaaWeather/weather/thermals_alt', 'float', register=True)
 
         self.cloud_base = EasyDref('xjpc/XPNoaaWeather/weather/cloud_base[3]', 'float', register=True)
         self.cloud_top = EasyDref('xjpc/XPNoaaWeather/weather/cloud_top[3]', 'float', register=True)
@@ -643,6 +759,9 @@ class Data:
                     self.wind_hdg.value = hdgs
                     self.wind_speed.value = speeds
                     self.wind_temp.value = temps
+                if 'tropo' in wdata['gfs'] and 'temp' in wdata['gfs']['tropo']:
+                    self.tropo_alt.value_f = wdata['gfs']['tropo']['alt']
+                    self.tropo_temp.value_f = wdata['gfs']['tropo']['temp']
 
             if 'wafs' in wdata:
 
@@ -793,6 +912,22 @@ class PythonInterface:
         XPSetWidgetProperty(self.turbCheck, xpProperty_ButtonType, xpRadioButton)
         XPSetWidgetProperty(self.turbCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
         XPSetWidgetProperty(self.turbCheck, xpProperty_ButtonState, self.conf.set_turb)
+        y -= 20
+
+        # Tropo enable
+        XPCreateWidget(x + 5, y - 40, x + 20, y - 60, 1, 'Tropo Temp', 0, window, xpWidgetClass_Caption)
+        self.tropoCheck = XPCreateWidget(x + 110, y - 40, x + 120, y - 60, 1, '', 0, window, xpWidgetClass_Button)
+        XPSetWidgetProperty(self.tropoCheck, xpProperty_ButtonType, xpRadioButton)
+        XPSetWidgetProperty(self.tropoCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
+        XPSetWidgetProperty(self.tropoCheck, xpProperty_ButtonState, self.conf.set_tropo)
+        y -= 20
+
+        # Thermals enable
+        XPCreateWidget(x + 5, y - 40, x + 20, y - 60, 1, 'Thermals', 0, window, xpWidgetClass_Caption)
+        self.thermalsCheck = XPCreateWidget(x + 110, y - 40, x + 120, y - 60, 1, '', 0, window, xpWidgetClass_Button)
+        XPSetWidgetProperty(self.thermalsCheck, xpProperty_ButtonType, xpRadioButton)
+        XPSetWidgetProperty(self.thermalsCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
+        XPSetWidgetProperty(self.thermalsCheck, xpProperty_ButtonState, self.conf.set_thermals)
         y -= 28
         x -= 5
 
@@ -997,6 +1132,8 @@ class PythonInterface:
                 self.conf.set_clouds = XPGetWidgetProperty(self.cloudsCheck, xpProperty_ButtonState, None)
                 self.conf.set_temp = XPGetWidgetProperty(self.tempCheck, xpProperty_ButtonState, None)
                 self.conf.set_pressure = XPGetWidgetProperty(self.pressureCheck, xpProperty_ButtonState, None)
+                self.conf.set_tropo = XPGetWidgetProperty(self.tropoCheck, xpProperty_ButtonState, None)
+                self.conf.set_thermals = XPGetWidgetProperty(self.thermalsCheck, xpProperty_ButtonState, None)
                 self.conf.inputbug = XPGetWidgetProperty(self.bugCheck, xpProperty_ButtonState, None)
                 self.conf.turbulence_probability = XPGetWidgetProperty(self.turbulenceSlider,
                                                                        xpProperty_ScrollBarSliderPosition,
@@ -1062,6 +1199,8 @@ class PythonInterface:
         XPSetWidgetProperty(self.windsCheck, xpProperty_ButtonState, self.conf.set_wind)
         XPSetWidgetProperty(self.cloudsCheck, xpProperty_ButtonState, self.conf.set_clouds)
         XPSetWidgetProperty(self.tempCheck, xpProperty_ButtonState, self.conf.set_temp)
+        XPSetWidgetProperty(self.tropoCheck, xpProperty_ButtonState, self.conf.set_tropo)
+        XPSetWidgetProperty(self.thermalsCheck, xpProperty_ButtonState, self.conf.set_thermals)
 
         # XPSetWidgetDescriptor(self.transAltInput, c.convertForInput(self.conf.metar_agl_limit, 'm2ft'))
         XPSetWidgetDescriptor(self.maxVisInput, c.convertForInput(self.conf.max_visibility, 'm2sm'))
@@ -1144,20 +1283,25 @@ class PythonInterface:
 
             if 'gfs' in wdata:
                 if 'winds' in wdata['gfs']:
-                    sysinfo += ['GFS WIND LAYERS: %i FL|HDG|KT|TEMP' % (len(wdata['gfs']['winds']))]
+                    sysinfo += ['GFS WIND LAYERS: %i FL|HDG|KT|TEMP|DEV' % (len(wdata['gfs']['winds']))]
                     wlayers = ''
                     i = 0
                     for layer in wdata['gfs']['winds']:
                         i += 1
                         alt, hdg, speed, extra = layer
-                        wlayers += '   %03d|%03d|%02dkt|%02d ' % (
-                            alt * 3.28084 / 100, hdg, speed, extra['temp'] - 273.15)
+                        wlayers += '  F%03d|%03d|%02dkt|%02d|%02d ' % (
+                            alt * 3.28084 / 100, hdg, speed, extra['temp'] - 273.15, extra['dev'] - 273.15)
                         if i > 3:
                             i = 0
                             sysinfo += [wlayers]
                             wlayers = ''
                     if i > 0:
                         sysinfo += [wlayers]
+
+                if 'tropo' in wdata['gfs']:
+                    alt, temp, dev = wdata['gfs']['tropo'].values()
+                    if alt and temp and dev:
+                        sysinfo += ['Tropo Limit: %05dm temp %02dC ISA Dev %02dC' % (alt, temp - 273.15, dev - 273.15)]
 
                 if 'clouds' in wdata['gfs']:
                     clouds = 'GFS CLOUDS  FLBASE|FLTOP|COVER'
@@ -1173,6 +1317,13 @@ class PythonInterface:
                     tblayers += '   %03d|%.1f ' % (layer[0] * 3.28084 / 100, layer[1])
 
                 sysinfo += ['WAFS TURBULENCE: FL|SEV %d' % (len(wdata['wafs'])), tblayers]
+
+            if 'thermals' in wdata:
+                t = wdata['thermals']
+                sysinfo += ['THERMALS:']
+                for el in t['status']:
+                    sysinfo += [el]
+                sysinfo += ['alt: %05dm, prob: %03d, rate: %02dm/s' % (t['alt'], t['prob']*100, t['rate']*0.00508)]
 
         sysinfo += ['--'] * (self.aboutlines - len(sysinfo))
 
@@ -1541,9 +1692,18 @@ class PythonInterface:
                 wdata['gfs']['winds']):
             self.weather.setWinds(wdata['gfs']['winds'], elapsedMe)
 
+        # Set Atmosphere
+        if (not self.data.override_tropo.value and self.conf.set_tropo
+                and 'tropo' in wdata['gfs'] and 'temp' in wdata['gfs']['tropo']):
+            self.weather.setTropo(wdata['gfs']['tropo'], elapsedMe)
+
         # Set turbulence
         if not self.data.override_turbulence.value and self.conf.set_turb:
             self.weather.setTurbulence(wdata['wafs'], elapsedMe)
+
+        '''create thermals / uplift in thunderstorms'''
+        if not self.data.override_thermals.value and self.conf.set_thermals:
+            self.weather.setThermals()
 
         return -1
 
