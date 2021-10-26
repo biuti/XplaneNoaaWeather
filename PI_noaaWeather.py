@@ -194,6 +194,8 @@ class Weather:
         prevlayer = False
         if len(turbulence) > 1:
             for clayer in turbulence:
+                '''apply max value'''
+                clayer[1] = min(clayer[1], self.conf.max_turbulence)
                 if clayer[0] > self.alt:
                     # last layer
                     break
@@ -1320,9 +1322,11 @@ class PythonInterface:
             if 'wafs' in wdata:
                 tblayers = ''
                 for layer in wdata['wafs']:
-                    tblayers += '   %03d|%.1f ' % (layer[0] * 3.28084 / 100, layer[1])
+                    tblayers += f"   {round(layer[0] * 3.28084 / 100)}|{round(layer[1], 2)}" \
+                                f"{'*' if layer[1]>=self.conf.max_turbulence else ''}"
 
-                sysinfo += ['WAFS TURBULENCE: FL|SEV %d' % (len(wdata['wafs'])), tblayers]
+                sysinfo += [f"WAFS TURBULENCE ({len(wdata['wafs'])}): FL|SEV (max {self.conf.max_turbulence}) ",
+                            tblayers]
 
             if 'thermals' in wdata:
                 t = wdata['thermals']
