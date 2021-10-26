@@ -567,16 +567,13 @@ class Weather:
             'alt': 10000,
             'prob': 0,
             'rate': 0,
-            'status': ['', '', '']
         }
 
         '''check if we need to update thermal activity'''
         time = int(self.xpTime.value)
-        thermals['status'][0] += f"newData: {self.newData}; time: {time}; "
         if self.newData or 'thermals' not in self.weatherData:
             if self.thunderstorm.value > 0:
                 '''add simulated uplift under thunderstorms'''
-                thermals['status'][0] += f"sit.: TS ({round(self.thunderstorm.value, 3)}); "
                 thermals['prob'] = max(0.15, min(0.25, self.thunderstorm.value / 2))
                 if self.thunderstorm.value > 0.5:
                     thermals['rate'] = randrange(1500, 3000)
@@ -587,43 +584,29 @@ class Weather:
             elif 'metar' in self.weatherData:
                 alt0, t0, alt1, t1, base, top = False, False, False, False, False, False
                 metar = self.weatherData['metar']
-                thermals['status'][0] += f"sit.: Normal; ICAO: {metar['icao']}; "
                 '''get surface info'''
                 if 'temperature' in metar:
                     t0 = metar['temperature'][0]
                 if 'elevation' in metar:
                     alt0 = metar['elevation']
-                thermals['status'][0] += f"t0: {round(metar['temperature'][0], 1)}C; alt0: {int(metar['elevation'])}m; "
                 '''check if there are conditions for thermal activity'''
-                # clouds = self.weatherData['clouds']
-                thermals['status'][1] += f"night?: {time < 36000 or time > 66600}; " \
-                                         f"OVC?: {any(el['coverage'].value > 3for el in self.clouds)}; " \
-                                         f"VIS?: {metar['visibility'] < 2000}; "
                 if not ((time < 36000 or time > 66600)  # no thermals before 10 and after 18:30
                         or any(el['coverage'].value > 3 for el in self.clouds)  # no thermals if overcast
                         or metar['visibility'] < 2000):  # no thermals with fog or mist
                     if any(el['coverage'].value > 0 for el in self.clouds):
                         '''get cloud base'''
-                        thermals['status'][1] += f"base: {int(self.clouds[0]['bottom'].value)}m; " \
-                                                 f"delta: {self.clouds[0]['bottom'].value - alt0 > 500}; "
                         base = self.clouds[0]['bottom'].value
                         top = self.clouds[0]['top'].value
-                    else:
-                        thermals['status'][1] += f"CAVOK; "
                     if not base or base - alt0 > 500:  # at least 500m high base
                         if 'gfs' in self.weatherData and 'winds' in self.weatherData['gfs']:
-                            thermals['status'][2] += f"check wind layer with T: "
                             winds = self.weatherData['gfs']['winds']
-                            w = next((el for el in winds if 'temp' in el[3].keys() and el[0]), None)
+                            w = next((el for el in winds if 'temp' in el[3].keys() and el[0] > alt0 + 1000), None)
                             if w:
-                                thermals['status'][2] += f"found wind layer:"
                                 alt1 = w[0]
                                 t1 = w[3]['temp'] - 273.15
-                                thermals['status'][2] += f"alt1: {w[0]}; t1: {round(w[3]['temp'] - 273.15, 1)}; "
 
                 if alt0 and alt1 and t0 and t1:
                     gradient = (t1 - t0) / (alt1 - alt0) * 100
-                    thermals['status'][2] += f"gradient: {round(gradient, 3)}; "
                     if gradient < -0.6:
                         '''create thermals'''
                         if base and top:
@@ -655,16 +638,6 @@ class Weather:
             self.data.thermals_prob = thermals['prob']
             self.data.thermals_rate = thermals['rate']
             self.data.thermals_alt = thermals['alt']
-
-    @classmethod
-    def cc2xp(self, cover):
-        # Cloud cover to X-plane
-        xp = cover / 100.0 * 4
-        if xp < 1 and cover > 0:
-            xp = 1
-        elif cover > 89:
-            xp = 4
-        return xp
 
 
 class Data:
@@ -1070,18 +1043,19 @@ class PythonInterface:
         x += 10
         # Set the style to sub window
 
-        y -= 10
+        y -= 20
         sysinfo = [
             'X-Plane NOAA Weather: %s' % self.conf.__VERSION__,
             '(c) joan perez i cauhe 2012-20',
+            '    antonio golfari 2021'
         ]
         for label in sysinfo:
-            XPCreateWidget(x, y - 20, x + 120, y - 30, 1, label, 0, window, xpWidgetClass_Caption)
+            XPCreateWidget(x, y, x + 120, y - 10, 1, label, 0, window, xpWidgetClass_Caption)
             y -= 15
 
         # Visit site Button
         x += 190
-        y += 5
+        y += 20
         self.aboutVisit = XPCreateWidget(x, y, x + 100, y - 20, 1, "Official site", 0, window, xpWidgetClass_Button)
         XPSetWidgetProperty(self.aboutVisit, xpProperty_ButtonType, xpPushButton)
 
@@ -1336,10 +1310,7 @@ class PythonInterface:
 
             if 'thermals' in wdata:
                 t = wdata['thermals']
-                sysinfo += ['THERMALS:']
-                for el in t['status']:
-                    sysinfo += [el]
-                sysinfo += ['alt: %05dm, prob: %03d, rate: %02dm/s' % (t['alt'], t['prob']*100, t['rate']*0.00508)]
+                sysinfo += [f"THERMALS: h {round(t['alt'])}m, p {t['prob']*100}%, r {round(t['rate']*0.00508)}m/s"]
 
         sysinfo += ['--'] * (self.aboutlines - len(sysinfo))
 
