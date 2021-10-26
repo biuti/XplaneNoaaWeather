@@ -434,12 +434,15 @@ class Weather:
         # Minimum redraw difference per layer
         minRedraw = [c.f2m(500), c.f2m(5000), c.f2m(10000)]
 
+        '''XP cloud cover'''
+        # in XP 11 cloud coverage goes from 0 to 6
         xpClouds = {
-            'FEW': [1, c.f2m(2000)],
-            'SCT': [2, c.f2m(4000)],
-            'BKN': [3, c.f2m(4000)],
-            'OVC': [4, c.f2m(4000)],
-            'VV': [4, c.f2m(6000)]
+            'CIRRUS': [1, c.f2m(1000)],
+            'FEW': [2, c.f2m(2000)],
+            'SCT': [3, c.f2m(4000)],
+            'BKN': [4, c.f2m(4000)],
+            'OVC': [5, c.f2m(4000)],
+            'VV': [6, c.f2m(6000)]
         }
 
         lastBase = 0
@@ -463,6 +466,9 @@ class Weather:
                 if cover in xpClouds:
                     top = base + xpClouds[cover][1]
                     cover = xpClouds[cover][0]
+                if cover == 5 and 'precipitation' in self.weatherData['metar'] \
+                        and len(self.weatherData['metar']['precipitation']):
+                    cover = 6  # create stratus instead of OVC Cumulus
 
                 # Search for gfs equivalent layer
                 for gfsCloud in gfsClouds:
@@ -485,7 +491,7 @@ class Weather:
                 base, top, cover = cloud
 
                 if len(setClouds) < 3 and base > max(gfsCloudLimit, maxTop):
-                    cover = c.cc2xp(cover)
+                    cover = c.cc2xp(cover, base)
 
                     top = base + c.limit(top - base, maxCloud, minCloud)
                     setClouds = [[base, top, cover]] + setClouds
@@ -494,7 +500,7 @@ class Weather:
             # GFS-only clouds
             for cloud in reversed(gfsClouds):
                 base, top, cover = cloud
-                cover = c.cc2xp(cover)
+                cover = c.cc2xp(cover, base)
 
                 if cover > 0 and base > 0 and top > 0:
                     if cover < 3:
@@ -526,7 +532,7 @@ class Weather:
                     base, top, cover = setClouds[i]
                     redraw += self.setDrefIfDiff(self.clouds[i]['bottom'], base, minRedraw[i] + self.alt / 10)
                     redraw += self.setDrefIfDiff(self.clouds[i]['top'], top, minRedraw[i] + self.alt / 10)
-                    redraw += self.setDrefIfDiff(self.clouds[i]['coverage'], cover, 1)
+                    redraw += self.setDrefIfDiff(self.clouds[i]['coverage'], cover)
                 else:
                     redraw += self.setDrefIfDiff(self.clouds[i]['coverage'], 0)
 

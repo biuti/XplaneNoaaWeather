@@ -334,17 +334,24 @@ class c:
         return xp
 
     @staticmethod
-    def cc2xp(cover):
+    def cc2xp(cover, base):
         # GFS Percent cover to XP
-        if cover < 1:
+        if base > 8000:
+            if cover < 30:
+                return 1  # 'CIRRUS
+            elif cover < 55:
+                return 2
+            else:
+                return 3
+        elif cover < 1:
             return 0
-        if cover < 30:
-            return 1  # 'FEW'
-        if cover < 55:
-            return 2  # 'SCT'
-        if cover < 90:
-            return 3  # 'BKN'
-        return 4  # 'OVC'
+        elif cover < 30:
+            return 2  # 'FEW'
+        elif cover < 55:
+            return 3  # 'SCT'
+        elif cover < 95:
+            return 4  # 'BKN'
+        return 6  # 'status'
 
     @staticmethod
     def metar2xpprecipitation(kind, intensity, mod, recent):
