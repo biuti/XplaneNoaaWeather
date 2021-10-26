@@ -61,7 +61,7 @@ class Conf:
 
         # Config Overrides
         self.parserate = 1
-        self.metar_agl_limit = 10
+        # self.metar_agl_limit = 10
 
         # Selects the apropiate wgrib binary
         platform = sys.platform

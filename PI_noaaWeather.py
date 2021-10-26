@@ -616,20 +616,22 @@ class Weather:
                 if alt0 and alt1 and t0 and t1:
                     gradient = (t1 - t0) / (alt1 - alt0) * 100
                     thermals['status'][2] += f"gradient: {round(gradient, 3)}; "
-                    if gradient < -0.5:
+                    if gradient < -0.6:
                         '''create thermals'''
                         if base and top:
                             thermals['alt'] = top
+                            bonus = 0.1  # clouds convection
                         else:
                             thermals['alt'] = alt0 + 2000
+                            bonus = 0
                         if -0.7 <= gradient:
-                            thermals['prob'] = 0.1
-                            thermals['rate'] = randrange(200, 400)  # 1-2 m/s
-                        if -1 <= gradient <= -0.65:
-                            thermals['prob'] = 0.2
-                            thermals['rate'] = randrange(400, 800)  # 2-4 m/s
+                            thermals['prob'] = 0.05 + bonus
+                            thermals['rate'] = randrange(100, 300)  # .5-1.5 m/s
+                        if -1 <= gradient < -0.7:
+                            thermals['prob'] = 0.1 + bonus
+                            thermals['rate'] = randrange(200, 800)  # 1-4 m/s
                         else:
-                            thermals['prob'] = 0.25
+                            thermals['prob'] = 0.15 + bonus
                             thermals['rate'] = randrange(600, 1200)  # 3-6 m/s
             else:
                 '''nothing to do'''
@@ -641,6 +643,10 @@ class Weather:
             self.setDrefIfDiff(self.thermals_prob, thermals['prob'], 0.1)
             self.setDrefIfDiff(self.thermals_rate, thermals['rate'], 100)
             self.setDrefIfDiff(self.thermals_alt, thermals['alt'], 20)
+
+            self.data.thermals_prob = thermals['prob']
+            self.data.thermals_rate = thermals['rate']
+            self.data.thermals_alt = thermals['alt']
 
     @classmethod
     def cc2xp(self, cover):
