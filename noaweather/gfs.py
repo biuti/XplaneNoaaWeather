@@ -94,6 +94,8 @@ class GFS(GribWeatherSource):
                 elif level[0] == 'mean':
                     if variable == 'PRMSL':
                         pressure = c.pa2inhg(float(value))
+            elif level[0] == 'tropopause':
+                tropo[variable] = value
 
         windlevels = []
         cloudlevels = []
@@ -131,23 +133,32 @@ class GFS(GribWeatherSource):
                                                                'gust': 0}])
                 # print 'alt: %i rh: %i vis: %i' % (alt, float(wind['RH']), vis)
 
-                if float(level) == 200 and temp:
-                    tropo = {'alt': float(alt), 'temp': temp, 'dev': dev}
+                # get tropopause info from F386 wind level if not already available
+                if not tropo and float(level) == 200 and temp:
+                    tropo = {'PRES': level, 'TMP': wind['TMP']}
 
         # Convert cloud level
         for level in clouds:
             level = clouds[level]
-            if 'top' in level and 'bottom' in level and 'TCDC' in level:
-                top, bottom, cover = float(level['top']), float(level['bottom']), float(level['TCDC'])
+            if 'top' in level and 'bottom' in level:
+                top, bottom = float(level['top']), float(level['bottom'])
                 # print "XPGFS: top: %.0fmbar %.0fm, bottom: %.0fmbar %.0fm %d%%" % (top * 0.01, c.mb2alt(top * 0.01), bottom * 0.01, c.mb2alt(bottom * 0.01), cover)
+                cover = float(level.get(next((k for k in level.keys() if k in ('LCDC', 'MCDC', 'HCDC')), None)) or 0)
 
-                # if bottom > 1 and alt > 1:
-                cloudlevels.append([c.mb2alt(bottom * 0.01) * 0.3048, c.mb2alt(top * 0.01) * 0.3048, cover])
-                # XP10
-                # cloudlevels.append((c.mb2alt(bottom * 0.01) * 0.3048, c.mb2alt(top * 0.01) * 0.3048, cover/10))
+                if cover:
+                    cloudlevels.append([c.mb2alt(bottom * 0.01) * 0.3048, c.mb2alt(top * 0.01) * 0.3048, cover])
 
         windlevels.sort()
         cloudlevels.sort()
+
+        # tropo
+        if all(k in tropo.keys() for k in ('PRES', 'TMP')):
+            alt = int(c.mb2alt(float(tropo['PRES'])*0.01))
+            temp = float(tropo['TMP'])
+            dev = c.isaDev(alt, temp)
+            tropo ={'alt': float(alt), 'temp': temp, 'dev': dev}
+        else:
+            tropo = {}
 
         data = {
             'winds': windlevels,

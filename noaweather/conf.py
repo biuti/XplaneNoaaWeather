@@ -263,43 +263,57 @@ class Conf:
     def gfs_levels_defaults():
         """GFS Levels default config"""
         d = [
-            {
-                'vars': ['TMP',
-                         'UGRD',
-                         'VGRD',
-                         ],
-                'levels': [
-                    '850 mb',  # FL047
-                    '700 mb',  # FL100
-                    '600 mb',  # FL140
-                    '500 mb',  # FL180
-                    '400 mb',  # FL235
-                    '300 mb',  # FL300
-                    '200 mb',  # FL380
-                    '150 mb',  # FL443
-                ],
-            },
-            {
-                'vars': [
-                    'PRES',
-                    'TCDC'
-                ],
-                'levels': [
-                    'high cloud bottom level',
-                    'high cloud layer',
-                    'high cloud top level',
-                    'low cloud bottom level',
-                    'low cloud layer',
-                    'low cloud top level',
-                    'middle cloud bottom level',
-                    'middle cloud layer',
-                    'middle cloud top level',
-                ],
-            },
-            {
-                'vars': 'PRMSL',
-                'levels': 'mean sea level'
-            }
+                {
+                    "vars": [
+                        "TMP",
+                        "UGRD",
+                        "VGRD"
+                    ],
+                    "levels": [
+                        "850 mb",
+                        "700 mb",
+                        "600 mb",
+                        "500 mb",
+                        "400 mb",
+                        "300 mb",
+                        "200 mb",
+                        "150 mb"
+                    ]
+                },
+                {
+                    "vars": "PRES",
+                    "levels": [
+                        "low cloud bottom level",
+                        "low cloud top level",
+                        "middle cloud bottom level",
+                        "middle cloud top level",
+                        "high cloud bottom level",
+                        "high cloud top level"
+                    ]
+                },
+                {
+                    "vars": "LCDC",
+                    "levels": "low cloud layer"
+                },
+                {
+                    "vars": "MCDC",
+                    "levels": "middle cloud layer"
+                },
+                {
+                    "vars": "HCDC",
+                    "levels": "high cloud layer"
+                },
+                {
+                    "vars": "PRMSL",
+                    "levels": "mean sea level"
+                },
+                {
+                    "vars": [
+                        "PRES",
+                        "TMP"
+                    ],
+                    "levels": "tropopause"
+                }
         ]
         return d
 

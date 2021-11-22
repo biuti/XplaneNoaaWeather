@@ -21,7 +21,6 @@ except ImportError:
     from .c import c
 
 
-
 class WAFS(GribWeatherSource):
     """World Area Forecast System - Upper Air Forecast weather source"""
 
