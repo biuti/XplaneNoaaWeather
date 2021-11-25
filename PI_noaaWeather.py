@@ -217,9 +217,11 @@ class Weather:
     def setWinds(self, winds, elapsed):
         """Set winds: Interpolate layers and transition new data"""
         from random import randrange
+        import math
 
         winds = winds[:]
 
+        alt, hdg, speed, extra = 0, 0, 0, {'metar': False}
         # Append metar layer
         if 'metar' in self.weatherData and 'wind' in self.weatherData['metar']:
             alt = self.weatherData['metar']['elevation']
@@ -263,7 +265,7 @@ class Weather:
             winds = [[alt, hdg, speed, extra]] + winds
 
         # Search current top and bottom layer:
-        blayer = False
+        blayer, tlayer = False, False
         nlayers = len(winds)
 
         if nlayers > 0:
@@ -274,9 +276,10 @@ class Weather:
                 else:
                     blayer = i
 
-            if self.windAlts != tlayer:
+            # recalculate transition only if layers altitude differ more than 10%
+            if not math.isclose(self.windAlts, int(winds[tlayer][0]), rel_tol=0.1):
                 # Layer change, reset transitions
-                self.windAlts = tlayer
+                self.windAlts = int(winds[tlayer][0])
                 c.transitionClearReferences(exclude=[str(blayer), str(tlayer)])
 
             twind = self.transWindLayer(winds[tlayer], str(tlayer), elapsed)
@@ -291,7 +294,14 @@ class Weather:
                 rwind = twind;
 
             # Set layers
-            self.setWindLayer(0, rwind, elapsed)
+            if self.alt > self.conf.surface_wind_layer_limit:
+                if extra['metar']:
+                    self.setSurfaceWindLayer([alt, hdg, speed, extra])
+                else:
+                    fake = winds[0]
+                    self.setSurfaceWindLayer([0, fake[1], fake[2], fake[3]])
+            else:
+                self.setWindLayer(0, rwind, elapsed)
             self.setWindLayer(1, rwind, elapsed)
             self.setWindLayer(2, rwind, elapsed)
 
@@ -338,6 +348,19 @@ class Weather:
             hdg = (hdg + extra['variation']) % 360
 
         wind['hdg'].value, wind['speed'].value = hdg, speed
+
+        if 'gust' in extra:
+            wind['gust'].value = extra['gust']
+
+    def setMetarWindLayer(self, wind):
+        alt, hdg, speed, extra = wind
+
+        wind = self.winds[0]
+
+        if 'variation' in extra:
+            hdg = (hdg + extra['variation']) % 360
+
+        wind['alt'].value, wind['hdg'].value, wind['speed'].value = alt, hdg, speed
 
         if 'gust' in extra:
             wind['gust'].value = extra['gust']
