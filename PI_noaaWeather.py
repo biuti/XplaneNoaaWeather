@@ -264,14 +264,21 @@ class Weather:
 
             winds = [[alt, hdg, speed, extra]] + winds
 
+        elif len(winds) > 0 and self.conf.surface_wind_layer_limit:
+            # create a fake surface layer from lower GFS layer
+            _, hdg, speed, e = winds[0]
+            extra.update(e)
+
+            winds = [[alt, hdg, speed, extra]] + winds
+
         # Search current top and bottom layer:
         blayer, tlayer = False, False
         nlayers = len(winds)
 
         if nlayers > 0:
-            for i in range(len(winds)):
-                tlayer = i
-                if winds[tlayer][0] > self.alt:
+            for i, w in enumerate(winds):
+                if w[0] > self.alt:
+                    tlayer = i
                     break
                 else:
                     blayer = i
@@ -283,27 +290,31 @@ class Weather:
                 c.transitionClearReferences(exclude=[str(blayer), str(tlayer)])
 
             twind = self.transWindLayer(winds[tlayer], str(tlayer), elapsed)
+            swind = twind
 
             if blayer is not False and blayer != tlayer:
                 # We are between 2 layers, interpolate
                 bwind = self.transWindLayer(winds[blayer], str(blayer), elapsed)
                 rwind = self.interpolateWindLayer(twind, bwind, self.alt, blayer)
 
+                # calculates surface layer limit if activated and conditions are satisfied
+                if self.conf.surface_wind_layer_limit and nlayers > 2:
+                    min_alt = max(self.conf.surface_wind_layer_limit,
+                                  winds[1][0] + 1000)  # added 1000 to reduce XP auto transition effect
+                    if self.alt > min_alt:
+                        swind = [alt, hdg, speed, extra]
+                        self.windtest['min_alt'] = True
+                    else:
+                        swind = rwind
+
             else:
                 # We are below the first layer or above the last one.
-                rwind = twind;
+                rwind = twind
 
             # Set layers
-            if self.alt > self.conf.surface_wind_layer_limit:
-                if extra['metar']:
-                    self.setSurfaceWindLayer([alt, hdg, speed, extra])
-                else:
-                    fake = winds[0]
-                    self.setSurfaceWindLayer([0, fake[1], fake[2], fake[3]])
-            else:
-                self.setWindLayer(0, rwind, elapsed)
-            self.setWindLayer(1, rwind, elapsed)
-            self.setWindLayer(2, rwind, elapsed)
+            self.setWindLayer(0, swind)
+            self.setWindLayer(1, rwind)
+            self.setWindLayer(2, rwind)
 
             '''Set temperature and dewpoint.
             Use next layer if the data is not available'''
@@ -339,7 +350,7 @@ class Weather:
             self.winds[1]['gust_hdg'].value = 0
             self.winds[2]['gust_hdg'].value = 0
 
-    def setWindLayer(self, index, wlayer, elapsed):
+    def setWindLayer(self, index, wlayer):
         alt, hdg, speed, extra = wlayer
 
         wind = self.winds[index]
@@ -348,19 +359,6 @@ class Weather:
             hdg = (hdg + extra['variation']) % 360
 
         wind['hdg'].value, wind['speed'].value = hdg, speed
-
-        if 'gust' in extra:
-            wind['gust'].value = extra['gust']
-
-    def setMetarWindLayer(self, wind):
-        alt, hdg, speed, extra = wind
-
-        wind = self.winds[0]
-
-        if 'variation' in extra:
-            hdg = (hdg + extra['variation']) % 360
-
-        wind['alt'].value, wind['hdg'].value, wind['speed'].value = alt, hdg, speed
 
         if 'gust' in extra:
             wind['gust'].value = extra['gust']
@@ -676,7 +674,7 @@ class Data:
 
         # Overrides
         self.override_clouds = EasyDref('xjpc/XPNoaaWeather/config/override_clouds', 'int',
-                                        register=True, writable=True);
+                                        register=True, writable=True)
         self.override_winds = EasyDref('xjpc/XPNoaaWeather/config/override_winds', 'int',
                                        register=True, writable=True)
         self.override_visibility = EasyDref('xjpc/XPNoaaWeather/config/override_visibility', 'int',
@@ -1122,18 +1120,18 @@ class PythonInterface:
 
             if (inParam1 == self.aboutVisit):
                 from webbrowser import open_new
-                open_new('http://x-plane.joanpc.com/');
+                open_new('http://x-plane.joanpc.com/')
                 self.tracker.track('Homepage', 'homepage button')
                 return 1
             if (inParam1 == self.donate):
                 from webbrowser import open_new
-                open_new('https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=GH6YPFGSS5UEU');
+                open_new('https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=GH6YPFGSS5UEU')
                 self.tracker.track('donate', 'donate button')
                 return 1
-            if (inParam1 == self.aboutForum):
+            if inParam1 == self.aboutForum:
                 from webbrowser import open_new
                 open_new(
-                    'http://forums.x-plane.org/index.php?/forums/topic/72313-noaa-weather-plugin/&do=getNewComment');
+                    'http://forums.x-plane.org/index.php?/forums/topic/72313-noaa-weather-plugin/&do=getNewComment')
                 self.tracker.track('Support', 'support button')
                 return 1
             if inParam1 == self.saveButton:

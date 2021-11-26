@@ -120,8 +120,9 @@ class Conf:
         self.metar_agl_limit = 20  # In meters
         # From this distance from the airport gfs data is used for temp, dew, pressure and clouds
         self.metar_distance_limit = 100000  # In meters
-        # keep a surface wind layer with current METAR to get correct ATIS info (0 = no surface layer)
-        self.surface_wind_layer_limit = 4000  # In meters
+        # keep a surface wind layer with current METAR to get correct ATIS info
+        # (will use max(parameter, lower GFS layer), 0 = no surface level)
+        self.surface_wind_layer_limit = 1000  # In meters
 
         self.parserate = 1
         self.updaterate = 1
