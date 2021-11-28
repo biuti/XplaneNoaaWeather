@@ -2,16 +2,37 @@
 [XPGFS] Xplane NOAA Global Forecast weather
 ===========================================
 
+I created a new version of NOAAWeather by Joan and ported to python3 by pbuckner.
+
+You can find original version here:
+http://x-plane.joanpc.com/plugins/xpgfs-noaa-weather
+
+And here the version of pbuckner ported to Python 3.x:
+https://github.com/pbuckner/XplaneNoaaWeather
+
+============
+Features
+============
+
 Downloads METAR and Forecast data from NOAA servers and sets x-plane weather
 using forecasted and reported data for the current time and world coordinates.
+
+- Updated winds and clouds layers
+- Changes ISA atmosphere using GFS data at tropo limit
+- Adds also uplift and wind shear effect in stormy conditions
+- Convection "bumpiness" using thermal XPlane parameters in instable conditions
+- Added a surface layer to get correct ATIS informations (nearest METAR)
 
 ============
 Requirements
 ============
 
-Sandy Barbour Python Interface:
-http://www.xpluginsdk.org/python_interface_latest_downloads.htm
-Python: 2.7 http://www.python.org/getit/
+pbuckner's XPPython3 plugin:
+https://xppython3.readthedocs.io/en/latest/index.html
+
+Python: 3.9
+http://www.python.org/getit/
+
 Wgrib2: the plugin comes with wgrib2 for common os like osx, win32 and
 linux i686 glib2.5. Wgrib uses cygwin on windows, the .dll is provided on the
 bin folder and there's no need to install-it.
@@ -20,14 +41,11 @@ bin folder and there's no need to install-it.
 Installation
 ============
 
-Install X-Plane Python interface:
-http://www.xpluginsdk.org/python_interface_latest_downloads.htm
-
-Copy the zip file contents to your X-Plane/Resources/plugins/PythonScripts folder.
+Copy the zip file contents to your X-Plane/Resources/plugins/PythonPlugins folder.
 The resulting installation should look like:
 
-    X-Plane/Resources/plugins/PythonScripts/noaweather/
-    X-Plane/Resources/plugins/PythonScripts/PI_noaaWeather.py
+    X-Plane/Resources/plugins/PythonPlugins/noaweather/
+    X-Plane/Resources/plugins/PythonPlugins/PI_noaaWeather.py
 
 =========
 RESOURCES
