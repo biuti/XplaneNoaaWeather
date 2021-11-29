@@ -94,6 +94,7 @@ class Weather:
             })
 
         self.windata = []
+        self.surface_wind = False
 
         self.xpTime = EasyDref('sim/time/local_time_sec', 'float')  # sim time (sec from midnight)
 
@@ -220,6 +221,7 @@ class Weather:
         import math
 
         winds = winds[:]
+        self.surface_wind = False
 
         alt, hdg, speed, extra = 0, 0, 0, {'metar': False}
         # Append metar layer
@@ -264,7 +266,7 @@ class Weather:
 
             winds = [[alt, hdg, speed, extra]] + winds
 
-        elif len(winds) > 0 and self.conf.surface_wind_layer_limit:
+        elif len(winds) > 0 and self.conf.set_surface_layer:
             # create a fake surface layer from lower GFS layer
             _, hdg, speed, e = winds[0]
             extra.update(e)
@@ -297,15 +299,13 @@ class Weather:
                 bwind = self.transWindLayer(winds[blayer], str(blayer), elapsed)
                 rwind = self.interpolateWindLayer(twind, bwind, self.alt, blayer)
 
+                swind = rwind
                 # calculates surface layer limit if activated and conditions are satisfied
-                if self.conf.surface_wind_layer_limit and nlayers > 2:
-                    min_alt = max(self.conf.surface_wind_layer_limit,
-                                  winds[1][0] + 1000)  # added 1000 to reduce XP auto transition effect
+                if self.conf.set_surface_layer and nlayers > 2:
+                    min_alt = winds[1][0] + self.conf.surface_wind_layer_limit
                     if self.alt > min_alt:
                         swind = [alt, hdg, speed, extra]
-                        self.windtest['min_alt'] = True
-                    else:
-                        swind = rwind
+                        self.surface_wind = True
 
             else:
                 # We are below the first layer or above the last one.
@@ -937,6 +937,14 @@ class PythonInterface:
         XPSetWidgetProperty(self.thermalsCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
         XPSetWidgetProperty(self.thermalsCheck, xpProperty_ButtonState, self.conf.set_thermals)
         y -= 28
+
+        # Surface Wind Layer enable
+        XPCreateWidget(x + 5, y - 40, x + 20, y - 60, 1, 'Surface Wind Layer', 0, window, xpWidgetClass_Caption)
+        self.surfaceCheck = XPCreateWidget(x + 110, y - 40, x + 120, y - 60, 1, '', 0, window, xpWidgetClass_Button)
+        XPSetWidgetProperty(self.surfaceCheck, xpProperty_ButtonType, xpRadioButton)
+        XPSetWidgetProperty(self.surfaceCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
+        XPSetWidgetProperty(self.surfaceCheck, xpProperty_ButtonState, self.conf.set_surface_layer)
+        y -= 28
         x -= 5
 
         x1 = x + 5
@@ -1143,6 +1151,7 @@ class PythonInterface:
                 self.conf.set_pressure = XPGetWidgetProperty(self.pressureCheck, xpProperty_ButtonState, None)
                 self.conf.set_tropo = XPGetWidgetProperty(self.tropoCheck, xpProperty_ButtonState, None)
                 self.conf.set_thermals = XPGetWidgetProperty(self.thermalsCheck, xpProperty_ButtonState, None)
+                self.conf.set_surface_layer = XPGetWidgetProperty(self.surfaceCheck, xpProperty_ButtonState, None)
                 self.conf.inputbug = XPGetWidgetProperty(self.bugCheck, xpProperty_ButtonState, None)
                 self.conf.turbulence_probability = XPGetWidgetProperty(self.turbulenceSlider,
                                                                        xpProperty_ScrollBarSliderPosition,
@@ -1210,6 +1219,7 @@ class PythonInterface:
         XPSetWidgetProperty(self.tempCheck, xpProperty_ButtonState, self.conf.set_temp)
         XPSetWidgetProperty(self.tropoCheck, xpProperty_ButtonState, self.conf.set_tropo)
         XPSetWidgetProperty(self.thermalsCheck, xpProperty_ButtonState, self.conf.set_thermals)
+        XPSetWidgetProperty(self.surfaceCheck, xpProperty_ButtonState, self.conf.set_surface_layer)
 
         # XPSetWidgetDescriptor(self.transAltInput, c.convertForInput(self.conf.metar_agl_limit, 'm2ft'))
         XPSetWidgetDescriptor(self.maxVisInput, c.convertForInput(self.conf.max_visibility, 'm2sm'))
@@ -1306,6 +1316,7 @@ class PythonInterface:
                             wlayers = ''
                     if i > 0:
                         sysinfo += [wlayers]
+                    sysinfo += [f"Surface Wind Layer: {self.weather.surface_wind}"]
 
                 if 'tropo' in wdata['gfs']:
                     alt, temp, dev = wdata['gfs']['tropo'].values()
