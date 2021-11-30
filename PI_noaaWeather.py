@@ -936,10 +936,10 @@ class PythonInterface:
         XPSetWidgetProperty(self.thermalsCheck, xpProperty_ButtonType, xpRadioButton)
         XPSetWidgetProperty(self.thermalsCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
         XPSetWidgetProperty(self.thermalsCheck, xpProperty_ButtonState, self.conf.set_thermals)
-        y -= 28
+        y -= 20
 
         # Surface Wind Layer enable
-        XPCreateWidget(x + 5, y - 40, x + 20, y - 60, 1, 'Surface Wind Layer', 0, window, xpWidgetClass_Caption)
+        XPCreateWidget(x + 5, y - 40, x + 20, y - 60, 1, 'Surface Wind', 0, window, xpWidgetClass_Caption)
         self.surfaceCheck = XPCreateWidget(x + 110, y - 40, x + 120, y - 60, 1, '', 0, window, xpWidgetClass_Button)
         XPSetWidgetProperty(self.surfaceCheck, xpProperty_ButtonType, xpRadioButton)
         XPSetWidgetProperty(self.surfaceCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)

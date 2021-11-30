@@ -51,7 +51,7 @@ The resulting installation should look like:
 RESOURCES
 =========
 
-NOOA:
+NOAA:
 -----
 GFS Products:     http://www.nco.ncep.noaa.gov/pmb/products/gfs/
 GFS Inventory:    http://www.nco.ncep.noaa.gov/pmb/products/gfs/gfs.t00z.pgrb2f06.shtml
