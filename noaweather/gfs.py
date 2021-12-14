@@ -26,7 +26,6 @@ class GFS(GribWeatherSource):
     """NOAA GFS weather source"""
 
     base_url = 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.'
-    # base_url = 'https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p50.pl'
 
     download = False
     download_wait = 0
@@ -42,33 +41,6 @@ class GFS(GribWeatherSource):
         url = '%s%s/%02d/atmos/%s' % (cls.base_url, datecycle, cycle, filename)
 
         return url
-
-    # @classmethod
-    # def get_download_url(cls, datecycle, cycle, forecast, variable_list):
-    #     """Returns the GRIB download url add .idx or .grib to the end"""
-    #     filename = 'gfs.t%02dz.pgrb2full.0p50.f0%02d' % (cycle, forecast)
-    #     # url = '%s%s/%02d/atmos/%s' % (cls.base_url, datecycle, cycle, filename)
-    #     url = '%s?file=%s' % (cls.base_url, filename)
-    #
-    #     # get levels and vars
-    #     levels = []
-    #     vars = []
-    #     for el in variable_list:
-    #         if isinstance(el['levels'], list):
-    #             levels.extend(el['levels'])
-    #         else:
-    #             levels.append(el['levels'])
-    #         if isinstance(el['vars'], list):
-    #             vars.extend(el['vars'])
-    #         else:
-    #             vars.append(el['vars'])
-    #     levels = [f"lev_{el.replace(' ', '_')}=on" for el in set(levels)]
-    #     vars = [f"var_{el.replace(' ', '_')}=on" for el in set(vars)]
-    #
-    #     url += '&' + '&'.join(levels+vars)
-    #     url += '&leftlon=0&rightlon=360&toplat=90&bottomlat=-90&dir=/gfs.%s/%02d/atmos' % (datecycle, cycle)
-    #
-    #     return url
 
     @classmethod
     def get_cache_filename(cls, datecycle, cycle, forecast):
@@ -194,55 +166,3 @@ class GFS(GribWeatherSource):
         }
 
         return data
-
-
-def test(file=None):
-    from .conf import Conf
-    if not file:
-        file = 'noaweather/cache/gfs/20211122_gfs.t06z.pgrb2full.0p50.f006'
-    # file2 = 'noaweather/cache/gfs/gfs.t06z.pgrb2full.0p50.f003'
-    lat = 44.5  # LIMZ
-    lon = 7.6  # LIMZ
-    conf = Conf(False)
-    gfs = GFS(conf=conf)
-
-    args = ['-s',
-            '-lon',
-            '%f' % (lon),
-            '%f' % (lat),
-            file
-            ]
-    kwargs = {'stdout': subprocess.PIPE}
-
-    # subprocess.Popen([gfs.conf.wgrib2bin] + ['-h'])
-
-    # p = subprocess.Popen([gfs.conf.wgrib2bin] + ['-s', '-lon', str(lon), str(lat), file], **kwargs).communicate()
-    t = 'https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p50.pl?file=gfs.t06z.pgrb2full.0p50.f006&lev_150_mb=on&lev_200_mb=on&lev_300_mb=on&lev_400_mb=on&lev_500_mb=on&lev_600_mb=on&lev_700_mb=on&lev_850_mb=on&lev_high_cloud_bottom_level=on&lev_high_cloud_layer=on&lev_high_cloud_top_level=on&lev_low_cloud_bottom_level=on&lev_low_cloud_layer=on&lev_low_cloud_top_level=on&lev_mean_sea_level=on&lev_middle_cloud_bottom_level=on&lev_middle_cloud_layer=on&lev_middle_cloud_top_level=on&lev_tropopause=on&var_HCDC=on&var_LCDC=on&var_MCDC=on&var_PRES=on&var_PRMSL=on&var_TCDC=on&var_TMP=on&var_UGRD=on&var_VGRD=on&leftlon=0&rightlon=360&toplat=90&bottomlat=-90&dir=%2Fgfs.20211120%2F06%2Fatmos'
-    p = subprocess.Popen([gfs.conf.wgrib2bin] + args, **kwargs)
-
-    it = iter(p.stdout)
-    data = []
-    for line in it:
-        if sys.version_info.major == 2:
-            r = line[:-1].split(':')
-        else:
-            r = line.decode('utf-8')[:-1].split(':')
-        # Level, variable, value
-        level, variable, value = [r[4].split(' '), r[3], r[7].split(',')[2].split('=')[1]]
-
-        data.append(dict(level=level, variable=variable, value=value))
-    return data
-
-
-def test2(file=None):
-    from .conf import Conf
-    if not file:
-        file = 'noaweather/cache/gfs/20211122_gfs.t06z.pgrb2full.0p50.f006'
-    # lat = -22.8  # Rio
-    # lon = -43.2  # Rio
-    lat = 44.5  # LIMZ
-    lon = 7.6  # LIMZ
-    conf = Conf(False)
-    gfs = GFS(conf=conf)
-
-    return gfs.parse_grib_data(file, lat, lon)

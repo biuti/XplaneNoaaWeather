@@ -35,8 +35,6 @@ from XPLMDataAccess import *
 from XPLMUtilities import *
 from XPLMPlanes import *
 from XPLMNavigation import *
-# from SandyBarbourUtilities import *
-# from PythonScriptMessaging import *
 from XPLMPlugin import *
 from XPLMMenus import *
 from XPWidgetDefs import *
@@ -90,7 +88,6 @@ class Weather:
                 'top': EasyDref('"sim/weather/cloud_tops_msl_m[%d]"' % (i), 'float'),
                 'bottom': EasyDref('"sim/weather/cloud_base_msl_m[%d]"' % (i), 'float'),
                 'coverage': EasyDref('"sim/weather/cloud_type[%d]"' % (i), 'int'),
-                # XP10 'coverage': EasyDref('"sim/weather/cloud_coverage[%d]"' % (i), 'float'),
             })
 
         self.windata = []
@@ -1347,14 +1344,9 @@ class PythonInterface:
                 t = wdata['thermals']
                 sysinfo += [f"THERMALS: h {round(t['alt'])}m, p {t['prob']*100}%, r {round(t['rate']*0.00508)}m/s"]
 
-            # dev info
-            winds = self.weather.winds
-            sysinfo += [f"DEV Info:"]
-            s = 'NOT ACTIVE' if not self.weather.surface_wind else 'ACTIVE'
-            sysinfo += [f"Surface wind layer: {s}"]
-            sysinfo += [f"Alt: {round(self.weather.alt)} m. (F{round(c.m2ft(self.weather.alt)/100):03d})"]
-            w = ' '.join([f"{i}) {round(el['alt'].value)}|{round(el['hdg'].value)}/{round(el['speed'].value)}" for i, el in enumerate(winds)])
-            sysinfo += [f"Wind layers: {w}"]
+            if self.conf.set_surface_layer:
+                s = 'NOT ACTIVE' if not self.weather.surface_wind else 'ACTIVE'
+                sysinfo += [f"Surface wind layer: {s}"]
 
         sysinfo += ['--'] * (self.aboutlines - len(sysinfo))
 
