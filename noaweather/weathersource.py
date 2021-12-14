@@ -15,6 +15,7 @@ try:
     from urllib2 import Request, urlopen, URLError
 except ImportError:
     from urllib.request import Request, urlopen, URLError
+    # from urllib.request import urlretrieve
 import zlib
 import os
 import subprocess
@@ -113,6 +114,7 @@ class GribWeatherSource(WeatherSource):
             else:
                 # Trigger new download
                 url = self.get_download_url(datecycle, cycle, forecast)
+                # url = self.get_download_url(datecycle, cycle, forecast, self.variable_list)
                 print('Downloading: %s' % cache_file)
                 self.download = AsyncTask(GribDownloader.download,
                                           url,
@@ -427,6 +429,51 @@ class GribDownloader(object):
                 raise GribDownloaderError('Unable to decompress: %s \n\t%s' % (file_path, str(err)))
 
         return file_path
+
+    # @classmethod
+    # def download_2(cls, url, file_path, binary=False, **kwargs):
+    #     """Download grib for the specified variable_lists
+    #
+    #         Args:
+    #             url (str): URL to the grib file excluding the extension
+    #             file_path (str): Path to the output file
+    #             binary (bool): Set to True for binary files or files will get corrupted on Windows.
+    #
+    #         Kwargs:
+    #             cancel_event (threading.Event): Set the flat to cancel the download at any time
+    #             variable_list (list): List of variables dicts ex: [{'level': ['500mb', ], 'vars': 'TMP'}, ]
+    #             decompress (str): Path to the wgrib2 to decompress the file.
+    #
+    #         Returns:
+    #             str: the path to the final file on success
+    #
+    #         Raises:
+    #             GribDownloaderError: on fail.
+    #             GribDownloaderCancel: on cancel.
+    #     """
+    #
+    #     cancel = kwargs.pop('cancel_event', False)
+    #     while True:
+    #         if cancel and cancel.isSet():
+    #             raise GribDownloaderCancel("Download canceled by user.")
+    #         try:
+    #             urlretrieve(url, file_path)
+    #             break
+    #         except URLError as err:
+    #             raise GribDownloaderError('Unable to open url: %s\n\t%s' % (url, str(err)))
+    #
+    #     wgrib2 = kwargs.pop('decompress', False)
+    #     spinfo = kwargs.pop('spinfo', False)
+    #
+    #     if wgrib2:
+    #         tmp_file = "%s.tmp" % file_path
+    #         try:
+    #             os.rename(file_path, tmp_file)
+    #             cls.decompress_grib(tmp_file, file_path, wgrib2, spinfo)
+    #             util.remove(tmp_file)
+    #         except OSError as err:
+    #             raise GribDownloaderError('Unable to decompress: %s \n\t%s' % (file_path, str(err)))
+    #     return file_path
 
 
 class GribDownloaderError(Exception):

@@ -3,6 +3,6 @@
 .idea
 __pycache__
 noaweather/__pycache__
-noaweather/cache/!/noaweather/gfs_levels_config.json
-!/stations.txt
-!/noaweather/cache/
+stations.txt
+noaweather/gfs_levels_config.json
+noaweather/cache/

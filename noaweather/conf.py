@@ -27,7 +27,7 @@ class Conf:
     syspath, dirsep = '', os.sep
     printableChars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ '
 
-    __VERSION__ = '2.7.1'
+    __VERSION__ = '2.7.2 beta'
 
     GFS_JSON_HELP = '''Here you can edit which wind levels will be downloaded from NOAA without hacking the code.
                     Keep the list short to optimize the download size and parsing times.
@@ -122,7 +122,7 @@ class Conf:
         # From this distance from the airport gfs data is used for temp, dew, pressure and clouds
         self.metar_distance_limit = 100000  # In meters
         # keep a surface wind layer with current METAR to get correct ATIS info
-        self.surface_wind_layer_limit = 1000  # In meters over first GFS layer for smooth  transition
+        self.surface_wind_layer_limit = 600  # In meters over first GFS layer for smooth  transition
 
         self.parserate = 1
         self.updaterate = 1

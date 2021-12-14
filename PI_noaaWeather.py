@@ -221,12 +221,11 @@ class Weather:
         import math
 
         winds = winds[:]
-        self.surface_wind = False
 
         alt, hdg, speed, extra = 0, 0, 0, {'metar': False}
         # Append metar layer
         if 'metar' in self.weatherData and 'wind' in self.weatherData['metar']:
-            alt = self.weatherData['metar']['elevation']
+            alt = self.weatherData['metar']['elevation']  # in meters
             hdg, speed, gust = self.weatherData['metar']['wind']
             if not gust:
                 '''add random wind speed variability'''
@@ -277,6 +276,7 @@ class Weather:
         blayer, tlayer = False, False
         nlayers = len(winds)
 
+        surface_layer = False
         if nlayers > 0:
             for i, w in enumerate(winds):
                 if w[0] > self.alt:
@@ -305,11 +305,14 @@ class Weather:
                     min_alt = winds[1][0] + self.conf.surface_wind_layer_limit
                     if self.alt > min_alt:
                         swind = [alt, hdg, speed, extra]
-                        self.surface_wind = True
+                        surface_layer = True
 
             else:
                 # We are below the first layer or above the last one.
                 rwind = twind
+
+            if not (surface_layer == self.surface_wind):
+                self.surface_wind = surface_layer
 
             # Set layers
             self.setWindLayer(0, swind)
@@ -358,7 +361,7 @@ class Weather:
         if 'variation' in extra:
             hdg = (hdg + extra['variation']) % 360
 
-        wind['hdg'].value, wind['speed'].value = hdg, speed
+        wind['alt'].value, wind['hdg'].value, wind['speed'].value = alt, hdg, speed
 
         if 'gust' in extra:
             wind['gust'].value = extra['gust']
@@ -1343,6 +1346,15 @@ class PythonInterface:
             if 'thermals' in wdata:
                 t = wdata['thermals']
                 sysinfo += [f"THERMALS: h {round(t['alt'])}m, p {t['prob']*100}%, r {round(t['rate']*0.00508)}m/s"]
+
+            # dev info
+            winds = self.weather.winds
+            sysinfo += [f"DEV Info:"]
+            s = 'NOT ACTIVE' if not self.weather.surface_wind else 'ACTIVE'
+            sysinfo += [f"Surface wind layer: {s}"]
+            sysinfo += [f"Alt: {round(self.weather.alt)} m. (F{round(c.m2ft(self.weather.alt)/100):03d})"]
+            w = ' '.join([f"{i}) {round(el['alt'].value)}|{round(el['hdg'].value)}/{round(el['speed'].value)}" for i, el in enumerate(winds)])
+            sysinfo += [f"Wind layers: {w}"]
 
         sysinfo += ['--'] * (self.aboutlines - len(sysinfo))
 
