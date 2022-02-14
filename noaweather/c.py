@@ -381,7 +381,7 @@ class c:
 
         if kind in precip:
             precipitation = precip[kind][intensity]
-        if recent:
+        if recent or intensity == 0:
             patchy = 1
         if kind in wet:
             friction = wet[kind]
