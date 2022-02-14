@@ -6,3 +6,4 @@ noaweather/__pycache__
 stations.txt
 noaweather/gfs_levels_config.json
 noaweather/cache/
+/venv/
