@@ -360,7 +360,7 @@ class c:
         ints = {'-': 0, '': 1, '+': 2}
         intensity = ints[intensity]
 
-        precipitation, friction = False, False
+        precipitation, friction, patchy = False, False, False
 
         precip = {
             'DZ': [0.1, 0.2, 0.3],
@@ -372,7 +372,7 @@ class c:
         wet = {
             'DZ': 1,
             'RA': 1,
-            'SN': 2,  # Snow
+            'SN': 1,  # Icy conditions should be 2, but is too slippery
             'SH': 1,
         }
 
@@ -382,11 +382,11 @@ class c:
         if kind in precip:
             precipitation = precip[kind][intensity]
         if recent:
-            precipitation = 0
+            patchy = 1
         if kind in wet:
             friction = wet[kind]
 
-        return precipitation, friction
+        return precipitation, friction, patchy
 
     @staticmethod
     def strFloat(i, false_label='na'):

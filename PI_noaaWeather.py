@@ -105,6 +105,7 @@ class Weather:
         self.precipitation = EasyDref('sim/weather/rain_percent', 'float')
         self.thunderstorm = EasyDref('sim/weather/thunderstorm_percent', 'float')
         self.runwayFriction = EasyDref('sim/weather/runway_friction', 'float')
+        self.patchy = EasyDref('sim/weather/runway_is_patchy', 'float')
 
         self.tropo_temp = EasyDref('sim/weather/temperature_tropo_c', 'float')  # default -56.5C
         self.tropo_alt = EasyDref('sim/weather/tropo_alt_mtr', 'float')  # default 11100 meter
@@ -691,6 +692,8 @@ class Data:
                                           register=True, writable=True)
         self.override_runway_friction = EasyDref('xjpc/XPNoaaWeather/config/override_runway_friction', 'int',
                                                  register=True, writable=True)
+        self.override_runway_is_patchy = EasyDref('xjpc/XPNoaaWeather/config/override_runway_is_patchy', 'int',
+                                                  register=True, writable=True)
 
         # Weather variables
         self.ready = EasyDref('xjpc/XPNoaaWeather/weather/ready', 'float', register=True)
@@ -1647,7 +1650,7 @@ class PythonInterface:
 
         ''' Data set on new weather Data '''
         if self.weather.newData:
-            rain, ts, friction = 0, 0, 0
+            rain, ts, friction, patchy = 0, 0, 0, 0
 
             # Clear transitions on airport load
             if self.newAptLoaded:
@@ -1667,12 +1670,14 @@ class PythonInterface:
             if 'precipitation' in wdata['metar']:
                 p = wdata['metar']['precipitation']
                 for precp in p:
-                    precip, wet = c.metar2xpprecipitation(precp, p[precp]['int'], p[precp]['int'], p[precp]['recent'])
+                    precip, wet, is_patchy = c.metar2xpprecipitation(precp, p[precp]['int'], p[precp]['int'], p[precp]['recent'])
 
                     if precip is not False:
                         rain = precip
                     if wet is not False:
                         friction = wet
+                    if is_patchy is not False:
+                        patchy = 1
 
                 if 'TS' in p:
                     ts = 0.5
@@ -1691,7 +1696,11 @@ class PythonInterface:
             if not self.data.override_runway_friction.value:
                 self.weather.runwayFriction.value = friction
 
+            if not self.data.override_runway_is_patchy.value:
+                self.weather.patchy.value = patchy
+
             self.data.metar_runwayFriction.value = friction
+            self.weather.patchy.value = patchy
 
             self.weather.newData = False
 

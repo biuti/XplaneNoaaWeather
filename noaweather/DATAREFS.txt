@@ -6,6 +6,7 @@ xjpc/XPNoaaWeather/config/override_turbulence int
 xjpc/XPNoaaWeather/config/override_pressure int
 xjpc/XPNoaaWeather/config/override_precipitation int
 xjpc/XPNoaaWeather/config/override_runway_friction int
+xjpc/XPNoaaWeather/config/override_runway_is_patchy int
 
 # Weather variables
 xjpc/XPNoaaWeather/weather/ready float
