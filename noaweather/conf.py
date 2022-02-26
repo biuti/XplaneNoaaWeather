@@ -99,11 +99,33 @@ class Conf:
     def setDefaults(self):
         """Default settings"""
 
+        '''XP cloud cover'''
+        # in XP 11.50+ cloud coverage and type goes:
+        # type  cover   max thickness   desc
+        #   0       0       null        null
+        #   1       1       2000        CIRRUS
+        #   1       2       2000        FEW, CIRRUSTATUS
+        #   2       3           SCT
+        #   3       4           BKN
+        #   4       5           OVC
+        #   5       6           STRATUS
+        # cover value changes automatically, default value for type 1 is 2
+        # changed Dataref from type to coverage
+        self.xpClouds = {
+            'CIRRUS': [1, c.f2m(1000)],
+            'FEW': [2, c.f2m(2000)],
+            'SCT': [3, c.f2m(4000)],
+            'BKN': [4, c.f2m(4000)],
+            'OVC': [5, c.f2m(4000)],
+            'VV': [6, c.f2m(6000)]
+        }
+
         # User settings
         self.enabled = True
         self.set_wind = True
         self.set_tropo = True
         self.set_clouds = True
+        self.opt_clouds_update = True
         self.set_temp = True
         self.set_visibility = False
         self.set_turb = True
@@ -118,6 +140,8 @@ class Conf:
         self.metar_agl_limit = 20  # In meters
         # From this distance from the airport gfs data is used for temp, dew, pressure and clouds
         self.metar_distance_limit = 100000  # In meters
+        # Max Altitude for TS clouds
+        self.ts_clouds_top = 10000  # In meters (tropo limit?)
         # keep a surface wind layer with current METAR to get correct ATIS info
         self.surface_wind_layer_limit = 600  # In meters over first GFS layer for smooth  transition
 

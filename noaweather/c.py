@@ -8,7 +8,7 @@ as published by the Free Software Foundation; either version 2
 of the License, or any later version.
 """
 
-from math import hypot, atan2, degrees, exp, log, radians, sin, cos, sqrt, pi
+from math import hypot, atan2, degrees, exp, log, radians, sin, cos, sqrt, pi, isclose
 from random import random
 
 
@@ -347,22 +347,25 @@ class c:
     @staticmethod
     def cc2xp(cover, base):
         # GFS Percent cover to XP
-        if base > 8000:
+        if base > 6500:
             if cover < 30:
                 return 1  # 'CIRRUS
             elif cover < 55:
-                return 2
+                return 2  # CIRRUSTRATUS
             else:
                 return 3
-        elif cover < 1:
+        elif cover == 0:
             return 0
-        elif cover < 30:
+        elif cover < 25:
             return 2  # 'FEW'
-        elif cover < 55:
+        elif cover < 50:
             return 3  # 'SCT'
-        elif cover < 95:
+        elif cover < 75:
             return 4  # 'BKN'
-        return 6  # 'status'
+        elif cover < 90:
+            return 5  # 'OVC'
+        else:
+            return 6  # 'STRATUS'
 
     @staticmethod
     def metar2xpprecipitation(kind, intensity, mod, recent):
@@ -504,3 +507,110 @@ class c:
     def gfs_levels_help_list():
         """Returns a text list of FL levels with corresponding pressure in millibars"""
         return ["FL%03d %i mb" % (int(c.m2ft(c.mb2alt(i)))/100, i) for i in reversed(range(100, 1050, 50))]
+
+    @staticmethod
+    def optimise_gfs_clouds(gfs_clouds: list) -> list:
+        layers = c.copy_gfs_clouds(gfs_clouds)
+        idx = 0
+        while len(layers) > idx:
+            base0, top0, cover0 = layers[idx]
+            if cover0 == 0:
+                del layers[idx]
+            elif len(layers) > idx + 1:
+                base1, top1, cover1 = layers[idx + 1]
+                if c.isclose(top0, base1, 500) and (
+                        (cover0 > 70 and cover1 > 75) or c.isclose(cover0, cover1, 24)):
+                    layers[idx] = [base0, top1, (cover0+cover1)/2]
+                    del layers[idx + 1]
+                    continue
+            else:
+                break
+            idx += 1
+
+        for layer in layers:
+            layer[2] = c.cc2xp(layer[2], layer[0])
+        return layers
+
+    @staticmethod
+    def isclose(value, ref, tol) -> bool:
+        return isclose(value, ref, abs_tol=tol)
+
+    @staticmethod
+    def manage_clouds_layers(clouds: list, alt: float, ts: float = False) -> list:
+        """choose a max of three layers out of available ones based on flight situation"""
+
+        if c.above_cloud_layers(clouds, alt):
+            '''choose overcasted layer if any and the higher ones'''
+            if c.is_overcasted(clouds):
+                idx, layer = c.get_first_OVC_layer(reversed(clouds))
+                if idx > 2:
+                    clouds = list(layer).extend(clouds[-2:])
+                else:
+                    clouds = clouds[clouds.index(layer):]
+            else:
+                clouds = clouds[-3:]
+        else:
+            clouds = clouds[:3]
+
+        gfs_limit = c.f2m(5600)
+        if ts > 0.5 and len([el for el in clouds if el[2] > 2]) > 1:
+            '''With TS active, clouds minimum width is bigger and will move layers upward'''
+            layer = next(el for el in reversed(clouds) if el[2] > 2)
+            clouds.remove(layer)
+        elif len(clouds) < 3 and any(el[1] - el[0] > gfs_limit + 500 for el in clouds):
+            '''we can split a gfs cloud layer that is thicker than max XP cloud layer limit'''
+            idx, layer = next((i, v) for i, v in enumerate(clouds) if v[1] - v[0] > gfs_limit + 500)
+            l1 = [layer[0], layer[0] + gfs_limit, layer[2]]
+            l2 = [layer[0] + gfs_limit + 1, layer[1], layer[2]]
+            if idx == 0:
+                if c.above_cloud_layers(clouds, alt) and layer[2] > 4:
+                    clouds[0] = l2  # we don't need the lower slice
+                else:
+                    if len(clouds) > 1:
+                        clouds.append(clouds[-1])
+                        clouds[1] = l2
+                    else:
+                        clouds.append(l2)
+                    clouds[0] = l1
+            else:
+                clouds[1] = l1
+                clouds.append(l2)
+
+        return clouds
+
+    @staticmethod
+    def evaluate_clouds_redrawing(clouds: list, xp_clouds: list, alt: float):
+        """returns a list of layers to send to xplane if redraw if necessary"""
+        print(f"evaluate redraw")
+        for i, layer in enumerate(clouds):
+            base, top, cover = layer
+            distance = abs(base - alt)
+            print(f"layer {i}: base {base}, cover {cover}, xp: {xp_clouds[i]['bottom'].value}, {xp_clouds[i]['coverage'].value}")
+            if (not c.isclose(xp_clouds[i]['bottom'].value, base, distance * 0.1)
+                    or cover != xp_clouds[i]['coverage'].value):
+                print(f"REDRAW")
+                return True
+            print(f"OK")
+        return False
+
+
+    @staticmethod
+    def is_overcasted(clouds: list) -> bool:
+        return any(el[2] > 4 for el in clouds)
+
+    @staticmethod
+    def get_first_OVC_layer(clouds) -> tuple:
+        return next((i, v) for i, v in enumerate(clouds) if v[2] > 4)
+
+    @staticmethod
+    def above_cloud_layers(clouds: list, alt: float, xp_clouds: list = None) -> bool:
+        max_clouds = max((el[1] for el in clouds if el[2] > 1), default=0)  # do not consider CIRRUS
+        if xp_clouds:
+            max_xp = max((xp_clouds[i]['top'].value for i in range(3) if xp_clouds[i]['coverage'].value > 1), default=0)
+            max_clouds = max(max_clouds, max_xp)
+        return False if not len(clouds) else alt > max_clouds + 500
+
+    @staticmethod
+    def copy_gfs_clouds(layers: list) -> list:
+        """needed to avoid to change original list changing the copy"""
+        return [] if not len(layers) else [[e[0], e[1], e[2]] for e in layers if e[0] > 0 and e[1] > 0 and e[2] > 0]

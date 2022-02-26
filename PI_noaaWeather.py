@@ -67,6 +67,18 @@ class Weather:
         self.data = data
         self.lastMetarStation = False
 
+        self.opt_clouds = {
+            'mode': 'NA',
+            'gfs_clouds': False,
+            'metar_clouds': False,
+            'OVC': False,
+            'above_clouds': False,
+            'layers': [],
+            'cycles': 0,
+            'redraw': False,
+            'total_redraws': 0
+        }
+
         '''
         Bind datarefs
         '''
@@ -441,7 +453,111 @@ class Weather:
 
         return layer
 
+    def setCloudsOpt(self, ts: float):
+        """Takes Cloud layers information from both GFS and nearest METAR
+        Optimises GFS layers, tries to merge with METAR layers if available
+        Manages XP layers and redraw based on aircraft altitude (opt. option enabled)
+        At high altitude (over clouds layers) uses GFS more than METAR to limit redraws"""
+
+        self.opt_clouds['mode'] = 'Optimised'
+        self.opt_clouds['gfs_clouds'] = False
+        self.opt_clouds['metar_clouds'] = False
+        self.opt_clouds['OVC'] = False
+        self.opt_clouds['above_clouds'] = False
+        self.opt_clouds['redraw'] = False
+        self.opt_clouds['layers'] = []
+
+        clouds = []
+
+        '''XP cloud cover definition'''
+        xpClouds = self.conf.xpClouds
+
+        if 'clouds' in self.weatherData['gfs']:
+            '''getting GFS cloud layers'''
+            print(f"GFS Clouds: {self.weatherData['gfs']['clouds']}")
+            clouds = c.optimise_gfs_clouds(self.weatherData['gfs']['clouds'])
+            print(f"OPT. GFS Clouds: {clouds}")
+            self.opt_clouds['gfs_clouds'] = True
+
+        '''evaluate flight situation'''
+        self.opt_clouds['OVC'] = c.is_overcasted(clouds)
+        self.opt_clouds['above_clouds'] = c.above_cloud_layers(clouds, self.alt, self.clouds)
+        if (not (c.above_cloud_layers(clouds, self.alt, self.clouds)
+                 and (c.is_overcasted(clouds) or len(clouds) > 1))) and 'metar' in self.weatherData:
+            '''evaluate METAR clouds'''
+            metar = self.weatherData['metar']
+            print(f"METAR {metar['icao']}: {metar['metar']}")
+            self.opt_clouds['metar_clouds'] = True
+
+            if ('distance' in metar and metar['distance'] < self.conf.metar_distance_limit
+                    and 'clouds' in metar and len(metar['clouds'])):
+                '''delete gfs layers below lower metar layer'''
+                clouds = [el for el in clouds if el[0] > metar['clouds'][0][0]]
+                for cloud in metar['clouds']:
+                    '''add metar cloud layers'''
+                    base, cover, extra = cloud
+                    cover, thickness = xpClouds[cover][0], xpClouds[cover][1]
+                    if not len(clouds) or all(not c.isclose(el[0], base, 500) for el in clouds):
+                        clouds.append([base, base + thickness, cover])
+                    else:
+                        gfs_layer = next((el for el in clouds if c.isclose(el[0], base, 500)), None)
+                        if gfs_layer and not c.above_cloud_layers(clouds, self.alt):
+                            '''blending with gfs layers'''
+                            gfs_layer[0] = base
+                            gfs_layer[2] = cover
+
+            '''sorting layers'''
+            clouds = sorted(clouds, key=lambda x: x[0])
+
+        if len(clouds):
+            '''choosing layers based on situation'''
+            clouds = c.manage_clouds_layers(clouds, self.alt, ts)
+            self.opt_clouds['layers'] = [[int(el[0]/100), int(el[1]/100), el[2]] for el in clouds]
+            print(f"layers: {self.opt_clouds['layers']}")
+
+        '''evaluating if it is necessary to redraw layers (prefering minimum redraw to layer precision)'''
+        self.opt_clouds['cycles'] += 1
+        redraw = c.evaluate_clouds_redrawing(clouds, self.clouds, self.alt)
+        if redraw:
+            self.opt_clouds['redraw'] = True
+            self.opt_clouds['total_redraws'] += 1
+            for i in range(3):
+                if len(clouds) > i:
+                    print(f"redrawing...")
+                    print(f"layer {i}, XP: {self.clouds[i]['bottom'].value}, {self.clouds[i]['top'].value}, {self.clouds[i]['coverage'].value}")
+                    base, top, cover = clouds[i]
+                    self.clouds[i]['bottom'].value = base
+                    self.clouds[i]['top'].value = top
+                    self.clouds[i]['coverage'].value = cover
+                else:
+                    self.clouds[i]['coverage'].value = 0
+
+        # Update datarefs
+        bases = []
+        tops = []
+        covers = []
+
+        for layer in clouds:
+            base, top, cover = layer
+            bases.append(base)
+            tops.append(top)
+            covers.append(cover)
+
+        self.data.cloud_base.value = bases
+        self.data.cloud_top.value = tops
+        self.data.cloud_cover.value = covers
+
+        self.weatherData['cloud_info'] = self.opt_clouds
+
     def setClouds(self):
+
+        self.opt_clouds['mode'] = 'Legacy'
+        self.opt_clouds['gfs_clouds'] = False
+        self.opt_clouds['metar_clouds'] = False
+        self.opt_clouds['OVC'] = False
+        self.opt_clouds['above_clouds'] = False
+        self.opt_clouds['redraw'] = False
+        self.opt_clouds['layers'] = []
 
         if 'clouds' in self.weatherData['gfs']:
             gfsClouds = self.weatherData['gfs']['clouds']
@@ -550,6 +666,8 @@ class Weather:
         nClouds = len(setClouds)
 
         if not self.data.override_clouds.value:
+            self.opt_clouds['cycles'] += 1
+            self.opt_clouds['layers'] = [[int(el[0] / 100), int(el[1] / 100), el[2]] for el in setClouds]
             for i in range(3):
                 if nClouds > i:
                     base, top, cover = setClouds[i]
@@ -573,6 +691,8 @@ class Weather:
         self.data.cloud_base.value = bases
         self.data.cloud_top.value = tops
         self.data.cloud_cover.value = covers
+
+        self.weatherData['cloud_info'] = self.opt_clouds
 
     def setPressure(self, pressure, elapsed):
         c.datarefTransition(self.pressure, pressure, elapsed, 0.005)
@@ -902,6 +1022,14 @@ class PythonInterface:
         XPSetWidgetProperty(self.cloudsCheck, xpProperty_ButtonState, self.conf.set_clouds)
         y -= 20
 
+        # Optimised clouds layers update for liners
+        XPCreateWidget(x + 5, y - 40, x + 20, y - 60, 1, 'Opt. redraw', 0, window, xpWidgetClass_Caption)
+        self.optUpdCheck = XPCreateWidget(x + 110, y - 40, x + 120, y - 60, 1, '', 0, window, xpWidgetClass_Button)
+        XPSetWidgetProperty(self.optUpdCheck, xpProperty_ButtonType, xpRadioButton)
+        XPSetWidgetProperty(self.optUpdCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
+        XPSetWidgetProperty(self.optUpdCheck, xpProperty_ButtonState, self.conf.opt_clouds_update)
+        y -= 20
+
         # Temperature enable
         XPCreateWidget(x + 5, y - 40, x + 20, y - 60, 1, 'Temperature', 0, window, xpWidgetClass_Caption)
         self.tempCheck = XPCreateWidget(x + 110, y - 40, x + 120, y - 60, 1, '', 0, window, xpWidgetClass_Button)
@@ -1151,6 +1279,7 @@ class PythonInterface:
                 self.conf.enabled = XPGetWidgetProperty(self.enableCheck, xpProperty_ButtonState, None)
                 self.conf.set_wind = XPGetWidgetProperty(self.windsCheck, xpProperty_ButtonState, None)
                 self.conf.set_clouds = XPGetWidgetProperty(self.cloudsCheck, xpProperty_ButtonState, None)
+                self.conf.opt_clouds_update = XPGetWidgetProperty(self.optUpdCheck, xpProperty_ButtonState, None)
                 self.conf.set_temp = XPGetWidgetProperty(self.tempCheck, xpProperty_ButtonState, None)
                 self.conf.set_pressure = XPGetWidgetProperty(self.pressureCheck, xpProperty_ButtonState, None)
                 self.conf.set_tropo = XPGetWidgetProperty(self.tropoCheck, xpProperty_ButtonState, None)
@@ -1220,6 +1349,7 @@ class PythonInterface:
         XPSetWidgetProperty(self.enableCheck, xpProperty_ButtonState, self.conf.enabled)
         XPSetWidgetProperty(self.windsCheck, xpProperty_ButtonState, self.conf.set_wind)
         XPSetWidgetProperty(self.cloudsCheck, xpProperty_ButtonState, self.conf.set_clouds)
+        XPSetWidgetProperty(self.optUpdCheck, xpProperty_ButtonState, self.conf.opt_clouds_update)
         XPSetWidgetProperty(self.tempCheck, xpProperty_ButtonState, self.conf.set_temp)
         XPSetWidgetProperty(self.tropoCheck, xpProperty_ButtonState, self.conf.set_tropo)
         XPSetWidgetProperty(self.thermalsCheck, xpProperty_ButtonState, self.conf.set_thermals)
@@ -1356,7 +1486,18 @@ class PythonInterface:
 
             if self.conf.set_surface_layer:
                 s = 'NOT ACTIVE' if not self.weather.surface_wind else 'ACTIVE'
-                sysinfo += [f"Surface wind layer: {s}"]
+                sysinfo += [f"SURFACE WIND LAYER: {s}"]
+
+            if 'cloud_info' in wdata:
+                ci = wdata['cloud_info']
+                if ci['mode'] == 'Optimised':
+                    sysinfo += [f"CLOUD REDRAWING MODE: OPTIMISED"]
+                    sysinfo += [f"   Active layers: gfs: {ci['gfs_clouds']}, metar: {ci['metar_clouds']}, OVC: {ci['OVC']}, Above Clouds: {ci['above_clouds']}"]
+                    sysinfo += [f"   Total cycles: {ci['cycles']}, redrawing: {ci['redraw']}, Total redraws: {ci['total_redraws']}"]
+                else:
+                    sysinfo += [f"CLOUD REDRAWING MODE: LEGACY"]
+                    sysinfo += [f"   Total cycles: {ci['cycles']}"]
+                sysinfo += [f"   XP layers: {ci['layers']}"]
 
         sysinfo += ['--'] * (self.aboutlines - len(sysinfo))
 
@@ -1708,7 +1849,10 @@ class PythonInterface:
 
             # Set clouds
             if self.conf.set_clouds:
-                self.weather.setClouds()
+                if self.conf.opt_clouds_update:
+                    self.weather.setCloudsOpt(ts=ts)
+                else:
+                    self.weather.setClouds()
 
             # Update Dataref data
             self.data.updateData(wdata)
