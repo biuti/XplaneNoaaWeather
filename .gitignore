@@ -2,8 +2,11 @@
 .DS_Store
 .idea
 __pycache__
-noaweather/__pycache__
+*.pkl
 stations.txt
+noaweather/__pycache__
 noaweather/gfs_levels_config.json
 noaweather/cache/
+noaweather/bin/old*
+noaweather/bin/makefiles/
 /venv/
