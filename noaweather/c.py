@@ -315,6 +315,17 @@ class c:
         dataref.value = newval
 
     @staticmethod
+    def float_or_lower(string: str) -> float or str:
+        el = string.rsplit('.')
+        try:
+            return float('.'.join(el[:2]))
+        except ValueError:
+            try:
+                return float(el[0])
+            except ValueError:
+                return string.lower()
+
+    @staticmethod
     def limit(value, max=None, min=None):
         if max is not False and max is not None and value > max:
             return max

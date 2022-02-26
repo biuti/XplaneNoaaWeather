@@ -9,17 +9,12 @@ of the License, or any later version.
 """
 
 import os
-try:
-    import cPickle
-except ImportError:
-    import pickle as cPickle
-import sys
+import platform
 import subprocess
 import json
-try:
-    from c import c
-except ImportError:
-    from . import c
+import pickle as cPickle
+
+from . import c
 
 
 class Conf:
@@ -40,6 +35,8 @@ class Conf:
                     Refer to the following list for millibar Flight Level conversion:'''
 
     def __init__(self, xplane_path=False):
+        """The plugin uses wgrib2 utility to decode GFS files
+        - Compiled version: v3.1.0"""
 
         if xplane_path:
             self.syspath = xplane_path
@@ -64,40 +61,40 @@ class Conf:
         # self.metar_agl_limit = 10
 
         # Selects the apropiate wgrib binary
-        platform = sys.platform
+        self.platform, _, self.version = [c.float_or_lower(el) for el in platform.uname()[:3]]
         self.spinfo = False
+        self.wgrib2bin = None
 
-        self.win32 = False
+        wgbin = False
+        if self.platform == 'darwin' and self.version >= 18.0:  # Mojave and above
+            # 18.0 Mojave (MacOS 10.14)
+            # 19.0 Catalina (MacOS 10.15)
+            # 20.0 Big Sur (MacOS 16.0)
+            # 21.0 Monterey (MacOS 12.0)
+            wgbin = 'OSX11wgrib2'  # compiled in MacOS 11.6.3 Big Sur
 
-        if platform == 'darwin':
-            sysname, nodename, release, version, machine = os.uname()
-            if float(release[0:4]) > 10.6:
-                wgbin = 'OSX106wgrib2'
-            else:
-                wgbin = 'OSX106wgrib2'
-        elif platform == 'win32':
-            self.win32 = True
-
+        elif self.platform == 'windows' and self.version >= 7.0:  # Windows 7 and above
+            wgbin = 'WIN32wgrib2.exe'  # compiled in windows 11 using cygwin
             # Set environ for cygwin
             os.environ['CYGWIN'] = 'nodosfilewarning'
-            wgbin = 'WIN32wgrib2.exe'
-
             # Hide wgrib window for windows users
             self.spinfo = subprocess.STARTUPINFO()
             self.spinfo.dwFlags |= 1  # STARTF_USESHOWWINDOW
             self.spinfo.wShowWindow = 0  # 0 or SW_HIDE 0
 
-        else:
-            # Linux?
-            wgbin = 'linux-glib2.5-i686-wgrib2'
+        elif self.platform == 'linux' and self.version >= 4.0:  # Kernel 4.0 (Ubuntu 16.04) and above
+            # Linux
+            wgbin = 'linux-wgrib2'  # compiled in Ubuntu 20.04 LTS
 
-        self.wgrib2bin = os.sep.join([self.respath, 'bin', wgbin])
+        if wgbin:
+            self.wgrib2bin = os.sep.join([self.respath, 'bin', wgbin])
+            # Enforce execution rights
+            try:
+                os.chmod(self.wgrib2bin, 0o775)
+            except:
+                pass
 
-        # Enforce execution rights
-        try:
-            os.chmod(self.wgrib2bin, 0o775)
-        except:
-            pass
+        self.meets_wgrib2_requirements = wgbin is not False
 
     def setDefaults(self):
         """Default settings"""
@@ -334,7 +331,7 @@ class Conf:
     def load_gfs_levels(self, json_file):
         """Load gfs levels configuration from a json file"""
 
-        print("Trying to loca gfs jsonfile {}".format(json_file))
+        print("Trying to locate gfs jsonfile {}".format(json_file))
         with open(json_file, 'r') as f:
             try:
                 return json.load(f)['config']

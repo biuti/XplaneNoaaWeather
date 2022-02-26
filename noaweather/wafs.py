@@ -66,10 +66,10 @@ class WAFS(GribWeatherSource):
 
         https://aviationweather.gov/turbulence/help?page=plot
 
-        "All graphics display atmospheric turbulence intensity as energy (or eddy) dissipation rate to the
+        All graphics display atmospheric turbulence intensity as energy (or eddy) dissipation rate to the
         1/3 power, i.e. EDR =e1/3 where e is the eddy dissipation rate in units of m2/s3). Typically EDR
         varies from close to 0, "smooth", to near 1, "extreme for most aircraft types. The display colors
-        of EDR range from white near 0 to violet near 1."
+        of EDR range from white near 0 to violet near 1.
         """
 
         args = ['-s',
@@ -82,36 +82,33 @@ class WAFS(GribWeatherSource):
         kwargs = {'stdout': subprocess.PIPE}
 
         if self.conf.spinfo:
+            '''windows'''
             kwargs.update({'startupinfo': self.conf.spinfo, 'shell': True})
-        p = subprocess.Popen([self.conf.wgrib2bin] + args, **kwargs)
 
+        p = subprocess.Popen([self.conf.wgrib2bin] + args, **kwargs)
         it = iter(p.stdout)
 
         cat = {}
         for line in it:
-            print(line)
-            if sys.version_info.major == 2:
-                sline = line.split(':')
-            else:
-                sline = line.decode('utf-8').split(':')
-            m = self.RE_PRAM.search(sline[3])
+            # print(line)
+            sline = line.decode('utf-8').split(':')
 
-            parmcat, parm = m.groups()
-            value = float(sline[7].split(',')[-1:][0][4:-1])
-
-            if parmcat == '19' and parm == '30':
+            if sline[3] == 'EDPARM':
                 # Eddy Dissipation Param
                 alt = int(c.mb2alt(float(sline[4][:-3])))
+                value = float(sline[7].split(',')[-1:][0][4:-1])
                 cat[alt] = value
-            if parmcat == '19' and parm == '37':
+            elif sline[3] == 'ICESEV':
                 # Icing severity
                 pass
-            if parmcat == '6' and parm == '25':
+            elif sline[3] == 'CBHE':
                 # Horizontal Extent of Cumulonimbus (CB) %
                 pass
-            if parmcat == '3' and parm == '3':
-                # Cumulonimbus BASE or TOPS
-                # ICAO Standard Atmosphere Reference height in METERS
+            elif sline[3] == 'ICAHT' and 'base' in sline[4]:
+                # Cumulonimbus (CB) base height (meters)
+                pass
+            elif sline[3] == 'ICAHT' and 'top' in sline[4]:
+                # Cumulonimbus (CB) top height (meters)
                 pass
 
         turbulence = []

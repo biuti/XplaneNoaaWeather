@@ -1303,45 +1303,51 @@ class PythonInterface:
                         clouds += '%03d|%s%s ' % (alt * 3.28084 / 100, coverage, type)
                     sysinfo += [clouds]
 
-            if 'gfs' in wdata:
-                if 'winds' in wdata['gfs']:
-                    sysinfo += ['GFS WIND LAYERS: %i FL|HDG|KT|TEMP|DEV' % (len(wdata['gfs']['winds']))]
-                    wlayers = ''
-                    i = 0
-                    for layer in wdata['gfs']['winds']:
-                        i += 1
-                        alt, hdg, speed, extra = layer
-                        wlayers += '  F%03d|%03d|%02dkt|%02d|%02d ' % (
-                            alt * 3.28084 / 100, hdg, speed, extra['temp'] - 273.15, extra['dev'] - 273.15)
-                        if i > 3:
-                            i = 0
-                            sysinfo += [wlayers]
-                            wlayers = ''
-                    if i > 0:
-                        sysinfo += [wlayers]
-                    sysinfo += [f"Surface Wind Layer: {self.weather.surface_wind}"]
+            if not self.conf.meets_wgrib2_requirements:
+                '''not a compatible OS with wgrib2'''
+                sysinfo += ['',
+                            '*** *** WGRIB2 decoder not available for your OS version *** ***',
+                            'Windows 7 or above, MacOS 10.14 or above, Linux kernel 4.0 or above.',
+                            ''
+                            ]
+            else:
+                if 'gfs' in wdata:
+                    if 'winds' in wdata['gfs']:
+                        sysinfo += ['', 'GFS WIND LAYERS: %i FL|HDG|KT|TEMP|DEV' % (len(wdata['gfs']['winds']))]
+                        wlayers = ''
+                        i = 0
+                        for layer in wdata['gfs']['winds']:
+                            i += 1
+                            alt, hdg, speed, extra = layer
+                            wlayers += '   F%03d|%03d|%02dkt|%02d|%02d' % (
+                                alt * 3.28084 / 100, hdg, speed, extra['temp'] - 273.15, extra['dev'] - 273.15)
+                            if i > 3:
+                                i = 0
+                                sysinfo += [wlayers]
+                                wlayers = ''
 
-                if 'tropo' in wdata['gfs']:
-                    alt, temp, dev = wdata['gfs']['tropo'].values()
-                    if alt and temp and dev:
-                        sysinfo += ['Tropo Limit: %05dm temp %02dC ISA Dev %02dC' % (alt, temp - 273.15, dev - 273.15)]
+                    if 'clouds' in wdata['gfs']:
+                        clouds = 'GFS CLOUDS  FLBASE|FLTOP|COVER'
+                        for layer in wdata['gfs']['clouds']:
+                            base, top, cover = layer
+                            if base > 0:
+                                clouds += '   %03d|%03d|%d%%' % (base * 3.28084 / 100, top * 3.28084 / 100, cover)
+                        sysinfo += [clouds]
 
-                if 'clouds' in wdata['gfs']:
-                    clouds = 'GFS CLOUDS  FLBASE|FLTOP|COVER'
-                    for layer in wdata['gfs']['clouds']:
-                        top, bottom, cover = layer
-                        if top > 0:
-                            clouds += '   %03d|%03d|%d%% ' % (top * 3.28084 / 100, bottom * 3.28084 / 100, cover)
-                    sysinfo += [clouds]
+                    if 'tropo' in wdata['gfs']:
+                        alt, temp, dev = wdata['gfs']['tropo'].values()
+                        if alt and temp and dev:
+                            sysinfo += ['TROPO LIMIT: %05dm temp %02dC ISA Dev %02dC'
+                                        % (alt, temp - 273.15, dev - 273.15)]
 
-            if 'wafs' in wdata:
-                tblayers = ''
-                for layer in wdata['wafs']:
-                    tblayers += f"   {round(layer[0] * 3.28084 / 100)}|{round(layer[1], 2)}" \
-                                f"{'*' if layer[1]>=self.conf.max_turbulence else ''}"
+                if 'wafs' in wdata:
+                    tblayers = ''
+                    for layer in wdata['wafs']:
+                        tblayers += f"   {round(layer[0] * 3.28084 / 100)}|{round(layer[1], 2)}" \
+                                    f"{'*' if layer[1]>=self.conf.max_turbulence else ''}"
 
-                sysinfo += [f"WAFS TURBULENCE ({len(wdata['wafs'])}): FL|SEV (max {self.conf.max_turbulence}) ",
-                            tblayers]
+                    sysinfo += [f"WAFS TURBULENCE ({len(wdata['wafs'])}): FL|SEV (max {self.conf.max_turbulence}) ",
+                                tblayers]
 
             if 'thermals' in wdata:
                 t = wdata['thermals']

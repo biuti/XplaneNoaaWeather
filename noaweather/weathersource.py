@@ -97,6 +97,9 @@ class GribWeatherSource(WeatherSource):
         if not self.conf.download:
             return
 
+        if not self.conf.meets_wgrib2_requirements:
+            return
+
         if self.download_wait:
             self.download_wait -= elapsed
             return

@@ -89,14 +89,15 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             return False
 
         # Parse gfs and wafs
-        if gfs.last_grib:
-            grib_path = os.path.sep.join([gfs.cache_path, gfs.last_grib])
-            response['gfs'] = gfs.parse_grib_data(grib_path, lat, lon)
-            response['info']['gfs_cycle'] = gfs.last_grib
-        if wafs.last_grib:
-            grib_path = os.path.sep.join([wafs.cache_path, wafs.last_grib])
-            response['wafs'] = wafs.parse_grib_data(grib_path, lat, lon)
-            response['info']['wafs_cycle'] = wafs.last_grib
+        if conf.meets_wgrib2_requirements:
+            if gfs.last_grib:
+                grib_path = os.path.sep.join([gfs.cache_path, gfs.last_grib])
+                response['gfs'] = gfs.parse_grib_data(grib_path, lat, lon)
+                response['info']['gfs_cycle'] = gfs.last_grib
+            if wafs.last_grib:
+                grib_path = os.path.sep.join([wafs.cache_path, wafs.last_grib])
+                response['wafs'] = wafs.parse_grib_data(grib_path, lat, lon)
+                response['info']['wafs_cycle'] = wafs.last_grib
 
         # Parse metar
         apt = metar.get_closest_station(metar.connection, lat, lon)
@@ -206,10 +207,13 @@ if __name__ == "__main__":
     metar = Metar(conf)
     wafs = WAFS(conf)
 
+    workers = [metar] if not conf.meets_wgrib2_requirements else [gfs, metar, wafs]
     # Init worker thread
-    worker = Worker([gfs, metar, wafs], conf.parserate)
+    worker = Worker(workers, conf.parserate)
     worker.start()
 
+    if not conf.meets_wgrib2_requirements:
+        print('*** OS does not meet minimum requirements. GFS data disabled ***')
     print('Server started.')
 
     # Server loop
