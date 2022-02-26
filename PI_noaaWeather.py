@@ -918,9 +918,9 @@ class PythonInterface:
         self.conf = Conf(XPLMGetSystemPath(self.syspath)[:-1])
         print("Conf is {}".format(self.conf))
 
-        self.Name = "noaWeather - " + self.conf.__VERSION__
-        self.Sig = "noaWeather.joanpc.PI"
-        self.Desc = "NOA GFS in x-plane"
+        self.Name = "NOAA Weather - " + self.conf.__VERSION__
+        self.Sig = "noaaweather.xppython3"
+        self.Desc = "NOAA GFS Weather Data in X-Plane"
 
         self.latdr = EasyDref('sim/flightmodel/position/latitude', 'double')
         self.londr = EasyDref('sim/flightmodel/position/longitude', 'double')
