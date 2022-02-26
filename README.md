@@ -2,12 +2,14 @@
 [XPGFS] Xplane NOAA Global Forecast weather
 ===========================================
 
-I created a new version of NOAAWeather by [Joan](https://github.com/joanpc) and ported to python3 by [pbuckner](https://github.com/pbuckner).
+I created a new version of NOAAWeather originally created by [Joan](https://github.com/joanpc) and ported to python3 by [pbuckner](https://github.com/pbuckner).
 
 You can find original version [here](http://x-plane.joanpc.com/plugins/xpgfs-noaa-weather).
 
 And here the version of [pbuckner](https://github.com/pbuckner) ported to Python 3.x:
 https://github.com/pbuckner/XplaneNoaaWeather
+
+**You cannot have both python 3 and python 2 interfaces and plugins!**
 
 ============
 Features
@@ -17,24 +19,30 @@ Downloads METAR and Forecast data from NOAA servers and sets x-plane weather
 using forecasted and reported data for the current time and world coordinates.
 
 - Updated winds and clouds layers
-- Changes ISA atmosphere using GFS data at tropo limit
-- Adds also uplift and wind shear effect in stormy conditions
+- Changes ISA atmosphere using GFS Tropo limit data
+- Changes runway friction based on weather conditions
+- Adds uplift and wind shear effect in stormy conditions
 - Convection "bumpiness" using thermal XPlane parameters in instable conditions
 - Added a surface layer to get correct ATIS informations (nearest METAR)
+- Added a 'Optimised Redraw' mode to minimise clouds disappearing and recalculation, especially at cruise level or when there is an OVC layer
 
 ============
 Requirements
 ============
-
-pbuckner's XPPython3 plugin:
+- MacOS 10.14, Windows 7 and Linux kernel 4.0 and above
+- X-Plane 11 and above
+- pbuckner's XPPython3 plugin:
 https://xppython3.readthedocs.io/en/latest/index.html
-
-Python: 3.9
+- Python 3.6 and above:
 http://www.python.org/getit/
 
-Wgrib2: the plugin comes with wgrib2 for common os like osx, win32 and
-linux i686 glib2.5. Wgrib uses cygwin on windows, the .dll is provided on the
-bin folder and there's no need to install-it.
+**You need to download correct XPPython3 version according to your Python3 installed version!
+Read instructions.**
+
+**Wgrib2**: 
+the plugin has been built in MacOS Big Sur, Windows 11 and Ubuntu 20.04 LTS.
+Wgrib uses cygwin on windows, the .dll is provided on the
+bin folder and there's no need to install it.
 
 ============
 Installation
@@ -68,7 +76,7 @@ url:           http://sourceforge.net/projects/opengrads/
 
 XPlane:
 -------
-datarefs:      http://www.xsquawkbox.net/xpsdk/docs/DataRefs.html
+datarefs:      https://developer.x-plane.com/datarefs/
 
 Some info on what x-plane does with metar data:
                http://code.google.com/p/fjccuniversalfmc/wiki/Winds
