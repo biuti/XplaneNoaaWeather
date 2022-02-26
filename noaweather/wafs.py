@@ -8,17 +8,12 @@ as published by the Free Software Foundation; either version 2
 of the License, or any later version.
 """
 
-import sys
 import subprocess
-from datetime import datetime, timedelta
 import re
 
-try:
-    from weathersource import GribWeatherSource
-    from c import c
-except ImportError:
-    from .weathersource import GribWeatherSource
-    from .c import c
+from datetime import datetime, timedelta
+from .weathersource import GribWeatherSource
+from .c import c
 
 
 class WAFS(GribWeatherSource):
@@ -112,10 +107,8 @@ class WAFS(GribWeatherSource):
                 pass
 
         turbulence = []
-        if sys.version_info.major == 2:
-            turb_items = cat.iteritems()
-        else:
-            turb_items = iter(cat.items())
+        turb_items = iter(cat.items())
+
         for key, value in turb_items:
             '''tweaking turbulence intensity using a factor'''
             turbulence.append([key, value * 8])

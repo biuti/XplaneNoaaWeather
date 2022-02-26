@@ -11,35 +11,30 @@ modify it under the terms of the GNU General Public License
 as published by the Free Software Foundation; either version 2
 of the License, or any later version.
 """
-import os, sys, signal
-try:
-    from conf import Conf
-    from gfs import GFS
-    from wafs import WAFS
-    from metar import Metar
-    from weathersource import Worker
-    from c import c
-    import cPickle
-    import SocketServer
-except ImportError:
-    try:
-        from .conf import Conf
-    except ImportError:
-        __package__ = 'noaweather'
-        this_dir = os.path.dirname(os.path.join(os.getcwd(), __file__))
-        sys.path.append(os.path.join(this_dir, '..'))
-        from .conf import Conf
 
-    from .gfs import GFS
-    from .c import c
-    import pickle as cPickle
-    import socketserver as SocketServer
-
+import os
+import sys
+import signal
 import socket
 import time
-
-from datetime import datetime
 import threading
+import pickle as cPickle
+import socketserver as SocketServer
+
+try:
+    from .conf import Conf
+except ImportError:
+    __package__ = 'noaweather'
+    this_dir = os.path.dirname(os.path.join(os.getcwd(), __file__))
+    sys.path.append(os.path.join(this_dir, '..'))
+    from .conf import Conf
+
+from .gfs import GFS
+from .wafs import WAFS
+from .c import c
+from .metar import Metar
+from .weathersource import Worker
+from datetime import datetime
 
 
 class LogFile:

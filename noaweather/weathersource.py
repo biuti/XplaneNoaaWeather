@@ -11,23 +11,16 @@ of the License, or any later version.
 import io
 import threading
 import ssl
-try:
-    from urllib2 import Request, urlopen, URLError
-except ImportError:
-    from urllib.request import Request, urlopen, URLError
 import zlib
 import os
 import subprocess
 import sys
+
+from urllib.request import Request, urlopen, URLError
 from datetime import datetime, timedelta
 from tempfile import TemporaryFile
-
-try:
-    from util import util
-    from conf import Conf
-except ImportError:
-    from .util import util
-    from .conf import Conf
+from .util import util
+from .conf import Conf
 
 
 class WeatherSource(object):
@@ -231,7 +224,6 @@ class GribDownloader(object):
     def decompress_grib(path_in, path_out, wgrib2bin, spinfo=False):
         """Unpacks grib file using wgrib2 binary
         """
-
         args = [wgrib2bin, path_in, '-set_grib_type', 'simple', '-grib_out', path_out]
         kwargs = {'stdout': sys.stdout, 'stderr': sys.stderr}
 

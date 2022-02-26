@@ -11,11 +11,9 @@ as published by the Free Software Foundation; either version 2
 of the License, or any later version.
 """
 import socket
-try:
-    import cPickle
-except ImportError:
-    import pickle as cPickle
+import pickle as cPickle
 import sys
+
 from pprint import pprint
 
 # tests requests
@@ -35,10 +33,7 @@ HOST, PORT = "127.0.0.1", 8950
 
 for request in tests:
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    if sys.version_info.major == 2:
-        sock.sendto(request, (HOST, PORT))
-    else:
-        sock.sendto(request.encode('utf-8'), (HOST, PORT))
+    sock.sendto(request.encode('utf-8'), (HOST, PORT))
     received = sock.recv(1024 * 8)
 
     print("Request: %s \nResponse:" % (request))

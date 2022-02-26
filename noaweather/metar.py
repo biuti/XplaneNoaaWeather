@@ -13,22 +13,13 @@ import os
 import sqlite3
 import math
 import sys
-from datetime import datetime, timedelta
 import time
-try:
-    from util import util
-except ImportError:
-    from . util import util
 
-try:
-    from c import c
-    from weathersource import WeatherSource
-    from weathersource import GribDownloaderError
-    from weathersource import GribDownloader
-    from weathersource import AsyncTask
-except ImportError:
-    from . c import c
-    from . weathersource import WeatherSource, GribDownloaderError, GribDownloader, AsyncTask
+from datetime import datetime, timedelta
+from .util import util
+
+from .c import c
+from .weathersource import WeatherSource, GribDownloaderError, GribDownloader, AsyncTask
 
 
 class Metar(WeatherSource):

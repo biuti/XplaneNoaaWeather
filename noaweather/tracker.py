@@ -10,23 +10,17 @@ modify it under the terms of the GNU General Public License
 as published by the Free Software Foundation; either version 2
 of the License, or any later version.
 """
-try:
-    import thread
-except ImportError:
-    import _thread as thread
 
-import ssl
-try:
-    from urllib2 import Request, urlopen
-    from urllib import urlencode
-except ImportError:
-    from urllib.request import Request, urlopen
-    from urllib.parse import urlencode
+import _thread as thread
 import platform
 import json
 import struct
 import string
 import random
+import ssl
+
+from urllib.request import Request, urlopen
+from urllib.parse import urlencode
 
 from XPLMUtilities import *
 

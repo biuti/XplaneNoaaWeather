@@ -41,15 +41,16 @@ from XPWidgetDefs import *
 from XPWidgets import *
 from XPStandardWidgets import *
 
+# XPPython3 plugin
 import XPPython3.xp as xp
+
 import pickle
 import socket
 import threading
 import subprocess
 import os
-import sys
-from datetime import datetime
 
+from datetime import datetime
 from noaweather import EasyDref, Conf, c, EasyCommand, Tracker
 
 
@@ -162,10 +163,7 @@ class Weather:
 
     def weatherClientSend(self, msg):
         if self.weatherClientThread:
-            if sys.version_info.major == 2:
-                self.sock.sendto(msg, ('127.0.0.1', self.conf.server_port))
-            else:
-                self.sock.sendto(msg.encode('utf-8'), ('127.0.0.1', self.conf.server_port))
+            self.sock.sendto(msg.encode('utf-8'), ('127.0.0.1', self.conf.server_port))
 
     def startWeatherServer(self):
         DETACHED_PROCESS = 0x00000008
@@ -500,7 +498,8 @@ class Weather:
                         top = base + c.limit(gfsTop - gfsBase, maxCloud, minCloud)
                         break
 
-                if lastBase and top > lastBase: top = lastBase
+                if lastBase and top > lastBase:
+                    top = lastBase
                 lastBase = base
 
                 setClouds.append([base, top, cover])
@@ -530,7 +529,8 @@ class Weather:
                     else:
                         top = base + c.limit(top - base, maxCloud, minCloud)
 
-                    if lastBase > top: top = lastBase
+                    if lastBase > top:
+                        top = lastBase
                     setClouds.append([base, top, cover])
                     lastBase = base
 
@@ -850,7 +850,7 @@ class PythonInterface:
             if not self.aboutWindow:
                 self.CreateAboutWindow(221, 640)
                 self.aboutWindow = True
-            elif (not XPIsWidgetVisible(self.aboutWindowWidget)):
+            elif not XPIsWidgetVisible(self.aboutWindowWidget):
                 XPShowWidget(self.aboutWindowWidget)
 
         elif menuItem == 2:
@@ -1106,7 +1106,7 @@ class PythonInterface:
 
     def aboutWindowHandler(self, inMessage, inWidget, inParam1, inParam2):
         # About window events
-        if (inMessage == xpMessage_CloseButtonPushed):
+        if inMessage == xpMessage_CloseButtonPushed:
             if self.aboutWindow:
                 XPDestroyWidget(self.aboutWindowWidget, 1)
                 self.aboutWindow = False
@@ -1127,14 +1127,14 @@ class PythonInterface:
             return 1
 
         # Handle any button pushes
-        if (inMessage == xpMsg_PushButtonPressed):
+        if inMessage == xpMsg_PushButtonPressed:
 
             if (inParam1 == self.aboutVisit):
                 from webbrowser import open_new
                 open_new('http://x-plane.joanpc.com/')
                 self.tracker.track('Homepage', 'homepage button')
                 return 1
-            if (inParam1 == self.donate):
+            if inParam1 == self.donate:
                 from webbrowser import open_new
                 open_new('https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=GH6YPFGSS5UEU')
                 self.tracker.track('donate', 'donate button')
@@ -1466,7 +1466,7 @@ class PythonInterface:
                 XPHideWidget(self.metarWindowWidget)
                 return 1
         if inMessage == xpMsg_PushButtonPressed:
-            if (inParam1 == self.metarQueryButton):
+            if inParam1 == self.metarQueryButton:
                 self.metarQuery()
                 return 1
         return 0
@@ -1485,10 +1485,7 @@ class PythonInterface:
 
         if self.metarWindow:
             # Filter metar text
-            if sys.version_info.major == 2:
-                metar = filter(lambda x: x in self.conf.printableChars, msg['metar']['metar'])
-            else:
-                metar = ''.join(filter(lambda x: x in self.conf.printableChars, msg['metar']['metar']))
+            metar = ''.join(filter(lambda x: x in self.conf.printableChars, msg['metar']['metar']))
             XPSetWidgetDescriptor(self.metarQueryOutput, '%s %s' % (msg['metar']['icao'], metar))
 
     def metarQueryWindowToggle(self):
@@ -1593,11 +1590,8 @@ class PythonInterface:
 
                 lfsize = os.path.getsize(filepath)
                 lf = open(filepath, 'r')
-                if sys.version_info.major == 2:
-                    lf.seek(c.limit(1024 * 6, lfsize) * -1, 2)
-                else:
-                    lf.seek(0, os.SEEK_END)
-                    lf.seek(lf.tell() - c.limit(1024 * 6, lfsize), os.SEEK_SET)
+                lf.seek(0, os.SEEK_END)
+                lf.seek(lf.tell() - c.limit(1024 * 6, lfsize), os.SEEK_SET)
                 f.write('\n--- %s ---\n\n' % logfile)
                 for line in lf.readlines():
                     f.write(line.strip('\r'))
@@ -1626,7 +1620,7 @@ class PythonInterface:
 
         # tracker
         self.last_track += elapsedMe
-        if (self.last_track > 60 * 15):
+        if self.last_track > 60 * 15:
             self.tracker.track('running/FL%d0' % (c.m2ft(self.altdr.value) / 1000), 'running')
             self.last_track = 0
 
@@ -1648,6 +1642,7 @@ class PythonInterface:
 
         # Store altitude
         self.weather.alt = self.altdr.value
+
         wdata = self.weather.weatherData
 
         ''' Return if there's no weather data'''
@@ -1675,8 +1670,8 @@ class PythonInterface:
 
             if 'precipitation' in wdata['metar']:
                 p = wdata['metar']['precipitation']
-                for precp in p:
-                    precip, wet, is_patchy = c.metar2xpprecipitation(precp, p[precp]['int'], p[precp]['int'], p[precp]['recent'])
+                for el in p:
+                    precip, wet, is_patchy = c.metar2xpprecipitation(el, p[el]['int'], p[el]['int'], p[el]['recent'])
 
                     if precip is not False:
                         rain = precip
@@ -1726,8 +1721,8 @@ class PythonInterface:
                 self.weather.setPressure(wdata['gfs']['pressure'], elapsedMe)
 
         # Set winds
-        if not self.data.override_winds.value and self.conf.set_wind and 'winds' in wdata['gfs'] and len(
-                wdata['gfs']['winds']):
+        if (not self.data.override_winds.value and self.conf.set_wind
+                and 'winds' in wdata['gfs'] and len(wdata['gfs']['winds'])):
             self.weather.setWinds(wdata['gfs']['winds'], elapsedMe)
 
         # Set Atmosphere

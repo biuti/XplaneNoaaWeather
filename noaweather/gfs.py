@@ -11,15 +11,10 @@ as published by the Free Software Foundation; either version 2
 of the License, or any later version.
 """
 
-import sys
 import subprocess
 
-try:
-    from weathersource import GribWeatherSource
-    from c import c
-except ImportError:
-    from .weathersource import GribWeatherSource
-    from .c import c
+from .weathersource import GribWeatherSource
+from .c import c
 
 
 class GFS(GribWeatherSource):
@@ -49,6 +44,7 @@ class GFS(GribWeatherSource):
 
     def parse_grib_data(self, filepath, lat, lon):
         """Executes wgrib2 and parses its output"""
+
         args = ['-s',
                 '-lon',
                 '%f' % (lon),
@@ -71,10 +67,7 @@ class GFS(GribWeatherSource):
         tropo = {}
 
         for line in it:
-            if sys.version_info.major == 2:
-                r = line[:-1].split(':')
-            else:
-                r = line.decode('utf-8')[:-1].split(':')
+            r = line.decode('utf-8')[:-1].split(':')
             # Level, variable, value
             level, variable, value = [r[4].split(' '), r[3], r[7].split(',')[2].split('=')[1]]
 
@@ -103,10 +96,7 @@ class GFS(GribWeatherSource):
         # Let data ready to push on datarefs.
 
         # Convert wind levels
-        if sys.version_info.major == 2:
-            wind_levels = data.iteritems()
-        else:
-            wind_levels = iter(data.items())
+        wind_levels = iter(data.items())
         for level, wind in wind_levels:
             if 'UGRD' in wind and 'VGRD' in wind:
                 hdg, vel = c.c2p(float(wind['UGRD']), float(wind['VGRD']))
