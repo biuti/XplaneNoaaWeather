@@ -88,7 +88,8 @@ class Weather:
             self.clouds.append({
                 'top': EasyDref('"sim/weather/cloud_tops_msl_m[%d]"' % (i), 'float'),
                 'bottom': EasyDref('"sim/weather/cloud_base_msl_m[%d]"' % (i), 'float'),
-                'coverage': EasyDref('"sim/weather/cloud_type[%d]"' % (i), 'int'),
+                'coverage': EasyDref('"sim/weather/cloud_coverage[%d]"' % (i), 'float'),
+                'type': EasyDref('"sim/weather/cloud_type[%d]"' % (i), 'int'),
             })
 
         self.windata = []
