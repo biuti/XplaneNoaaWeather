@@ -1384,19 +1384,18 @@ class PythonInterface:
             if 'info' in wdata:
                 sysinfo = [
                     'XPNoaaWeather %s Status:' % self.conf.__VERSION__,
-                    '    LAT: %.2f/%.2f LON: %.2f/%.2f FL: %02.f MAGNETIC DEV: %.2f' % (
+                    '   LAT: %.2f/%.2f LON: %.2f/%.2f FL: %02.f MAGNETIC DEV: %.2f' % (
                         self.latdr.value, wdata['info']['lat'], self.londr.value, wdata['info']['lon'],
                         c.m2ft(self.altdr.value) / 100, self.weather.mag_deviation.value),
-                    '    GFS Cycle: %s' % (wdata['info']['gfs_cycle']),
-                    '    WAFS Cycle: %s' % (wdata['info']['wafs_cycle']),
+                    '   GFS Cycle: %s' % (wdata['info']['gfs_cycle']),
+                    '   WAFS Cycle: %s' % (wdata['info']['wafs_cycle']),
                 ]
 
             if 'metar' in wdata and 'icao' in wdata['metar']:
-
+                sysinfo += ['']
                 # Split metar if needed
                 splitlen = 80
                 metar = 'METAR STATION: %s %s' % (wdata['metar']['icao'], wdata['metar']['metar'])
-
                 if len(metar) > splitlen:
                     icut = metar.rfind(' ', 0, splitlen)
                     sysinfo += [metar[:icut], metar[icut + 1:]]
@@ -1404,18 +1403,18 @@ class PythonInterface:
                     sysinfo += [metar]
 
                 sysinfo += [
-                    '    Apt altitude: %dft, Apt distance: %.1fkm' % (
+                    '   Apt altitude: %dft, Apt distance: %.1fkm' % (
                         wdata['metar']['elevation'] * 3.28084, wdata['metar']['distance'] / 1000),
-                    '    Temp: %s, Dewpoint: %s, ' % (
+                    '   Temp: %s, Dewpoint: %s, ' % (
                         c.strFloat(wdata['metar']['temperature'][0]), c.strFloat(wdata['metar']['temperature'][1])) +
                     'Visibility: %d m, ' % (wdata['metar']['visibility']) +
                     'Press: %s inhg ' % (c.strFloat(wdata['metar']['pressure']))
                 ]
 
-                wind = '    Wind:  %d %dkt, gust +%dkt' % (
+                wind = '   Wind:  %d %dkt, gust +%dkt' % (
                     wdata['metar']['wind'][0], wdata['metar']['wind'][1], wdata['metar']['wind'][2])
                 if 'variable_wind' in wdata['metar'] and wdata['metar']['variable_wind']:
-                    wind += '   Variable: %d-%d' % (
+                    wind += ' Variable: %d-%d' % (
                         wdata['metar']['variable_wind'][0], wdata['metar']['variable_wind'][1])
 
                 sysinfo += [wind]
@@ -1426,9 +1425,9 @@ class PythonInterface:
                             precip += wdata['metar']['precipitation'][type]['recent']
                         precip += '%s%s ' % (wdata['metar']['precipitation'][type]['int'], type)
 
-                    sysinfo += ['Precipitation: %s' % (precip)]
+                    sysinfo += ['   Precipitation: %s' % (precip)]
                 if 'clouds' in wdata['metar']:
-                    clouds = '    Clouds: BASE|COVER    '
+                    clouds = '   Clouds: BASE|COVER    '
                     for cloud in wdata['metar']['clouds']:
                         alt, coverage, type = cloud
                         clouds += '%03d|%s%s ' % (alt * 3.28084 / 100, coverage, type)
@@ -1480,6 +1479,7 @@ class PythonInterface:
                     sysinfo += [f"WAFS TURBULENCE ({len(wdata['wafs'])}): FL|SEV (max {self.conf.max_turbulence}) ",
                                 tblayers]
 
+            sysinfo += ['']
             if 'thermals' in wdata:
                 t = wdata['thermals']
                 sysinfo += [f"THERMALS: h {round(t['alt'])}m, p {t['prob']*100}%, r {round(t['rate']*0.00508)}m/s"]
