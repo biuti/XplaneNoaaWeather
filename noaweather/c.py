@@ -579,16 +579,19 @@ class c:
         return clouds
 
     @staticmethod
-    def evaluate_clouds_redrawing(clouds: list, xp_clouds: list, alt: float):
-        """returns a list of layers to send to xplane if redraw if necessary"""
+    def evaluate_clouds_redrawing(clouds: list, xp_clouds: list, alt: float) -> bool:
+        """returns if clouds layers redraw is necessary: True or False"""
         print(f"evaluate redraw")
+        if not len(clouds) == len(xp_clouds):
+            print(f"Different layers number: REDRAW")
+            return True
         for i, layer in enumerate(clouds):
             base, top, cover = layer
             distance = abs(base - alt)
             print(f"layer {i}: base {base}, cover {cover}, xp: {xp_clouds[i]['bottom'].value}, {xp_clouds[i]['coverage'].value}")
             if (not c.isclose(xp_clouds[i]['bottom'].value, base, distance * 0.1)
                     or cover != xp_clouds[i]['coverage'].value):
-                print(f"REDRAW")
+                print(f"Too much Difference in base or cover: REDRAW")
                 return True
             print(f"OK")
         return False
