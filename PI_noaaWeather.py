@@ -71,6 +71,7 @@ class Weather:
             'mode': 'NA',
             'gfs_clouds': False,
             'metar_clouds': False,
+            'ceiling': False,
             'OVC': False,
             'above_clouds': False,
             'layers': [],
@@ -462,6 +463,7 @@ class Weather:
         self.opt_clouds['mode'] = 'Optimised'
         self.opt_clouds['gfs_clouds'] = False
         self.opt_clouds['metar_clouds'] = False
+        self.opt_clouds['ceiling'] = False
         self.opt_clouds['OVC'] = False
         self.opt_clouds['above_clouds'] = False
         self.opt_clouds['redraw'] = False
@@ -489,22 +491,24 @@ class Weather:
             print(f"METAR {metar['icao']}: {metar['metar']}")
             self.opt_clouds['metar_clouds'] = True
 
-            if ('distance' in metar and metar['distance'] < self.conf.metar_distance_limit
-                    and 'clouds' in metar and len(metar['clouds'])):
-                '''delete gfs layers below lower metar layer'''
-                clouds = [el for el in clouds if el[0] > metar['clouds'][0][0]]
-                for cloud in metar['clouds']:
-                    '''add metar cloud layers'''
-                    base, cover, extra = cloud
-                    cover, thickness = xpClouds[cover][0], xpClouds[cover][1]
-                    if not len(clouds) or all(not c.isclose(el[0], base, 500) for el in clouds):
-                        clouds.append([base, base + thickness, cover])
-                    else:
-                        gfs_layer = next((el for el in clouds if c.isclose(el[0], base, 500)), None)
-                        if gfs_layer and not c.above_cloud_layers(clouds, self.alt):
-                            '''blending with gfs layers'''
-                            gfs_layer[0] = base
-                            gfs_layer[2] = cover
+            if 'distance' in metar and metar['distance'] < self.conf.metar_distance_limit:
+                '''delete gfs layers below metar ceiling'''
+                clouds = [el for el in clouds if el[0] > metar['ceiling']]
+                self.opt_clouds['ceiling'] = metar['ceiling']
+
+                if 'clouds' in metar and len(metar['clouds']):
+                    for cloud in metar['clouds']:
+                        '''add metar cloud layers'''
+                        base, cover, extra = cloud
+                        cover, thickness = xpClouds[cover][0], xpClouds[cover][1]
+                        if not len(clouds) or all(not c.isclose(el[0], base, 500) for el in clouds):
+                            clouds.append([base, base + thickness, cover])
+                        else:
+                            gfs_layer = next((el for el in clouds if c.isclose(el[0], base, 500)), None)
+                            if gfs_layer and not c.above_cloud_layers(clouds, self.alt):
+                                '''blending with gfs layers'''
+                                gfs_layer[0] = base
+                                gfs_layer[2] = cover
 
             '''sorting layers'''
             clouds = sorted(clouds, key=lambda x: x[0])
@@ -1484,7 +1488,7 @@ class PythonInterface:
                 ci = wdata['cloud_info']
                 if ci['mode'] == 'Optimised':
                     sysinfo += [f"CLOUD REDRAWING MODE: OPTIMISED"]
-                    sysinfo += [f"   Active layers: gfs: {ci['gfs_clouds']}, metar: {ci['metar_clouds']}, OVC: {ci['OVC']}, Above Clouds: {ci['above_clouds']}"]
+                    sysinfo += [f"   Active layers: gfs: {ci['gfs_clouds']}, metar: {ci['metar_clouds']}, ceiling: {ci['ceiling']}, OVC: {ci['OVC']}, Above Clouds: {ci['above_clouds']}"]
                     sysinfo += [f"   Total cycles: {ci['cycles']}, redrawing: {ci['redraw']}, Total redraws: {ci['total_redraws']}"]
                 else:
                     sysinfo += [f"CLOUD REDRAWING MODE: LEGACY"]

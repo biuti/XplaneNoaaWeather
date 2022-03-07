@@ -242,13 +242,14 @@ class Metar(WeatherSource):
         weather = {
             'icao': icao,
             'metar': metar,
-            'elevation': airport_msl,
+            'elevation': airport_msl,  # meters
             'wind': [0, 0, 0],  # Heading, speed, shear
             'variable_wind': False,
+            'ceiling': c.f2m(5000) + airport_msl,  # minimum cloud level, meters
             'clouds': [0, 0, False] * 3,  # Alt, coverage type
             'temperature': [False, False],  # Temperature, dewpoint
             'pressure': False,  # space c.pa2inhg(10.1325),
-            'visibility': 9998,
+            'visibility': 9998,  # meters
             'precipitation': {},
             'rvr': []
         }
@@ -261,6 +262,8 @@ class Metar(WeatherSource):
             coverage, alt, type = cloud
             alt = float(alt) * 30.48 + airport_msl
             clouds.append([alt, coverage, type])
+            if alt < weather['ceiling']:
+                weather['ceiling'] = alt
 
         weather['clouds'] = clouds
 
@@ -312,15 +315,19 @@ class Metar(WeatherSource):
 
                 vis0, vis1, vis2, vis3, div, unit = m.groups()
 
-                if vis1: visibility += int(vis1)
-                if vis2: visibility += int(vis2)
+                if vis1:
+                    visibility += int(vis1)
+                if vis2:
+                    visibility += int(vis2)
                 if vis3:
                     vis3 = int(vis3)
                     if div:
                         vis3 /= float(div[1:])
                     visibility += vis3
-                if unit == 'SM': visibility *= 1609.34
-                if unit == 'KM': visibility *= 1000
+                if unit == 'SM':
+                    visibility *= 1609.34
+                if unit == 'KM':
+                    visibility *= 1000
 
             weather['visibility'] = visibility
 
