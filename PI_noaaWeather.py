@@ -569,18 +569,10 @@ class Weather:
         maxCloud = c.f2m(c.limit(40000, self.conf.max_cloud_height))
 
         # Minimum redraw difference per layer
-        minRedraw = [c.f2m(500), c.f2m(5000), c.f2m(10000)]
+        minRedraw = self.conf.minRedraw
 
-        '''XP cloud cover'''
-        # in XP 11 cloud coverage goes from 0 to 6
-        xpClouds = {
-            'CIRRUS': [1, c.f2m(1000)],
-            'FEW': [2, c.f2m(2000)],
-            'SCT': [3, c.f2m(4000)],
-            'BKN': [4, c.f2m(4000)],
-            'OVC': [5, c.f2m(4000)],
-            'VV': [6, c.f2m(6000)]
-        }
+        # XP cloud cover definition
+        xpClouds = self.conf.xpClouds
 
         lastBase = 0
         maxTop = 0

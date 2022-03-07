@@ -120,6 +120,11 @@ class Conf:
             'VV': [6, c.f2m(6000)]
         }
 
+        # Minimum redraw difference per layer (legacy cloud layers procedure)
+        self.minRedraw = [c.f2m(500),
+                          c.f2m(5000),
+                          c.f2m(10000)]
+
         # User settings
         self.enabled = True
         self.set_wind = True
