@@ -582,18 +582,19 @@ class c:
     def evaluate_clouds_redrawing(clouds: list, xp_clouds: list, alt: float) -> bool:
         """returns if clouds layers redraw is necessary: True or False"""
         print(f"evaluate redraw")
-        if not len(clouds) == len(xp_clouds):
-            print(f"Different layers number: REDRAW")
-            return True
-        for i, layer in enumerate(clouds):
-            base, top, cover = layer
-            distance = abs(base - alt)
-            print(f"layer {i}: base {base}, cover {cover}, xp: {xp_clouds[i]['bottom'].value}, {xp_clouds[i]['coverage'].value}")
-            if (not c.isclose(xp_clouds[i]['bottom'].value, base, distance * 0.1)
-                    or cover != xp_clouds[i]['coverage'].value):
-                print(f"Too much Difference in base or cover: REDRAW")
+        for i, layer in enumerate(xp_clouds):
+            if len(clouds) > i:
+                base, top, cover = clouds[i]
+                distance = abs(base - alt)
+                print(f"layer {i}: base {base}, cover {cover}, xp: {layer['bottom'].value}, {layer['coverage'].value}")
+                if (not c.isclose(layer['bottom'].value, base, distance * 0.1)
+                        or cover != layer['coverage'].value):
+                    print(f"Too much Difference in base or cover: REDRAW")
+                    return True
+                print(f"OK")
+            elif layer['coverage'].value > 0:
+                print(f"Different layers number: {len(clouds)}, {len(xp_clouds)}, REDRAW")
                 return True
-            print(f"OK")
         return False
 
 
