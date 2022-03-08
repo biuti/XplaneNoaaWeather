@@ -45,16 +45,26 @@ class c:
         return altpress
 
     @staticmethod
-    def oat2msltemp(oat, alt):
+    def oat2msltemp(oat, alt, tropo_temp=-56.5, tropo_alt=11000):
         """Converts oat temperature to mean sea level.
         oat in C, alt in meters
         http://en.wikipedia.org/wiki/International_Standard_Atmosphere#ICAO_Standard_Atmosphere
         from FL360 (11km) to FL655 (20km) the temperature deviation stays constant at -71.5degreeC
         from MSL up to FL360 (11km) the temperature decreases at a rate of 6.5degreeC/km
-        """
-        if alt > 11000:
+        The original code was:
+        if alt > tropo:
             return oat + 71.5
         return oat + 0.0065 * alt
+
+        In X-Plane Temperature profile is linear, between msl t and tropo limit t.
+        So to have a correct temperature at various levels according to GFS, we must use proportions
+        """
+
+        if alt > tropo_alt:
+            return oat + 71.5
+        gradient = (tropo_temp - oat) / (alt - tropo_alt)
+        # print(f"tropo temp {tropo_temp} oat {oat} alt {alt} tropo alt {tropo_alt} grad {gradient}")
+        return oat + gradient * alt
 
     @staticmethod
     def greatCircleDistance(latlong_a, latlong_b):
