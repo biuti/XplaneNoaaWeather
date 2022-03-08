@@ -77,6 +77,7 @@ class Weather:
             'layers': [],
             'cycles': 0,
             'redraw': False,
+            'temp': False,
             'total_redraws': 0
         }
 
@@ -236,6 +237,18 @@ class Weather:
         # Append metar layer
         if 'metar' in self.weatherData and 'wind' in self.weatherData['metar']:
             alt = self.weatherData['metar']['elevation']  # in meters
+
+            # Fix temperatures (legacy)
+            if not self.conf.set_tropo and 'temperature' in self.weatherData['metar']:
+                '''legacy temperature fix'''
+                print(f"*** Legacy temperature Fix ***")
+                if self.weatherData['metar']['temperature'][0] is not False:
+                    temp = self.weatherData['metar']['temperature'][0] + 273.15
+                    self.msltemp.value = c.oat2msltemp(temp - 273.15, self.alt)
+                if self.weatherData['metar']['temperature'][1] is not False:
+                    dew = self.weatherData['metar']['temperature'][1] + 273.15
+                    self.msldewp.value = c.oat2msltemp(dew - 273.15, self.alt)
+
             hdg, speed, gust = self.weatherData['metar']['wind']
             if not gust:
                 '''add random wind speed variability'''
@@ -260,13 +273,6 @@ class Weather:
 
             alt += self.conf.metar_agl_limit
             alt = c.transition(alt, '0-metar_wind_alt', elapsed, 0.3048)  # 1f/s
-
-            # Fix temperatures
-            if 'temperature' in self.weatherData['metar']:
-                if self.weatherData['metar']['temperature'][0] is not False:
-                    extra['temp'] = self.weatherData['metar']['temperature'][0] + 273.15
-                if self.weatherData['metar']['temperature'][1] is not False:
-                    extra['dew'] = self.weatherData['metar']['temperature'][1] + 273.15
 
             # remove first wind layer if is too close (for high altitude airports)
             # TODO: This can break transitions in some cases.
@@ -328,25 +334,6 @@ class Weather:
             self.setWindLayer(0, swind)
             self.setWindLayer(1, rwind)
             self.setWindLayer(2, rwind)
-
-            '''Set temperature and dewpoint.
-            Use next layer if the data is not available'''
-
-            extra = rwind[3]
-            if nlayers > tlayer + 1:
-                altLayer = winds[tlayer + 1]
-            else:
-                altLayer = False
-
-            if 'temp' in extra:
-                self.msltemp.value = c.oat2msltemp(extra['temp'] - 273.15, self.alt)
-            elif altLayer and 'temp' in altLayer[3]:
-                self.msltemp.value = c.oat2msltemp(altLayer[3]['temp'] - 273.15, altLayer[0])
-
-            if 'dew' in extra:
-                self.msldewp.value = c.oat2msltemp(extra['dew'] - 273.15, self.alt)
-            elif altLayer and 'dew' in altLayer[3]:
-                self.msldewp.value = c.oat2msltemp(altLayer[3]['dew'] - 273.15, altLayer[0])
 
             '''add surface wind shear'''
             if self.thunderstorm.value > 0:
@@ -694,8 +681,51 @@ class Weather:
         c.datarefTransition(self.pressure, pressure, elapsed, 0.005)
 
     def setTropo(self, tropo, elapsed):
-        c.datarefTransition(self.tropo_alt, tropo['alt'], elapsed, 5)
-        c.datarefTransition(self.tropo_temp, tropo['temp'] - 273.15, elapsed, 1)
+        """Set
+        - Troposphere limit altitude and temperature
+        - Temperature vertical profile moving MSL temperature with altitude"""
+
+        tropo_alt = tropo['alt']
+        tropo_temp = tropo['temp'] - 273.15
+        c.datarefTransition(self.tropo_alt, tropo_alt, elapsed, 50)
+        c.datarefTransition(self.tropo_temp, tropo_temp, elapsed)
+
+        temp_list = self.weatherData['gfs']['temperature']
+        surface = self.weatherData['gfs']['surface']
+        metar = self.weatherData['metar']
+
+        alt = False
+        if metar:
+            alt = metar['elevation']
+        elif surface:
+            alt = surface['alt']
+        if alt:
+            '''delete temp layers below surface'''
+            temp_list = [el for el in temp_list if el[0] > alt + 1000]
+
+        temp, dew = False, False
+        if not len(temp_list) or self.alt < temp_list[0][0] or self.alt > tropo_alt:
+            '''Set temperature profile using surface and tropo temperature'''
+            if 'distance' in metar and 'temperature' in metar and metar['distance'] < self.conf.metar_distance_limit:
+                alt = metar['elevation']  # in meters
+                if metar['temperature'][0] is not False:
+                    temp = metar['temperature'][0] + 273.15  # K
+                if metar['temperature'][1] is not False:
+                    dew = metar['temperature'][1] + 273.15  # K
+            else:
+                if surface:
+                    alt, temp, _ = surface.values()
+        elif len(temp_list) and temp_list[0][0] < self.alt < tropo_alt:
+            # level = min(abs(self.alt - el[0]) for el in temp_list)
+            level = min(temp_list, key=lambda x: abs(x[0] - self.alt))
+            alt, temp, _, _ = level
+
+        if temp:
+            mslt = c.oat2msltemp(temp - 273.15, alt, tropo_temp, tropo_alt)
+            c.datarefTransition(self.msltemp, mslt, elapsed)
+            self.opt_clouds['temp'] = [round(alt), round(temp - 273.15), round(mslt, 1)]
+        if dew:
+            c.datarefTransition(self.msldewp, c.oat2msltemp(dew - 273.15, alt, tropo_temp, tropo_alt), elapsed)
 
     def setThermals(self):
         """if TS is in METAR, simulates uplift
@@ -1462,9 +1492,10 @@ class PythonInterface:
 
                     if 'tropo' in wdata['gfs']:
                         alt, temp, dev = wdata['gfs']['tropo'].values()
+                        mslt = wdata['cloud_info']['temp']
                         if alt and temp and dev:
-                            sysinfo += ['TROPO LIMIT: %05dm temp %02dC ISA Dev %02dC'
-                                        % (alt, temp - 273.15, dev - 273.15)]
+                            sysinfo += ['TROPO LIMIT: %05dm temp %02dC ISA Dev %02dC MSL Temp %02dC'
+                                        % (alt, temp - 273.15, dev - 273.15, mslt)]
 
                 if 'wafs' in wdata:
                     tblayers = ''

@@ -65,6 +65,7 @@ class GFS(GribWeatherSource):
         clouds = {}
         pressure = False
         tropo = {}
+        surface = {}
 
         for line in it:
             r = line.decode('utf-8')[:-1].split(':')
@@ -89,9 +90,12 @@ class GFS(GribWeatherSource):
                         pressure = c.pa2inhg(float(value))
             elif level[0] == 'tropopause':
                 tropo[variable] = value
+            elif level[0] == 'surface':
+                surface[variable] = value
 
         windlevels = []
         cloudlevels = []
+        templevels = []
 
         # Let data ready to push on datarefs.
 
@@ -120,6 +124,8 @@ class GFS(GribWeatherSource):
                                                                'rh': rh,
                                                                'dew': dew,
                                                                'gust': 0}])
+                if alt and temp:
+                    templevels.append([alt, temp, dev, dew])
 
                 # get tropopause info from F386 wind level if not already available
                 if not tropo and float(level) == 200 and temp:
@@ -138,6 +144,7 @@ class GFS(GribWeatherSource):
 
         windlevels.sort()
         cloudlevels.sort()
+        templevels.sort()
 
         # tropo
         if all(k in tropo.keys() for k in ('PRES', 'TMP')):
@@ -148,11 +155,22 @@ class GFS(GribWeatherSource):
         else:
             tropo = {}
 
+        # surface
+        if all(k in surface.keys() for k in ('PRES', 'TMP', 'HGT')):
+            alt = float(surface['HGT'])
+            temp = float(surface['TMP'])
+            press = float(surface['PRES'])*0.01
+            surface = {'alt': alt, 'temp': temp, 'press': press}
+        else:
+            surface = {}
+
         data = {
             'winds': windlevels,
             'clouds': cloudlevels,
+            'temperature': templevels,
             'pressure': pressure,
-            'tropo': tropo
+            'tropo': tropo,
+            'surface': surface
         }
 
         return data

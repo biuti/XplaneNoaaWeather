@@ -295,6 +295,14 @@ class Conf:
         d = [
                 {
                     "vars": [
+                        "PRES",
+                        "TMP",
+                        "HGT"
+                    ],
+                    "levels": "surface"
+                },
+                {
+                    "vars": [
                         "TMP",
                         "UGRD",
                         "VGRD"
