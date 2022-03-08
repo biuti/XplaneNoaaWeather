@@ -1492,7 +1492,7 @@ class PythonInterface:
 
                     if 'tropo' in wdata['gfs']:
                         alt, temp, dev = wdata['gfs']['tropo'].values()
-                        mslt = wdata['cloud_info']['temp']
+                        mslt = wdata['cloud_info']['temp'][2]
                         if alt and temp and dev:
                             sysinfo += ['TROPO LIMIT: %05dm temp %02dC ISA Dev %02dC MSL Temp %02dC'
                                         % (alt, temp - 273.15, dev - 273.15, mslt)]
