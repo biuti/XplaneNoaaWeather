@@ -14,6 +14,8 @@ import sqlite3
 import math
 import sys
 import time
+import base64
+import json
 
 from datetime import datetime, timedelta
 from .util import util
@@ -42,7 +44,8 @@ class Metar(WeatherSource):
     METAR_STATIONS_URL = 'https://www.aviationweather.gov/docs/metar/stations.txt'
     NOAA_METAR_URL = 'https://aviationweather.gov/adds/dataserver_current/current/metars.cache.csv.gz'
     VATSIM_METAR_URL = 'https://metar.vatsim.net/metar.php?id=all'
-    IVAO_METAR_URL = 'https://wx.ivao.aero/metar.php'
+    # IVAO_METAR_URL = 'https://wx.ivao.aero/metar.php'
+    IVAO_METAR_URL = 'https://api.ivao.aero/v2/airports/all/metar'
 
     STATION_UPDATE_RATE = 30  # In days
 
@@ -139,7 +142,13 @@ class Metar(WeatherSource):
 
         today = datetime.utcnow().strftime('%d')
 
-        for line in f.readlines():
+        if self.conf.metar_source == 'IVAO':
+            r = json.loads(f.read())
+            lines = [f"{e['metar']}\n" for e in r]
+        else:
+            lines = f.readlines()
+
+        for line in lines:
             if line[0].isalpha() and len(line) > 11 and line[11] == 'Z':
                 i += 1
                 icao, mtime, metar = line[0:4], line[5:11], re.sub(r'[^\x00-\x7F]+', ' ', line[5:-1])
@@ -445,6 +454,7 @@ class Metar(WeatherSource):
             os.makedirs(self.cache_path)
 
         prefix = self.conf.metar_source
+        headers = {}
 
         if self.conf.metar_source == 'NOAA':
             url = self.NOAA_METAR_URL
@@ -454,9 +464,20 @@ class Metar(WeatherSource):
 
         elif self.conf.metar_source == 'IVAO':
             url = self.IVAO_METAR_URL
+            file = os.sep.join([self.conf.respath, 'bin', 'ivao.bin'])
+            with open(file) as f:
+                key = base64.b64decode(f.read())
+            headers = {
+                'accept': 'application/json',
+                'apiKey': key
+            }
 
         cache_file = os.path.sep.join([self.cache_path, '%s_%d_%sZ.txt' % (prefix, timestamp, cycle)])
-        self.download = AsyncTask(GribDownloader.download, url, cache_file, binary=True, cancel_event=self.die)
+        self.download = AsyncTask(GribDownloader.download,
+                                  url=url,
+                                  file_path=cache_file,
+                                  binary=True,
+                                  cancel_event=self.die, headers=headers)
         self.download.start()
 
     def update_metar_rwx_file(self, db):

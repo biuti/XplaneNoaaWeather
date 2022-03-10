@@ -256,6 +256,10 @@ class GribDownloader(object):
         user_agent = kwargs.pop('user_agent', 'XPNOAAWeather/%s' % Conf.__VERSION__)
         req.add_header('User-Agent', user_agent)
 
+        headers = kwargs.pop('headers', {})
+        for k, v in headers.items():
+            req.add_header(k, v)
+
         # Partial download headers
         if start or end:
             req.headers['Range'] = 'bytes=%d-%d' % (start, end)
