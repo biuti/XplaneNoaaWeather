@@ -22,8 +22,8 @@ using forecasted and reported data for the current time and world coordinates.
 - Changes ISA atmosphere using GFS Tropo limit data
 - Changes runway friction based on weather conditions
 - Adds uplift and wind shear effect in stormy conditions
-- Convection "bumpiness" using thermal XPlane parameters in instable conditions
-- Added a surface layer to get correct ATIS informations (nearest METAR)
+- Convection "bumpiness" using thermal XPlane parameters in unstable conditions
+- Added a surface layer to get correct ATIS information (nearest METAR)
 - Added a 'Optimised Redraw' mode to minimise clouds disappearing and recalculation, especially at cruise level or when there is an OVC layer
 
 ============
