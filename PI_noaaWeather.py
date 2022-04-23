@@ -1514,16 +1514,10 @@ class PythonInterface:
                 s = 'NOT ACTIVE' if not self.weather.surface_wind else 'ACTIVE'
                 sysinfo += [f"SURFACE WIND LAYER: {s}"]
 
-            if 'cloud_info' in wdata:
+            if 'cloud_info' in wdata and self.conf.opt_clouds_update:
                 ci = wdata['cloud_info']
-                if ci['mode'] == 'Optimised':
-                    sysinfo += [f"CLOUD REDRAWING MODE: OPTIMISED"]
-                    sysinfo += [f"   Active layers: gfs: {ci['gfs_clouds']}, metar: {ci['metar_clouds']}, ceiling: {ci['ceiling']}, OVC: {ci['OVC']}, Above Clouds: {ci['above_clouds']}"]
-                    sysinfo += [f"   Total cycles: {ci['cycles']}, redrawing: {ci['redraw']}, Total redraws: {ci['total_redraws']}"]
-                else:
-                    sysinfo += [f"CLOUD REDRAWING MODE: LEGACY"]
-                    sysinfo += [f"   Total cycles: {ci['cycles']}"]
-                sysinfo += [f"   XP layers: {ci['layers']}"]
+                s = 'OPTIMISED FOR BEST PERFORMANCE' if ci['OVC'] and ci['above_clouds'] else 'MERGED'
+                sysinfo += [f"CLOUD LAYERS MODE: {s}"]
 
         sysinfo += ['--'] * (self.aboutlines - len(sysinfo))
 
