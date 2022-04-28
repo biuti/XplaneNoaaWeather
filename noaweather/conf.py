@@ -185,6 +185,7 @@ class Conf:
 
         self.metar_source = 'NOAA'
         self.metar_updaterate = 5  # minutes
+        self.metar_ignore_auto = False
 
         self.tracker_uid = False
         self.tracker_enabled = True
@@ -211,7 +212,7 @@ class Conf:
                 return
 
             # Reset settings on different versions.
-            if not 'version' in conf or conf['version'] < '2.0':
+            if 'version' not in conf or conf['version'] < '2.0':
                 return
 
             # may be "dangerous" if someone messes our config file
@@ -242,6 +243,7 @@ class Conf:
             'set_tropo': self.set_tropo,
             'set_thermals': self.set_thermals,
             'set_surface_layer': self.set_surface_layer,
+            'opt_clouds_update': self.opt_clouds_update,
             'enabled': self.enabled,
             'updaterate': self.updaterate,
             'metar_source': self.metar_source,
@@ -255,7 +257,8 @@ class Conf:
             'metar_updaterate': self.metar_updaterate,
             'tracker_uid': self.tracker_uid,
             'tracker_enabled': self.tracker_enabled,
-            'ignore_metar_stations': self.ignore_metar_stations
+            'ignore_metar_stations': self.ignore_metar_stations,
+            'metar_ignore_auto': self.metar_ignore_auto
         }
         self.saveSettings(self.settingsfile, conf)
 

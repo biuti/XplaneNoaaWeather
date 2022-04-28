@@ -201,22 +201,24 @@ class Metar(WeatherSource):
         cursor = db.cursor()
         fudge = math.pow(math.cos(math.radians(lat)), 2)
 
+        cond = 'metar NOT NULL '
+        bindings = []
+
         if self.conf.ignore_metar_stations:
+            cond += f"AND icao NOT in ({','.join(['?'] * len(self.conf.ignore_metar_stations))}) "
+            bindings.extend(self.conf.ignore_metar_stations)
+        if self.conf.metar_ignore_auto:
+            cond += f"AND metar NOT LIKE '%AUTO%' "
 
-            q = '''SELECT * FROM airports
-                                    WHERE metar NOT NULL AND icao NOT in (%s)
-                                    ORDER BY ((? - lat) * (? - lat) + (? - lon) * (? - lon) * ?)
-                                    LIMIT ?''' % (','.join(['?'] * len(self.conf.ignore_metar_stations)))
+        q = '''SELECT * FROM airports
+                    WHERE %s
+                    ORDER BY ((? - lat) * (? - lat) + (? - lon) * (? - lon) * ?)
+                    LIMIT ?''' % cond
+        bindings.extend([lat, lat, lon, lon, fudge, limit])
 
-            res = cursor.execute(q, tuple(self.conf.ignore_metar_stations) + (lat, lat, lon, lon, fudge, limit))
-
-        else:
-            res = cursor.execute('''SELECT * FROM airports
-                                    WHERE metar NOT NULL
-                                    ORDER BY ((? - lat) * (? - lat) + (? - lon) * (? - lon) * ?)
-                                    LIMIT ?''', (lat, lat, lon, lon, fudge, limit))
-
+        res = cursor.execute(q, (tuple(bindings)))
         ret = res.fetchall()
+
         if limit == 1 and len(ret) > 0:
             return ret[0]
         return ret

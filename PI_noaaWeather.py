@@ -1145,8 +1145,13 @@ class PythonInterface:
 
         y -= 20
 
-        XPSetWidgetProperty(self.turbulenceSlider, xpProperty_ScrollBarSliderPosition,
-                            int(self.conf.turbulence_probability * 1000))
+        # Ignore AUTO METAR sources
+        XPCreateWidget(x + 5, y - 40, x + 20, y - 60, 1, 'Ignore AUTO:', 0, window, xpWidgetClass_Caption)
+        self.autoMetarCheck = XPCreateWidget(x + 110, y - 40, x + 120, y - 60, 1, '', 0, window, xpWidgetClass_Button)
+        XPSetWidgetProperty(self.autoMetarCheck, xpProperty_ButtonType, xpRadioButton)
+        XPSetWidgetProperty(self.autoMetarCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
+        XPSetWidgetProperty(self.autoMetarCheck, xpProperty_ButtonState, self.conf.metar_ignore_auto)
+        y -= 40
 
         # Performance Tweaks
         XPCreateWidget(x, y - 40, x + 80, y - 60, 1, 'Performance Tweaks', 0, window, xpWidgetClass_Caption)
@@ -1346,6 +1351,7 @@ class PythonInterface:
                     if len(icao) == 4:
                         ignore_stations.append(icao.upper())
 
+                self.conf.metar_ignore_auto = XPGetWidgetProperty(self.autoMetarCheck, xpProperty_ButtonState, None)
                 self.conf.ignore_metar_stations = ignore_stations
 
                 # Check metar source
@@ -1390,6 +1396,7 @@ class PythonInterface:
         XPSetWidgetDescriptor(self.maxVisInput, c.convertForInput(self.conf.max_visibility, 'm2sm'))
         XPSetWidgetDescriptor(self.maxCloudHeightInput, c.convertForInput(self.conf.max_cloud_height, 'm2ft'))
         XPSetWidgetDescriptor(self.stationIgnoreInput, ' '.join(self.conf.ignore_metar_stations))
+        XPSetWidgetProperty(self.autoMetarCheck, xpProperty_ButtonState, self.conf.metar_ignore_auto)
 
         self.updateStatus()
 
