@@ -463,9 +463,9 @@ class Weather:
 
         if 'clouds' in self.weatherData['gfs']:
             '''getting GFS cloud layers'''
-            print(f"GFS Clouds: {self.weatherData['gfs']['clouds']}")
+            # print(f"GFS Clouds: {self.weatherData['gfs']['clouds']}")
             clouds = c.optimise_gfs_clouds(self.weatherData['gfs']['clouds'])
-            print(f"OPT. GFS Clouds: {clouds}")
+            # print(f"OPT. GFS Clouds: {clouds}")
             self.opt_clouds['gfs_clouds'] = True
 
         '''evaluate flight situation'''
@@ -475,7 +475,7 @@ class Weather:
                  and (c.is_overcasted(clouds) or len(clouds) > 1))) and 'metar' in self.weatherData:
             '''evaluate METAR clouds'''
             metar = self.weatherData['metar']
-            print(f"METAR {metar['icao']}: {metar['metar']}")
+            # print(f"METAR {metar['icao']}: {metar['metar']}")
             self.opt_clouds['metar_clouds'] = True
 
             if 'distance' in metar and metar['distance'] < self.conf.metar_distance_limit:
@@ -504,7 +504,7 @@ class Weather:
             '''choosing layers based on situation'''
             clouds = c.manage_clouds_layers(clouds, self.alt, ts)
             self.opt_clouds['layers'] = [[int(el[0]/100), int(el[1]/100), el[2]] for el in clouds]
-            print(f"layers: {self.opt_clouds['layers']}")
+            # print(f"layers: {self.opt_clouds['layers']}")
 
         '''evaluating if it is necessary to redraw layers (prefering minimum redraw to layer precision)'''
         self.opt_clouds['cycles'] += 1
@@ -514,8 +514,8 @@ class Weather:
             self.opt_clouds['total_redraws'] += 1
             for i in range(3):
                 if len(clouds) > i:
-                    print(f"redrawing...")
-                    print(f"layer {i}, XP: {self.clouds[i]['bottom'].value}, {self.clouds[i]['top'].value}, {self.clouds[i]['coverage'].value}")
+                    # print(f"redrawing...")
+                    # print(f"layer {i}, XP: {self.clouds[i]['bottom'].value}, {self.clouds[i]['top'].value}, {self.clouds[i]['coverage'].value}")
                     base, top, cover = clouds[i]
                     self.clouds[i]['bottom'].value = base
                     self.clouds[i]['top'].value = top
@@ -1022,16 +1022,16 @@ class PythonInterface:
         # Config Sub Window, style
         subw = XPCreateWidget(x + 10, y - 30, x + 180 + 10, y2 + 40 - 25, 1, "", 0, window, xpWidgetClass_SubWindow)
         XPSetWidgetProperty(subw, xpProperty_SubWindowType, xpSubWindowStyle_SubWindow)
-        x += 25
+        x += 15
 
         # Main enable
-        XPCreateWidget(x, y - 40, x + 20, y - 60, 1, 'Enable XPGFS', 0, window, xpWidgetClass_Caption)
+        XPCreateWidget(x, y - 40, x + 20, y - 60, 1, 'Enable Plugin', 0, window, xpWidgetClass_Caption)
         self.enableCheck = XPCreateWidget(x + 110, y - 40, x + 120, y - 60, 1, '', 0, window, xpWidgetClass_Button)
         XPSetWidgetProperty(self.enableCheck, xpProperty_ButtonType, xpRadioButton)
         XPSetWidgetProperty(self.enableCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
         XPSetWidgetProperty(self.enableCheck, xpProperty_ButtonState, self.conf.enabled)
+        y -= 40
 
-        y -= 25
         # Winds enable
         XPCreateWidget(x + 5, y - 40, x + 20, y - 60, 1, 'Wind levels', 0, window, xpWidgetClass_Caption)
         self.windsCheck = XPCreateWidget(x + 110, y - 40, x + 120, y - 60, 1, '', 0, window, xpWidgetClass_Button)
@@ -1080,6 +1080,20 @@ class PythonInterface:
         XPSetWidgetProperty(self.turbCheck, xpProperty_ButtonState, self.conf.set_turb)
         y -= 20
 
+        self.turbulenceCaption = XPCreateWidget(x + 5, y - 40, x + 80, y - 60, 1, 'Turbulence prob.  %d%%' % (
+                self.conf.turbulence_probability * 100), 0, window, xpWidgetClass_Caption)
+        y -= 20
+        self.turbulenceSlider = XPCreateWidget(x + 10, y - 40, x + 160, y - 60, 1, '', 0, window,
+                                               xpWidgetClass_ScrollBar)
+        XPSetWidgetProperty(self.turbulenceSlider, xpProperty_ScrollBarType, xpScrollBarTypeSlider)
+        XPSetWidgetProperty(self.turbulenceSlider, xpProperty_ScrollBarMin, 10)
+        XPSetWidgetProperty(self.turbulenceSlider, xpProperty_ScrollBarMax, 1000)
+        XPSetWidgetProperty(self.turbulenceSlider, xpProperty_ScrollBarPageAmount, 1)
+
+        XPSetWidgetProperty(self.turbulenceSlider, xpProperty_ScrollBarSliderPosition,
+                            int(self.conf.turbulence_probability * 1000))
+        y -= 20
+
         # Tropo enable
         XPCreateWidget(x + 5, y - 40, x + 20, y - 60, 1, 'Tropo Temp', 0, window, xpWidgetClass_Caption)
         self.tropoCheck = XPCreateWidget(x + 110, y - 40, x + 120, y - 60, 1, '', 0, window, xpWidgetClass_Button)
@@ -1102,22 +1116,20 @@ class PythonInterface:
         XPSetWidgetProperty(self.surfaceCheck, xpProperty_ButtonType, xpRadioButton)
         XPSetWidgetProperty(self.surfaceCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
         XPSetWidgetProperty(self.surfaceCheck, xpProperty_ButtonState, self.conf.set_surface_layer)
-        y -= 28
-        x -= 5
-
-        x1 = x + 5
+        y -= 40
 
         # Metar source radios
+        x1 = x + 5
         XPCreateWidget(x, y - 40, x + 20, y - 60, 1, 'METAR SOURCE', 0, window, xpWidgetClass_Caption)
         y -= 20
         XPCreateWidget(x1, y - 40, x1 + 20, y - 60, 1, 'NOAA', 0, window, xpWidgetClass_Caption)
-        mtNoaCheck = XPCreateWidget(x1 + 40, y - 40, x1 + 45, y - 60, 1, '', 0, window, xpWidgetClass_Button)
-        x1 += 52
+        mtNoaCheck = XPCreateWidget(x1 + 42, y - 40, x1 + 45, y - 60, 1, '', 0, window, xpWidgetClass_Button)
+        x1 += 54
         XPCreateWidget(x1, y - 40, x1 + 20, y - 60, 1, 'IVAO', 0, window, xpWidgetClass_Caption)
-        mtIvaoCheck = XPCreateWidget(x1 + 35, y - 40, x1 + 45, y - 60, 1, '', 0, window, xpWidgetClass_Button)
-        x1 += 50
+        mtIvaoCheck = XPCreateWidget(x1 + 36, y - 40, x1 + 45, y - 60, 1, '', 0, window, xpWidgetClass_Button)
+        x1 += 52
         XPCreateWidget(x1, y - 40, x1 + 20, y - 60, 1, 'VATSIM', 0, window, xpWidgetClass_Caption)
-        mtVatsimCheck = XPCreateWidget(x1 + 45, y - 40, x1 + 60, y - 60, 1, '', 0, window, xpWidgetClass_Button)
+        mtVatsimCheck = XPCreateWidget(x1 + 46, y - 40, x1 + 60, y - 60, 1, '', 0, window, xpWidgetClass_Button)
         x1 += 52
 
         self.mtSourceChecks = {mtNoaCheck: 'NOAA',
@@ -1131,21 +1143,12 @@ class PythonInterface:
             XPSetWidgetProperty(check, xpProperty_ButtonState,
                                 int(self.conf.metar_source == self.mtSourceChecks[check]))
 
-        y -= 25
-        self.turbulenceCaption = XPCreateWidget(x, y - 40, x + 80, y - 60, 1, 'Turbulence probability %d%%' % (
-                self.conf.turbulence_probability * 100), 0, window, xpWidgetClass_Caption)
         y -= 20
-        self.turbulenceSlider = XPCreateWidget(x + 5, y - 40, x + 160, y - 60, 1, '', 0, window,
-                                               xpWidgetClass_ScrollBar)
-        XPSetWidgetProperty(self.turbulenceSlider, xpProperty_ScrollBarType, xpScrollBarTypeSlider)
-        XPSetWidgetProperty(self.turbulenceSlider, xpProperty_ScrollBarMin, 10)
-        XPSetWidgetProperty(self.turbulenceSlider, xpProperty_ScrollBarMax, 1000)
-        XPSetWidgetProperty(self.turbulenceSlider, xpProperty_ScrollBarPageAmount, 1)
 
         XPSetWidgetProperty(self.turbulenceSlider, xpProperty_ScrollBarSliderPosition,
                             int(self.conf.turbulence_probability * 1000))
 
-        y -= 25
+        # Performance Tweaks
         XPCreateWidget(x, y - 40, x + 80, y - 60, 1, 'Performance Tweaks', 0, window, xpWidgetClass_Caption)
         y -= 20
         XPCreateWidget(x + 5, y - 40, x + 80, y - 60, 1, 'Max Visibility (sm)', 0, window, xpWidgetClass_Caption)
@@ -1161,15 +1164,16 @@ class PythonInterface:
                                                   xpWidgetClass_TextField)
         XPSetWidgetProperty(self.maxCloudHeightInput, xpProperty_TextFieldType, xpTextEntryField)
         XPSetWidgetProperty(self.maxCloudHeightInput, xpProperty_Enabled, 1)
+        y -= 40
 
-        y -= 25
+        # METAR window
         XPCreateWidget(x, y - 40, x + 80, y - 60, 1, 'Metar window bug', 0, window, xpWidgetClass_Caption)
         self.bugCheck = XPCreateWidget(x + 120, y - 40, x + 140, y - 60, 1, '', 0, window, xpWidgetClass_Button)
         XPSetWidgetProperty(self.bugCheck, xpProperty_ButtonType, xpRadioButton)
         XPSetWidgetProperty(self.bugCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
         XPSetWidgetProperty(self.bugCheck, xpProperty_ButtonState, self.conf.inputbug)
-
         y -= 40
+
         # Save
         self.saveButton = XPCreateWidget(x + 25, y - 20, x + 125, y - 60, 1, "Apply & Save", 0, window,
                                          xpWidgetClass_Button)
@@ -1319,7 +1323,8 @@ class PythonInterface:
                 # Zero turbulence data if disabled
                 self.conf.set_turb = XPGetWidgetProperty(self.turbCheck, xpProperty_ButtonState, None)
                 if not self.conf.set_turb:
-                    for i in range(3): self.weather.winds[i]['turbulence'].value = 0
+                    for i in range(3):
+                        self.weather.winds[i]['turbulence'].value = 0
 
                 self.conf.download = XPGetWidgetProperty(self.downloadCheck, xpProperty_ButtonState, None)
 
