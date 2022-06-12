@@ -469,16 +469,16 @@ class Weather:
             self.opt_clouds['gfs_clouds'] = True
 
         '''evaluate flight situation'''
-        self.opt_clouds['OVC'] = c.is_overcasted(clouds)
-        self.opt_clouds['above_clouds'] = c.above_cloud_layers(clouds, self.alt, self.clouds)
-        if (not (c.above_cloud_layers(clouds, self.alt, self.clouds)
-                 and (c.is_overcasted(clouds) or len(clouds) > 1))) and 'metar' in self.weatherData:
-            '''evaluate METAR clouds'''
+        overcasted = c.is_overcasted(clouds)
+        above_clouds = c.above_cloud_layers(clouds, self.alt, self.clouds)
+        self.opt_clouds['OVC'] = overcasted
+        self.opt_clouds['above_clouds'] = above_clouds
+        if (not (above_clouds and (overcasted or len(clouds) > 1))) and 'metar' in self.weatherData:
             metar = self.weatherData['metar']
-            # print(f"METAR {metar['icao']}: {metar['metar']}")
-            self.opt_clouds['metar_clouds'] = True
-
             if 'distance' in metar and metar['distance'] < self.conf.metar_distance_limit:
+                '''evaluate METAR clouds'''
+                # print(f"METAR {metar['icao']}: {metar['metar']}")
+                self.opt_clouds['metar_clouds'] = True
                 '''delete gfs layers below metar ceiling'''
                 clouds = [el for el in clouds if el[0] > metar['ceiling']]
                 self.opt_clouds['ceiling'] = metar['ceiling']
@@ -506,10 +506,9 @@ class Weather:
             self.opt_clouds['layers'] = [[int(el[0]/100), int(el[1]/100), el[2]] for el in clouds]
             # print(f"layers: {self.opt_clouds['layers']}")
 
-        '''evaluating if it is necessary to redraw layers (prefering minimum redraw to layer precision)'''
+        '''evaluating if it is necessary to redraw layers (preferring minimum redraw to layer precision)'''
         self.opt_clouds['cycles'] += 1
-        redraw = c.evaluate_clouds_redrawing(clouds, self.clouds, self.alt)
-        if redraw:
+        if c.evaluate_clouds_redrawing(clouds, self.clouds, self.alt):
             self.opt_clouds['redraw'] = True
             self.opt_clouds['total_redraws'] += 1
             for i in range(3):
@@ -733,6 +732,7 @@ class Weather:
         from random import randrange
 
         thermals = {
+            'grad': 0,
             'alt': 10000,
             'prob': 0,
             'rate': 0,
@@ -743,6 +743,7 @@ class Weather:
         if self.newData or 'thermals' not in self.weatherData:
             if self.thunderstorm.value > 0:
                 '''add simulated uplift under thunderstorms'''
+                thermals['grad'] = 'TS'
                 thermals['prob'] = max(0.15, min(0.25, self.thunderstorm.value / 2))
                 if self.thunderstorm.value > 0.5:
                     thermals['rate'] = randrange(1500, 3000)
@@ -776,7 +777,8 @@ class Weather:
 
                 if alt0 and alt1 and t0 and t1:
                     gradient = (t1 - t0) / (alt1 - alt0) * 100
-                    if gradient < -0.6:
+                    thermals['grad'] = gradient
+                    if gradient < -0.7:
                         '''create thermals'''
                         if base and top:
                             thermals['alt'] = top
@@ -784,10 +786,10 @@ class Weather:
                         else:
                             thermals['alt'] = alt0 + 2000
                             bonus = 0
-                        if -0.7 <= gradient:
+                        if -1 <= gradient:
                             thermals['prob'] = 0.05 + bonus
                             thermals['rate'] = randrange(100, 300)  # .5-1.5 m/s
-                        if -1 <= gradient < -0.7:
+                        elif -2 <= gradient < -1:
                             thermals['prob'] = 0.1 + bonus
                             thermals['rate'] = randrange(200, 800)  # 1-4 m/s
                         else:
@@ -1521,7 +1523,16 @@ class PythonInterface:
             sysinfo += ['']
             if 'thermals' in wdata:
                 t = wdata['thermals']
-                sysinfo += [f"THERMALS: h {round(t['alt'])}m, p {t['prob']*100}%, r {round(t['rate']*0.00508)}m/s"]
+
+                if not t['grad']:
+                    s = "THERMALS: N/A"
+                else:
+                    if t['grad'] == "TS":
+                        s = "THERMALS (TS mode): "
+                    else:
+                        s = f"THERMALS: grad. {round(t['grad'], 2)} ºC/100m, "
+                    s += f"h {round(t['alt'])}m, p {round(t['prob']*100)}%, r {round(t['rate']*0.00508)}m/s"
+                sysinfo += [s]
 
             if self.conf.set_surface_layer:
                 s = 'NOT ACTIVE' if not self.weather.surface_wind else 'ACTIVE'
