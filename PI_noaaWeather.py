@@ -1414,6 +1414,7 @@ class PythonInterface:
 
     def weatherInfo(self):
         """Return an array of strings with formatted weather data"""
+        verbose = self.conf.verbose
 
         if not self.weather.weatherData:
             sysinfo = ['Data not ready. Please wait.']
@@ -1530,6 +1531,8 @@ class PythonInterface:
                 ci = wdata['cloud_info']
                 s = 'OPTIMISED FOR BEST PERFORMANCE' if ci['OVC'] and ci['above_clouds'] else 'MERGED'
                 sysinfo += [f"CLOUD LAYERS MODE: {s}"]
+                if verbose:
+                    sysinfo += [f"{ci['layers']}"]
 
         sysinfo += ['--'] * (self.aboutlines - len(sysinfo))
 

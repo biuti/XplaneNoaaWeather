@@ -56,6 +56,9 @@ class Conf:
         self.pluginLoad()
         self.serverLoad()
 
+        # verbose mode
+        self.verbose = any(el in self.__VERSION__ for el in ["alpha", "beta"])
+
         # Config Overrides
         self.parserate = 1
         # self.metar_agl_limit = 10
