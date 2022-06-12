@@ -393,8 +393,8 @@ class GribDownloader(object):
                 idx_file.seek(0)
                 try:
                     cls.download_part('%s.idx' % url, idx_file, **kwargs)
-                except URLError as e:
-                    raise GribDownloaderError('Unable to download index file for: %s' % url)
+                except URLError as err:
+                    raise GribDownloaderError('Unable to download index file for: %s - Error: %s' % (url, repr(err)))
 
                 idx_file.seek(0)
 
@@ -412,7 +412,7 @@ class GribDownloader(object):
                 try:
                     cls.download_part('%s' % url, grib_file, start=chunk[0], end=chunk[1], **kwargs)
                 except URLError as err:
-                    raise GribDownloaderError('Unable to open url: %s\n\t%s' % (url, str(err)))
+                    raise GribDownloaderError('Unable to open url: %s\n\t%s' % (url, repr(err)))
 
         wgrib2 = kwargs.pop('decompress', False)
         spinfo = kwargs.pop('spinfo', False)
@@ -423,7 +423,7 @@ class GribDownloader(object):
                 cls.decompress_grib(tmp_file, file_path, wgrib2, spinfo)
                 util.remove(tmp_file)
             except OSError as err:
-                raise GribDownloaderError('Unable to decompress: %s \n\t%s' % (file_path, str(err)))
+                raise GribDownloaderError('Unable to decompress: %s \n\t%s' % (file_path, repr(err)))
 
         return file_path
 
