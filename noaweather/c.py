@@ -356,16 +356,15 @@ class c:
 
     @staticmethod
     def cc2xp(cover, base):
-        # GFS Percent cover to XP
-        if base > 6500:
+        """GFS Percent cover to XP
+        As GFS tends to overestimate, clouds are cut under 10% coverage that seems to happen often with SKC"""
+        if cover <= 10:
+            return 0
+        elif base > 6500:
             if cover < 30:
                 return 1  # 'CIRRUS
-            elif cover < 55:
-                return 2  # CIRRUSTRATUS
             else:
-                return 3
-        elif cover == 0:
-            return 0
+                return 2  # CIRRUSTRATUS
         elif cover < 25:
             return 2  # 'FEW'
         elif cover < 50:
