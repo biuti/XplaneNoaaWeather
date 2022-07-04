@@ -265,7 +265,12 @@ class GribDownloader(object):
             req.headers['Range'] = 'bytes=%d-%d' % (start, end)
 
         if hasattr(ssl, '_create_unverified_context'):
-            params = {'context': ssl._create_unverified_context()}
+            context = ssl._create_unverified_context()
+            if hasattr(ssl, 'OP_LEGACY_SERVER_CONNECT'):
+                context.options |= ssl.OP_LEGACY_SERVER_CONNECT
+            else:
+                context.options |= 4
+            params = {'context': context}
         else:
             params = {}
 
