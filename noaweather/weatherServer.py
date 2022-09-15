@@ -84,7 +84,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             return False
 
         # Parse gfs and wafs
-        if conf.meets_wgrib2_requirements:
+        if conf.meets_wgrib2_requirements and not conf.GFS_disabled:
             if gfs.last_grib:
                 grib_path = os.path.sep.join([gfs.cache_path, gfs.last_grib])
                 response['gfs'] = gfs.parse_grib_data(grib_path, lat, lon)
@@ -202,7 +202,7 @@ if __name__ == "__main__":
     metar = Metar(conf)
     wafs = WAFS(conf)
 
-    workers = [metar] if not conf.meets_wgrib2_requirements else [gfs, metar, wafs]
+    workers = [metar] if not conf.meets_wgrib2_requirements or conf.GFS_disabled else [gfs, metar, wafs]
     # Init worker thread
     worker = Worker(workers, conf.parserate)
     worker.start()

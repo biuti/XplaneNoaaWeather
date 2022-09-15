@@ -22,7 +22,7 @@ class Conf:
     syspath, dirsep = '', os.sep
     printableChars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ '
 
-    __VERSION__ = '3.2.0'
+    __VERSION__ = '12.0.0-alpha'
 
     GFS_JSON_HELP = '''Here you can edit which wind levels will be downloaded from NOAA without hacking the code.
                     Keep the list short to optimize the download size and parsing times.
@@ -130,17 +130,22 @@ class Conf:
 
         # User settings
         self.enabled = True
-        self.set_wind = True
-        self.set_tropo = True
-        self.set_clouds = True
-        self.opt_clouds_update = True
-        self.set_temp = True
+        self.set_wind = False
+        self.set_tropo = False
+        self.set_clouds = False
+        self.opt_clouds_update = False
+        self.set_temp = False
         self.set_visibility = False
-        self.set_turb = True
-        self.set_pressure = True
-        self.set_thermals = True
-        self.set_surface_layer = True
+        self.set_turb = False
+        self.set_pressure = False
+        self.set_thermals = False
+        self.set_surface_layer = False
         self.turbulence_probability = 1
+
+        # disable GFS data for testing in XP12
+        self.GFS_disabled = True
+        # disable XP12 weather inject during test
+        self.metar_disabled = True
 
         self.inputbug = False
 
