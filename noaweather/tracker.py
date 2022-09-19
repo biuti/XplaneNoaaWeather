@@ -1,9 +1,9 @@
 """
 X-plane NOAA GFS weather plugin.
-Copyright (C) 2012-2015 Joan Perez i Cauhe
-
+Copyright (C) 2011-2020 Joan Perez i Cauhe
+Copyright (C) 2021-2022 Antonio Golfari
+---
 Basic tracking using piwik
-
 ---
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License

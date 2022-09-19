@@ -9,7 +9,8 @@ class EasyDref:
     """
     Easy Dataref access
 
-    Copyright (C) 2011  Joan Perez i Cauhe
+    Copyright (C) 2011-2020 Joan Perez i Cauhe
+    Copyright (C) 2021-2022 Antonio Golfari
     """
 
     datarefs = []
