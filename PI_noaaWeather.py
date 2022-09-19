@@ -1199,14 +1199,14 @@ class PythonInterface:
             self.statusBuff.append(XPCreateWidget(x, y, x + 40, y - 20, 1, '--', 0, window, xpWidgetClass_Caption))
 
         self.updateStatus()
-        # Enable download
 
+        # Enable download
         y -= 20
-        XPCreateWidget(x, y, x + 20, y - 20, 1, 'Download latest data', 0, window, xpWidgetClass_Caption)
-        self.downloadCheck = XPCreateWidget(x + 130, y, x + 134, y - 20, 1, '', 0, window, xpWidgetClass_Button)
-        XPSetWidgetProperty(self.downloadCheck, xpProperty_ButtonType, xpRadioButton)
-        XPSetWidgetProperty(self.downloadCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
-        XPSetWidgetProperty(self.downloadCheck, xpProperty_ButtonState, self.conf.download)
+        # XPCreateWidget(x, y, x + 20, y - 20, 1, 'Download latest data', 0, window, xpWidgetClass_Caption)
+        # self.downloadCheck = XPCreateWidget(x + 130, y, x + 134, y - 20, 1, '', 0, window, xpWidgetClass_Button)
+        # XPSetWidgetProperty(self.downloadCheck, xpProperty_ButtonType, xpRadioButton)
+        # XPSetWidgetProperty(self.downloadCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
+        # XPSetWidgetProperty(self.downloadCheck, xpProperty_ButtonState, self.conf.download)
 
         XPCreateWidget(x + 160, y, x + 260, y - 20, 1, 'Ignore Stations:', 0, window, xpWidgetClass_Caption)
         self.stationIgnoreInput = XPCreateWidget(x + 260, y, x + 540, y - 20, 1,
@@ -1307,7 +1307,7 @@ class PythonInterface:
                     for i in range(3):
                         self.weather.winds[i]['turbulence'].value = 0
 
-                self.conf.download = XPGetWidgetProperty(self.downloadCheck, xpProperty_ButtonState, None)
+                # self.conf.download = XPGetWidgetProperty(self.downloadCheck, xpProperty_ButtonState, None)
 
                 buff = XPGetWidgetDescriptor(self.maxCloudHeightInput)
                 self.conf.max_cloud_height = c.convertFromInput(buff, 'f2m', min=c.f2m(2000))
@@ -1386,24 +1386,22 @@ class PythonInterface:
     def weatherInfo(self):
         """Return an array of strings with formatted weather data"""
         verbose = self.conf.verbose
+        sysinfo = ['XPNoaaWeather for XP12 %s Status:' % self.conf.__VERSION__]
 
         if not self.weather.weatherData:
-            sysinfo = ['Data not ready. Please wait.']
+            sysinfo += ['* Data not ready. Please wait.']
         else:
             wdata = self.weather.weatherData
             if 'info' in wdata:
-                sysinfo = [
-                    'XPNoaaWeather for XP12 %s Status:' % self.conf.__VERSION__,
+                sysinfo += [
                     '   LAT: %.2f/%.2f LON: %.2f/%.2f FL: %02.f MAGNETIC DEV: %.2f' % (
                         self.latdr.value, wdata['info']['lat'], self.londr.value, wdata['info']['lon'],
                         c.m2ft(self.altdr.value) / 100, self.weather.mag_deviation.value)
                 ]
-                if not self.conf.GFS_disabled:
-                    sysinfo = [
-                        '   GFS Cycle: %s' % (wdata['info']['gfs_cycle']),
-                        '   WAFS Cycle: %s' % (wdata['info']['wafs_cycle']),
-
-                    ]
+                if 'None' in wdata['info']['gfs_cycle']:
+                    sysinfo += ['   XP12 is still downloading weather info ...']
+                else:
+                    sysinfo += ['   GFS Cycle: %s' % (wdata['info']['gfs_cycle'])]
 
             if 'metar' in wdata and 'icao' in wdata['metar']:
                 sysinfo += ['']
@@ -1441,11 +1439,15 @@ class PythonInterface:
 
                     sysinfo += ['   Precipitation: %s' % (precip)]
                 if 'clouds' in wdata['metar']:
-                    clouds = '   Clouds: BASE|COVER    '
-                    for cloud in wdata['metar']['clouds']:
-                        alt, coverage, type = cloud
-                        clouds += '%03d|%s%s ' % (alt * 3.28084 / 100, coverage, type)
+                    if len(wdata['metar']['clouds']):
+                        clouds = '   Clouds: BASE|COVER    '
+                        for cloud in wdata['metar']['clouds']:
+                            alt, coverage, type = cloud
+                            clouds += '%03d|%s%s ' % (alt * 3.28084 / 100, coverage, type)
+                    else:
+                        clouds = '   Clouds and Visibility OK'
                     sysinfo += [clouds]
+                sysinfo += ['']
 
             if not self.conf.meets_wgrib2_requirements:
                 '''not a compatible OS with wgrib2'''
@@ -1455,13 +1457,56 @@ class PythonInterface:
                             ''
                             ]
             elif self.conf.GFS_disabled:
-                '''GFS Weather is disabled (XP12 development release)'''
-                sysinfo += ['',
-                            '*** *** GFS Weather is disabled (XP12 development release) *** ***',
-                            'Some features will be added back as soon as a XP12 final version is available',
-                            ''
-                            ]
+                sysinfo += [
+                    '*** *** GFS weather data download is disabled (XP12 early release) *** ***',
+                    'Some features will be added back as soon as a XP12 final version is available',
+                    'At this stage the plugin writes missing METAR.rwx file and monitors XP12 real weather.',
+                    ''
+                ]
+
+                if 'gfs' in wdata:
+                    if 'winds' in wdata['gfs']:
+                        sysinfo += ['XP12 REAL WEATHER WIND LAYERS: FL | HDG | KT | TEMP | DEV']
+                        wlayers = ''
+                        out = []
+                        for i, layer in enumerate(wdata['gfs']['winds'], 1):
+                            alt, hdg, speed, extra = layer
+                            wlayers += '    F%03d | %03d | %02dkt | %02d | %02d' % (
+                                alt * 3.28084 / 100, hdg, speed, extra['temp'] - 273.15, extra['dev'] - 273.15)
+                            if i % 3 == 0 or i == len(wdata['gfs']['winds']):
+                                out.append(wlayers)
+                                wlayers = ''
+                        sysinfo += out
+
+                    if 'clouds' in wdata['gfs']:
+                        sysinfo += ['XP12 REAL WEATHER CLOUD LAYERS  FLBASE | FLTOP | COVER']
+                        clayers = ''
+                        clouds = [el for el in wdata['gfs']['clouds'] if el[0] > 0]
+                        out = []
+                        if not len(clouds):
+                            sysinfo += ['    None reported']
+                        else:
+                            for i, layer in enumerate(clouds, 1):
+                                base, top, cover = layer
+                                clayers += '    %03d | %03d | %d%%' % (base * 3.28084 / 100, top * 3.28084 / 100, cover)
+                                if i % 3 == 0 or i == len(clouds):
+                                    out.append(clayers)
+                                    clayers = ''
+                            sysinfo += out
+
+                    if 'wafs' in wdata:
+                        tblayers = ''
+                        for layer in wdata['wafs']:
+                            tblayers += f"    {round(layer[0] * 3.28084 / 100)}|{round(layer[1], 2)}" \
+                                        f"{'*' if layer[1] >= self.conf.max_turbulence else ''}"
+
+                        sysinfo += [f"XP12 REAL WEATHER TURBULENCE ({len(wdata['wafs'])}):  "
+                                    f"FL | SEV (max {self.conf.max_turbulence}) ",
+                                    tblayers]
+                    sysinfo += ['']
+
             else:
+                '''Normal GFS mode'''
                 if 'gfs' in wdata:
                     if 'winds' in wdata['gfs']:
                         sysinfo += ['', 'GFS WIND LAYERS: %i FL|HDG|KT|TEMP|DEV' % (len(wdata['gfs']['winds']))]

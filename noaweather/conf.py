@@ -42,8 +42,10 @@ class Conf:
         if xplane_path:
             self.syspath = xplane_path
             self.respath = os.sep.join([xplane_path, 'Resources', 'plugins', 'PythonPlugins', 'noaweather'])
+            self.wpath = os.sep.join([xplane_path, 'Output', 'real weather'])
         else:
             self.respath = os.path.dirname(os.path.abspath(__file__))
+            self.wpath = os.path.realpath(os.sep.join([self.respath, '..', '..', '..', 'Output', 'real weather']))
 
         self.settingsfile = os.sep.join([self.respath, 'settings.pkl'])
         self.serverSettingsFile = os.sep.join([self.respath, 'weatherServer.pkl'])
@@ -315,14 +317,15 @@ class Conf:
                         "VGRD"
                     ],
                     "levels": [
-                        "850 mb",
+                        "900 mb",
+                        "800 mb",
                         "700 mb",
                         "600 mb",
                         "500 mb",
                         "400 mb",
                         "300 mb",
-                        "200 mb",
-                        "150 mb"
+                        "250 mb",
+                        "200 mb"
                     ]
                 },
                 {
