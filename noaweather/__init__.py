@@ -7,6 +7,5 @@ from .wafs import WAFS
 try:
     from .EasyDref import EasyDref
     from .EasyDref import EasyCommand
-    from .tracker import Tracker
 except ImportError:
     pass

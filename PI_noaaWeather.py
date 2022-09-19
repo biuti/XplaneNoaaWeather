@@ -47,7 +47,7 @@ import subprocess
 import os
 
 from datetime import datetime
-from noaweather import EasyDref, Conf, c, EasyCommand, Tracker
+from noaweather import EasyDref, Conf, c, EasyCommand
 
 
 class Weather:
@@ -980,12 +980,6 @@ class PythonInterface:
 
         self.aboutlines = 26
 
-        # Tracker
-        self.tracker = Tracker(self.conf, 4, 'http://x-plane.joanpc.com/NOAAWeather')
-
-        self.tracker.track('start', 'start x-plane')
-        self.last_track = 0
-
         return self.Name, self.Sig, self.Desc
 
     def mainMenuCB(self, menuRef, menuItem):
@@ -1222,12 +1216,6 @@ class PythonInterface:
         XPSetWidgetProperty(self.stationIgnoreInput, xpProperty_Enabled, 1)
 
         y -= 20
-        XPCreateWidget(x, y, x + 20, y - 20, 1, 'Send anonymous stats', 0, window, xpWidgetClass_Caption)
-        self.trackCheck = XPCreateWidget(x + 130, y, x + 134, y - 20, 1, '', 0, window, xpWidgetClass_Button)
-        XPSetWidgetProperty(self.trackCheck, xpProperty_ButtonType, xpRadioButton)
-        XPSetWidgetProperty(self.trackCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
-        XPSetWidgetProperty(self.trackCheck, xpProperty_ButtonState, self.conf.tracker_enabled)
-
         # DumpLog Button
         self.dumpLogButton = XPCreateWidget(x + 160, y, x + 260, y - 20, 1, "DumpLog", 0, window, xpWidgetClass_Button)
         XPSetWidgetProperty(self.dumpLogButton, xpProperty_ButtonType, xpPushButton)
@@ -1250,16 +1238,12 @@ class PythonInterface:
 
         # Visit site Button
         x += 190
-        y += 20
-        self.aboutVisit = XPCreateWidget(x, y, x + 100, y - 20, 1, "Official site", 0, window, xpWidgetClass_Button)
+        y += 10
+        self.aboutVisit = XPCreateWidget(x + 120, y, x + 220, y - 20, 1, "Official site", 0, window, xpWidgetClass_Button)
         XPSetWidgetProperty(self.aboutVisit, xpProperty_ButtonType, xpPushButton)
 
-        self.aboutForum = XPCreateWidget(x + 120, y, x + 220, y - 20, 1, "Support", 0, window, xpWidgetClass_Button)
+        self.aboutForum = XPCreateWidget(x + 240, y, x + 340, y - 20, 1, "Support", 0, window, xpWidgetClass_Button)
         XPSetWidgetProperty(self.aboutForum, xpProperty_ButtonType, xpPushButton)
-
-        # Donate Button
-        self.donate = XPCreateWidget(x + 240, y, x + 340, y - 20, 1, "Donate", 0, window, xpWidgetClass_Button)
-        XPSetWidgetProperty(self.donate, xpProperty_ButtonType, xpPushButton)
 
         # Register our widget handler
         self.aboutWindowHandlerCB = self.aboutWindowHandler
@@ -1294,19 +1278,12 @@ class PythonInterface:
 
             if (inParam1 == self.aboutVisit):
                 from webbrowser import open_new
-                open_new('http://x-plane.joanpc.com/')
-                self.tracker.track('Homepage', 'homepage button')
-                return 1
-            if inParam1 == self.donate:
-                from webbrowser import open_new
-                open_new('https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=GH6YPFGSS5UEU')
-                self.tracker.track('donate', 'donate button')
+                open_new('https://github.com/biuti/XplaneNoaaWeather')
                 return 1
             if inParam1 == self.aboutForum:
                 from webbrowser import open_new
                 open_new(
                     'http://forums.x-plane.org/index.php?/forums/topic/72313-noaa-weather-plugin/&do=getNewComment')
-                self.tracker.track('Support', 'support button')
                 return 1
             if inParam1 == self.saveButton:
                 # Save configuration
@@ -1331,11 +1308,6 @@ class PythonInterface:
                         self.weather.winds[i]['turbulence'].value = 0
 
                 self.conf.download = XPGetWidgetProperty(self.downloadCheck, xpProperty_ButtonState, None)
-
-                self.conf.tracker_enabled = XPGetWidgetProperty(self.trackCheck, xpProperty_ButtonState, None)
-                # buff = []
-                # XPGetWidgetDescriptor(self.transAltInput, buff, 256)
-                # self.conf.metar_agl_limit = c.convertFromInput(buff[0], 'f2m', 900)
 
                 buff = XPGetWidgetDescriptor(self.maxCloudHeightInput)
                 self.conf.max_cloud_height = c.convertFromInput(buff, 'f2m', min=c.f2m(2000))
@@ -1671,7 +1643,6 @@ class PythonInterface:
         query = XPGetWidgetDescriptor(self.metarQueryInput).strip()
         if len(query) == 4:
             self.weather.weatherClientSend('?' + query)
-            self.tracker.track('metar_query/%s' % query, 'query metar', {'search': query})
             XPSetWidgetDescriptor(self.metarQueryOutput, 'Querying, please wait.')
         else:
             XPSetWidgetDescriptor(self.metarQueryOutput, 'Please insert a valid ICAO code.')
@@ -1814,12 +1785,6 @@ class PythonInterface:
         if not self.conf.enabled:
             return -1
 
-        # tracker
-        self.last_track += elapsedMe
-        if self.last_track > 60 * 15:
-            self.tracker.track('running/FL%d0' % (c.m2ft(self.altdr.value) / 1000), 'running')
-            self.last_track = 0
-
         ''' Request new data from the weather server (if required)'''
         self.flcounter += elapsedMe
         self.fltime += elapsedMe
@@ -1941,7 +1906,6 @@ class PythonInterface:
         return -1
 
     def XPluginStop(self):
-        self.tracker.track('stop', 'stop x-plane')
 
         # Destroy windows
         if self.aboutWindow:
