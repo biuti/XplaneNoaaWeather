@@ -107,8 +107,8 @@ class Weather:
 
         self.xpTime = EasyDref('sim/time/local_time_sec', 'float')  # sim time (sec from midnight)
 
-        self.xpWeatherOn = EasyDref('sim/weather/use_real_weather_bool', 'int')  # deprecated
-        self.xpWeatherDownloadOn = EasyDref('sim/weather/download_real_weather', 'int')  # deprecated
+        # self.xpWeatherOn = EasyDref('sim/weather/use_real_weather_bool', 'int')  # deprecated
+        # self.xpWeatherDownloadOn = EasyDref('sim/weather/download_real_weather', 'int')  # deprecated
         self.msltemp = EasyDref('sim/weather/temperature_sealevel_c', 'float')
         self.msldewp = EasyDref('sim/weather/dewpoi_sealevel_c', 'float')
         self.visibility = EasyDref('sim/weather/visibility_reported_m', 'float')
@@ -119,8 +119,8 @@ class Weather:
         self.runwayFriction = EasyDref('sim/weather/runway_friction', 'float')
         self.patchy = EasyDref('sim/weather/runway_is_patchy', 'float')
 
-        self.tropo_temp = EasyDref('sim/weather/temperature_tropo_c', 'float')  # default -56.5C  deprecated
-        self.tropo_alt = EasyDref('sim/weather/tropo_alt_mtr', 'float')  # default 11100 meter  deprecated
+        # self.tropo_temp = EasyDref('sim/weather/temperature_tropo_c', 'float')  # default -56.5C  deprecated
+        # self.tropo_alt = EasyDref('sim/weather/tropo_alt_mtr', 'float')  # default 11100 meter  deprecated
 
         self.thermals_prob = EasyDref('sim/weather/thermal_percent', 'float')  # 0 - 0.25
         self.thermals_rate = EasyDref('sim/weather/thermal_rate_ms', 'float')  # seems ft/m 0 - 1000
@@ -682,8 +682,8 @@ class Weather:
 
         tropo_alt = tropo['alt']
         tropo_temp = tropo['temp'] - 273.15
-        c.datarefTransition(self.tropo_alt, tropo_alt, elapsed, 50)
-        c.datarefTransition(self.tropo_temp, tropo_temp, elapsed)
+        # c.datarefTransition(self.tropo_alt, tropo_alt, elapsed, 50)
+        # c.datarefTransition(self.tropo_temp, tropo_temp, elapsed)
 
         temp_list = self.weatherData['gfs']['temperature']
         surface = self.weatherData['gfs']['surface']
@@ -916,8 +916,9 @@ class Data:
                     self.wind_speed.value = speeds
                     self.wind_temp.value = temps
                 if 'tropo' in wdata['gfs'] and 'temp' in wdata['gfs']['tropo']:
-                    self.tropo_alt.value_f = wdata['gfs']['tropo']['alt']
-                    self.tropo_temp.value_f = wdata['gfs']['tropo']['temp']
+                    # self.tropo_alt.value_f = wdata['gfs']['tropo']['alt']
+                    # self.tropo_temp.value_f = wdata['gfs']['tropo']['temp']
+                    pass
 
             if 'wafs' in wdata:
 
