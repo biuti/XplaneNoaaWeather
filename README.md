@@ -1,10 +1,10 @@
 ===========================================
-[XPGFS] Xplane NOAA Global Forecast weather
+[XPGFS] NOAA Global Weather (Xplane 12 EA)
 ===========================================
 
 I created a new version of NOAAWeather originally created by [Joan](https://github.com/joanpc) and ported to python3 by [pbuckner](https://github.com/pbuckner).
 
-You can find original version [here](http://x-plane.joanpc.com/plugins/xpgfs-noaa-weather).
+You can find original version [here](http://x-plane.joanpc.com/plugins/xpgfs-noaa-weather) (I guess it will not work in XP12).
 
 And here the version of [pbuckner](https://github.com/pbuckner) ported to Python 3.x:
 https://github.com/pbuckner/XplaneNoaaWeather
@@ -15,22 +15,20 @@ https://github.com/pbuckner/XplaneNoaaWeather
 Features
 ============
 
-Downloads METAR and Forecast data from NOAA servers and sets x-plane weather
-using forecasted and reported data for the current time and world coordinates.
+At this stage the plugin is almost only monitoring what XP real weather engine is doing.
 
-- Updated winds and clouds layers
-- Changes ISA atmosphere using GFS Tropo limit data
-- Changes runway friction based on weather conditions
-- Adds uplift and wind shear effect in stormy conditions
-- Convection "bumpiness" using thermal XPlane parameters in unstable conditions
-- Added a surface layer to get correct ATIS information (nearest METAR)
-- Added a 'Optimised Redraw' mode to minimise clouds disappearing and recalculation, especially at cruise level or when there is an OVC layer
+As it already takes data from GFS Grib files, probably there will be no need to download them anylonger.
+
+As soon as a final version of X-Plane 12 will be released, I will consider if some of the XP11 version features will still be needed.
+
+- Writes missing METAR.rwx file for compatibility with XP11 (e.g. Avitab)
+- monitors XP12 real weather behavior
 
 ============
 Requirements
 ============
 - MacOS 10.14, Windows 7 and Linux kernel 4.0 and above
-- X-Plane 11 and above
+- X-Plane 12 
 - pbuckner's XPPython3 plugin:
 https://xppython3.readthedocs.io/en/latest/index.html
 - Python 3.6 and above:
