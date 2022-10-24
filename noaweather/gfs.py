@@ -58,9 +58,9 @@ class GFS(GribWeatherSource):
         if self.conf.spinfo:
             kwargs.update({'startupinfo': self.conf.spinfo, 'shell': True})
 
-        print("Calling subprocess with {}, {}".format([self.conf.wgrib2bin] + args, kwargs))
+        # print("Calling subprocess with {}, {}".format([self.conf.wgrib2bin] + args, kwargs))
         p = subprocess.Popen([self.conf.wgrib2bin] + args, **kwargs)
-        print("result of grib data subprocess is p={}".format(p))
+        # print("result of grib data subprocess is p={}".format(p))
         it = iter(p.stdout)
         data = {}
         clouds = {}

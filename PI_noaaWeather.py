@@ -165,7 +165,7 @@ class Weather:
             wdata = pickle.loads(received)
             if self.die.is_set() or wdata == '!bye':
                 break
-            elif not 'info' in wdata:
+            elif 'info' not in wdata:
                 # A metar query response
                 self.queryResponses.append(wdata)
             else:
@@ -1408,7 +1408,7 @@ class PythonInterface:
                 sysinfo += ['']
                 # Split metar if needed
                 splitlen = 80
-                metar = 'METAR STATION: %s %s' % (wdata['metar']['icao'], wdata['metar']['metar'])
+                metar = f"{self.conf.metar_source} METAR: {wdata['metar']['icao']} {wdata['metar']['metar']}"
                 if len(metar) > splitlen:
                     icut = metar.rfind(' ', 0, splitlen)
                     sysinfo += [metar[:icut], metar[icut + 1:]]
@@ -1448,7 +1448,14 @@ class PythonInterface:
                     else:
                         clouds = '   Clouds and Visibility OK'
                     sysinfo += [clouds]
-                sysinfo += ['']
+                if 'rwmetar' in wdata:
+                    if not wdata['rwmetar']['file_time']:
+                        sysinfo += ['XP12 REAL WEATHER METAR:', '   no METAR file, still downloading...']
+                    else:
+                        sysinfo += [f"XP12 REAL WEATHER METAR ({wdata['rwmetar']['file_time']}):"]
+                        for line in wdata['rwmetar']['reports']:
+                            sysinfo += [f'   {line}']
+                    sysinfo += ['']
 
             if not self.conf.meets_wgrib2_requirements:
                 '''not a compatible OS with wgrib2'''

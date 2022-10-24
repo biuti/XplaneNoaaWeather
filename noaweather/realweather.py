@@ -62,6 +62,28 @@ class RealWeather(GribWeatherSource):
         if self.base is not None:
             return [Path(self.conf.wpath, self.base + el + '.grib') for el in self.suffixes]
 
+    def get_real_weather_metar(self, icao):
+        """ Reads METAR files in XP12 real weather folder
+            icao: ICAO code for requested airport"""
+
+        response = {
+            'file_time': None,
+            'reports': []
+        }
+
+        '''get METAR files'''
+        metar_files = [p for p in Path(self.conf.wpath).iterdir() if p.is_file() and 'METAR' in p.stem]
+        if metar_files:
+            '''get latest file'''
+            file = max([f for f in metar_files], key=lambda item: item.stat().st_ctime)
+            response['file_time'] = file.stem[11:-5]
+            '''get ICAO metar'''
+            with open(file, encoding='utf-8', errors='replace') as f:  # deal with non utf-8 characters, avoiding error
+                response['reports'] = (list(set(line for line in f if line.startswith(icao)))
+                                       or [f"{icao} not found in XP12 real weather METAR files"])
+
+        return response
+
     def get_real_weather_forecast(self):
         """ configures x-plane 12 weather filenames to be read
             As X-Plane already downloads GFS grib files, there's no need to download them again as in XP11 version
@@ -78,6 +100,8 @@ class RealWeather(GribWeatherSource):
 
             RealWeather Download Logic:
             UTC     GFS Cycle   forecast
+            00      12 (-1d)    12
+            03      18 (-1d)    09
             06      18 (-1d)    12
             09      00          09
             12      00          12
@@ -108,9 +132,9 @@ class RealWeather(GribWeatherSource):
                 '%f' % (lat),
                 file
             ]
-            print("Calling subprocess with {}, {}".format([self.conf.wgrib2bin] + args, kwargs))
+            # print("Calling subprocess with {}, {}".format([self.conf.wgrib2bin] + args, kwargs))
             p = subprocess.Popen([self.conf.wgrib2bin] + args, **kwargs)
-            print("result of grib data subprocess is p={}".format(p))
+            # print("result of grib data subprocess is p={}".format(p))
             it.extend(iter(p.stdout))
 
         data = {}

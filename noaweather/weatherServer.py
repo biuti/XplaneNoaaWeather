@@ -71,6 +71,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             'gfs': {},
             'wafs': {},
             'metar': {},
+            'rwmetar': {},
             'info': {'lat': lat,
                      'lon': lon,
                      'wafs_cycle': 'na',
@@ -97,6 +98,8 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             response['metar'] = metar.parse_metar(apt[0], apt[5], apt[3])
             response['metar']['latlon'] = (apt[1], apt[2])
             response['metar']['distance'] = c.greatCircleDistance((lat, lon), (apt[1], apt[2]))
+            response['rwmetar'] = gfs.get_real_weather_metar(apt[0])
+            # print(f"response['rwmetar']: {response['rwmetar']}")
 
         return response
 
@@ -265,3 +268,5 @@ if __name__ == "__main__":
 
     if not debug:
         logfile.close()
+
+    server.shutdown()
