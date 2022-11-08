@@ -13,6 +13,8 @@ of the License, or any later version.
 """
 
 import subprocess
+import sys
+import time
 
 from pathlib import Path
 from datetime import datetime
@@ -54,15 +56,25 @@ class RealWeather(GribWeatherSource):
         self.base = None
         self.cycle = None
         self.fcst = None
+        self.next_metarRWX = time.time() + 30
 
         super(RealWeather, self).__init__(conf)
 
     @property
-    def grib_files(self):
+    def grib_files(self) -> list:
         if self.base is not None:
             return [Path(self.conf.wpath, self.base + el + '.grib') for el in self.suffixes]
 
-    def get_real_weather_metar(self, icao):
+    @property
+    def metar_file(self):
+        metar_files = [p for p in Path(self.conf.wpath).iterdir() if p.is_file() and 'METAR' in p.stem]
+        if metar_files:
+            '''get latest file'''
+            return max([f for f in metar_files], key=lambda item: item.stat().st_ctime)
+        else:
+            return None
+
+    def get_real_weather_metar(self, icao) -> dict:
         """ Reads METAR files in XP12 real weather folder
             icao: ICAO code for requested airport"""
 
@@ -82,6 +94,30 @@ class RealWeather(GribWeatherSource):
                                    or [f"{icao} not found in XP12 real weather METAR files"])
 
         return response
+
+    def update_metar_rwx_file(self):
+        """Dumps all metar data from XP12 METAR files to the METAR.rwx file"""
+        print(f"updating METAR.rwx file using XP12 files: RealWeather.update_metar_rwx_file()")
+        if not self.metar_file or not self.metar_file.is_file():
+            print(f"ERROR updating METAR.rwx file: XP12 did not download files yet")
+            return False
+
+        rows = list(set(open(self.metar_file, encoding='utf-8', errors='replace')))
+        codes = list(set(x.split()[0] for x in rows if x[0].isalpha()))
+
+        try:
+            f = open(Path(self.conf.syspath, 'METAR.rwx'), 'w')
+            for row in rows:
+                if row[0].isalpha() and len(row.split()) and row.split()[0] in codes:
+                    # f.write(f"{row[0]} {row[1]}\n")
+                    f.write(row)
+                    codes.remove(row.split()[0])
+            f.close()
+        except (OSError, IOError):
+            print(f"ERROR updating METAR.rwx file: {sys.exc_info()[0]}, {sys.exc_info()[1]}")
+            return False
+
+        return True
 
     def get_real_weather_forecast(self):
         """ configures x-plane 12 weather filenames to be read
@@ -113,7 +149,7 @@ class RealWeather(GribWeatherSource):
         time = min(self.forecasts, key=lambda x: abs(x - now.hour))
         self.zulu_time, self.base = time, f'GRIB-{now.year}-{now.month}-{now.day}-{time}.00-ZULU-'
 
-    def parse_grib_data(self, lat, lon):
+    def parse_grib_data(self, lat, lon) -> dict:
         """Executes wgrib2 and parses its output"""
 
         kwargs = {'stdout': subprocess.PIPE}
@@ -276,3 +312,14 @@ class RealWeather(GribWeatherSource):
         }
 
         return data
+
+    def run(self, elapsed):
+        """ Updates METAR.rwx file from XP12 realweather metar files if option to do so is checked"""
+        # Update METAR.rwx
+        if self.conf.updateMetarRWX and self.conf.metar_use_xp12 and self.next_metarRWX < time.time():
+            if self.update_metar_rwx_file():
+                self.next_metarRWX = time.time() + self.conf.metar_updaterate * 60
+                print('Updated METAR.rwx file using XP12 Real Weather METAR files.')
+            else:
+                # Retry in 30 sec
+                self.next_metarRWX = time.time() + 30

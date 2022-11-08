@@ -467,13 +467,14 @@ class Metar(WeatherSource):
             self.ms_download = False
 
         # Update METAR.rwx
-        if self.conf.updateMetarRWX and self.conf.syspath and self.next_metarRWX < time.time():
+        # print(f"metar source: {self.conf.metar_source}.")
+        if self.conf.updateMetarRWX and not self.conf.metar_use_xp12 and self.next_metarRWX < time.time():
             if self.update_metar_rwx_file(self.th_db):
-                self.next_metarRWX = time.time() + 300
-                print('Updated METAR.rwx file.')
+                self.next_metarRWX = time.time() + self.conf.metar_updaterate * 60
+                print(f"Updated METAR.rwx file using {self.conf.metar_source}.")
             else:
-                # Retry in 10 sec
-                self.next_metarRWX = time.time() + 10
+                # Retry in 30 sec
+                self.next_metarRWX = time.time() + 30
 
     def download_cycle(self, cycle, timestamp):
         self.downloading = True

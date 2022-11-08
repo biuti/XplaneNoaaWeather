@@ -197,6 +197,7 @@ class Conf:
         self.metar_source = 'NOAA'
         self.metar_updaterate = 5  # minutes
         self.metar_ignore_auto = False
+        self.metar_use_xp12 = False
 
         self.ignore_metar_stations = []
 
@@ -259,7 +260,8 @@ class Conf:
             'inputbug': self.inputbug,
             'metar_updaterate': self.metar_updaterate,
             'ignore_metar_stations': self.ignore_metar_stations,
-            'metar_ignore_auto': self.metar_ignore_auto
+            'metar_ignore_auto': self.metar_ignore_auto,
+            'metar_use_xp12': self.metar_use_xp12
         }
         self.saveSettings(self.settingsfile, conf)
 
