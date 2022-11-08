@@ -41,12 +41,44 @@ class c:
         return a, r
 
     @staticmethod
-    def mb2alt(mb):
-        altpress = (1 - (mb / 1013.25) ** 0.190284) * 44307
-        return altpress
+    def mb2alt(mb) -> float:
+        return (1 - (mb / 1013.25) ** 0.190284) * 44307
 
     @staticmethod
-    def oat2msltemp(oat, alt, tropo_temp=-56.5, tropo_alt=11000):
+    def mb2ft(mb) -> float:
+        return (1 - (mb / 1013.25) ** 0.190284) * 145366.45
+
+    @staticmethod
+    def mb2fl(mb) -> int:
+        return int((1 - (mb / 1013.25) ** 0.190284) * 1453.6645)
+
+
+    @staticmethod
+    def m2ft(n):
+        return False if n is False else n * 3.280839895013123
+
+    @staticmethod
+    def m2fl(n) -> int:
+        return False if n is False else int(n * 0.03280839895013123)
+
+    @staticmethod
+    def f2m(n):
+        return False if n is False else n * 0.3048
+
+    @staticmethod
+    def sm2m(n):
+        return False if n is False else n * 1609.344
+
+    @staticmethod
+    def m2sm(n):
+        return False if n is False else n * 0.0006213711922373339
+
+    @staticmethod
+    def m2kn(n):
+        return False if n is False else n * 1852
+
+    @staticmethod
+    def oat2msltemp(oat, alt, tropo_temp=-56.5, tropo_alt=11000) -> float:
         """Converts oat temperature to mean sea level.
         oat in C, alt in meters
         http://en.wikipedia.org/wiki/International_Standard_Atmosphere#ICAO_Standard_Atmosphere
@@ -68,7 +100,7 @@ class c:
         return oat + gradient * alt
 
     @staticmethod
-    def greatCircleDistance(latlong_a, latlong_b):
+    def greatCircleDistance(latlong_a, latlong_b) -> float:
         """Return the great circle distance of 2 coordinatee pairs"""
         EARTH_RADIUS = 6378137
 
@@ -85,25 +117,25 @@ class c:
         return d
 
     @staticmethod
-    def interpolate(t1, t2, alt1, alt2, alt):
+    def interpolate(t1, t2, alt1, alt2, alt) -> float:
         if (alt2 - alt1) == 0:
             return t2
         return t1 + (alt - alt1) * (t2 - t1) / (alt2 - alt1)
 
     @staticmethod
-    def expoCosineInterpolate(t1, t2, alt1, alt2, alt, expo=3):
+    def expoCosineInterpolate(t1, t2, alt1, alt2, alt, expo=3) -> float:
         if alt1 == alt2: return t1
         x = (alt - alt1) / float(alt2 - alt1)
         return t1 + (t2 - t1) * x ** expo
 
     @staticmethod
-    def cosineInterpolate(t1, t2, alt1, alt2, alt):
+    def cosineInterpolate(t1, t2, alt1, alt2, alt) -> float:
         if alt1 == alt2: return t1
         x = (alt - alt1) / float(alt2 - alt1)
         return t1 + (t2 - t1) * (0.5 - cos(pi * x) / 2)
 
     @staticmethod
-    def cosineInterpolateHeading(hdg1, hdg2, alt1, alt2, alt):
+    def cosineInterpolateHeading(hdg1, hdg2, alt1, alt2, alt) -> float:
 
         if alt1 == alt2: return hdg1
 
@@ -117,7 +149,7 @@ class c:
             return t2 % 360
 
     @staticmethod
-    def expoCosineInterpolateHeading(hdg1, hdg2, alt1, alt2, alt, expo=3):
+    def expoCosineInterpolateHeading(hdg1, hdg2, alt1, alt2, alt, expo=3) -> float:
 
         if alt1 == alt2: return hdg1
 
@@ -131,7 +163,7 @@ class c:
             return t2 % 360
 
     @staticmethod
-    def interpolateHeading(hdg1, hdg2, alt1, alt2, alt):
+    def interpolateHeading(hdg1, hdg2, alt1, alt2, alt) -> float:
         if alt1 == alt2: return hdg1
 
         t1 = 0
@@ -147,17 +179,17 @@ class c:
             return t2 % 360
 
     @staticmethod
-    def fog2(rh):
+    def fog2(rh) -> float:
         return (80 - rh) / 20 * 24634
 
     @staticmethod
-    def isaDev(alt, temp):
+    def isaDev(alt, temp) -> float:
         """Calculates Temperature ISA Deviation"""
         isa = 15 - 0.65*alt/100
         return temp - isa
 
     @staticmethod
-    def toFloat(string, default=0):
+    def toFloat(string, default=0) -> float:
         """Convert to float or return default"""
         try:
             val = float(string)
@@ -166,7 +198,7 @@ class c:
         return val
 
     @staticmethod
-    def toInt(string, default=0):
+    def toInt(string, default=0) -> int:
         """Convert to float or return default"""
         try:
             val = int(string)
@@ -175,16 +207,16 @@ class c:
         return val
 
     @staticmethod
-    def rh2visibility(rh):
+    def rh2visibility(rh) -> float:
         # http://journals.ametsoc.org/doi/pdf/10.1175/2009JAMC1927.1
         return 1000 * (-5.19 * 10 ** -10 * rh ** 5.44 + 40.10)
 
     @staticmethod
-    def dewpoint2rh(temp, dew):
+    def dewpoint2rh(temp, dew) -> float:
         return 100 * (exp((17.625 * dew) / (243.04 + dew)) / exp((17.625 * temp) / (243.04 + temp)))
 
     @staticmethod
-    def dewpoint(temp, rh):
+    def dewpoint(temp, rh) -> float:
         return 243.04 * (log(rh / 100) + ((17.625 * temp) / (243.04 + temp))) / (
                     17.625 - log(rh / 100) - ((17.625 * temp) / (243.04 + temp)))
 
@@ -203,7 +235,7 @@ class c:
         return ccw
 
     @staticmethod
-    def pa2inhg(pa):
+    def pa2inhg(pa) -> float:
         return pa * 0.0002952998016471232
 
     @classmethod
@@ -356,7 +388,7 @@ class c:
         return xp
 
     @staticmethod
-    def cc2xp(cover, base):
+    def cc2xp(cover, base) -> int:
         """GFS Percent cover to XP
         As GFS tends to overestimate, clouds are cut under 10% coverage that seems to happen often with SKC"""
         if cover <= 10:
@@ -418,32 +450,12 @@ class c:
         if i is False:
             return false_label
         else:
-            return '%.2f' % (i)
+            return f"{round(i, 2)}"
 
     @staticmethod
-    def m2ft(n):
-        if n is False: return False
-        return n * 3.280839895013123
-
-    @staticmethod
-    def f2m(n):
-        if n is False: return False
-        return n * 0.3048
-
-    @staticmethod
-    def sm2m(n):
-        if n is False: return False
-        return n * 1609.344
-
-    @staticmethod
-    def m2sm(n):
-        if n is False:
-            return False
-        return n * 0.0006213711922373339
-
-    @staticmethod
-    def m2kn(n):
-        return n * 1852
+    def str03d(i, false_label='na'):
+        """Print a 3 digit string with leading zeroes"""
+        return false_label if i is False else f"{i:03.0F}"
 
     @classmethod
     def convertForInput(cls, value, conversion, toFloat=False, false_str='none'):
@@ -514,7 +526,7 @@ class c:
             return hd2 + (360 + hd1 - hd2) / 2
 
     @staticmethod
-    def gfs_levels_help_list():
+    def gfs_levels_help_list() -> list:
         """Returns a text list of FL levels with corresponding pressure in millibars"""
         return [f"FL{c.mb2fl(i):03d} {i} mb" for i in reversed(range(100, 1050, 50))]
 
