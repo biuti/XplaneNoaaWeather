@@ -23,6 +23,13 @@ As soon as a final version of X-Plane 12 will be released, I will consider if so
 
 - Writes missing METAR.rwx file for compatibility with XP11 (e.g. Avitab)
 - monitors XP12 real weather behavior
+- METAR query window that displays both XP12 Real Weather and latest one from chosen source (NOAA, IVAO or VATSIM servers)
+- Ability to populate METAR.rwx file using XP12 Real Weather as data source.
+
+**WARNING**
+Be aware that using XP12 Real Weather as data source when flying online will give you outdated information. They will be consistent with the weather you experience in your simulator but at this stage (XP12 EA beta11) likely different from the live weather on the server.
+This means that ATC information, ATIS, runway in use and generally weather for any pilot not using XP12 could be different from what you expect looking at your data.
+Be respectful of other users, you are the one using wrong data.
 
 ============
 Requirements
