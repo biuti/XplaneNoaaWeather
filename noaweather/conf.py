@@ -220,7 +220,8 @@ class Conf:
                 return
 
             # Reset settings on different versions.
-            if 'version' not in conf or conf['version'] < '2.0':
+            if 'version' not in conf or conf['version'] < '12.0.0':
+                print(f"Version unknown or very old, skipping ...")
                 return
 
             # may be "dangerous" if someone messes our config file
