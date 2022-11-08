@@ -1586,7 +1586,7 @@ class PythonInterface:
         x = 100
         w = 480
         y = 600
-        h = 120
+        h = 180
         x2 = x + w
         y2 = y - h
         windowTitle = "METAR Request"
@@ -1622,7 +1622,8 @@ class PythonInterface:
 
         y -= 20
         # Help caption
-        cap = XPCreateWidget(x, y, x + 300, y - 20, 1, "METAR:", 0, self.metarWindowWidget, xpWidgetClass_Caption)
+        cap = XPCreateWidget(x, y, x + 300, y - 20, 1,
+                             f"{self.conf.metar_source}:", 0, self.metarWindowWidget, xpWidgetClass_Caption)
         XPSetWidgetProperty(cap, xpProperty_CaptionLit, 1)
 
         y -= 20
@@ -1632,6 +1633,20 @@ class PythonInterface:
         XPSetWidgetProperty(self.metarQueryOutput, xpProperty_TextFieldType, xpTextEntryField)
         XPSetWidgetProperty(self.metarQueryOutput, xpProperty_Enabled, 1)
         XPSetWidgetProperty(self.metarQueryOutput, xpProperty_TextFieldType, xpTextTranslucent)
+
+        y -= 20
+        # Help caption
+        cap = XPCreateWidget(x, y, x + 300, y - 20, 1, f"XP12 Real Weather:", 0, self.metarWindowWidget,
+                             xpWidgetClass_Caption)
+        XPSetWidgetProperty(cap, xpProperty_CaptionLit, 1)
+
+        y -= 20
+        # Query output
+        self.metarQueryXP12 = XPCreateWidget(x + 5, y, x + 450, y - 20, 1, "", 0, self.metarWindowWidget,
+                                               xpWidgetClass_TextField)
+        XPSetWidgetProperty(self.metarQueryXP12, xpProperty_TextFieldType, xpTextEntryField)
+        XPSetWidgetProperty(self.metarQueryXP12, xpProperty_Enabled, 1)
+        XPSetWidgetProperty(self.metarQueryXP12, xpProperty_TextFieldType, xpTextTranslucent)
 
         if not self.conf.inputbug:
             # Register our sometimes buggy widget handler
@@ -1694,6 +1709,7 @@ class PythonInterface:
 
     def metarQuery(self):
         query = XPGetWidgetDescriptor(self.metarQueryInput).strip()
+        XPSetWidgetDescriptor(self.metarQueryXP12, '')
         if len(query) == 4:
             self.weather.weatherClientSend('?' + query)
             XPSetWidgetDescriptor(self.metarQueryOutput, 'Querying, please wait.')
@@ -1706,7 +1722,12 @@ class PythonInterface:
         if self.metarWindow:
             # Filter metar text
             metar = ''.join(filter(lambda x: x in self.conf.printableChars, msg['metar']['metar']))
-            XPSetWidgetDescriptor(self.metarQueryOutput, '%s %s' % (msg['metar']['icao'], metar))
+            rwmetar = ''.join(filter(lambda x: x in self.conf.printableChars, msg.get('rwmetar') or 'Not found'))
+            # XPSetWidgetDescriptor(self.metarQueryOutput, '%s %s' % (msg['metar']['icao'], metar))
+            # adding source and internal XP12 METARs
+            # XPSetWidgetDescriptor(self.metarQueryOutput, f"STATION: {msg['metar']['icao']}")
+            XPSetWidgetDescriptor(self.metarQueryOutput, f"{msg['metar']['icao']} {metar}")
+            XPSetWidgetDescriptor(self.metarQueryXP12, f"{rwmetar}")
 
     def metarQueryWindowToggle(self):
         """Metar window toggle command"""

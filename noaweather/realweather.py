@@ -72,15 +72,14 @@ class RealWeather(GribWeatherSource):
         }
 
         '''get METAR files'''
-        metar_files = [p for p in Path(self.conf.wpath).iterdir() if p.is_file() and 'METAR' in p.stem]
-        if metar_files:
+        if self.metar_file:
             '''get latest file'''
-            file = max([f for f in metar_files], key=lambda item: item.stat().st_ctime)
-            response['file_time'] = file.stem[11:-5]
+            response['file_time'] = self.metar_file.stem[11:-5]
             '''get ICAO metar'''
-            with open(file, encoding='utf-8', errors='replace') as f:  # deal with non utf-8 characters, avoiding error
-                response['reports'] = (list(set(line for line in f if line.startswith(icao)))
-                                       or [f"{icao} not found in XP12 real weather METAR files"])
+            response['reports'] = ([line
+                                    for line in list(set(open(self.metar_file, encoding='utf-8', errors='replace')))
+                                    if line.startswith(icao)]
+                                   or [f"{icao} not found in XP12 real weather METAR files"])
 
         return response
 
