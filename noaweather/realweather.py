@@ -128,8 +128,8 @@ class RealWeather(GribWeatherSource):
             args = [
                 '-s',
                 '-lon',
-                '%f' % (lon),
-                '%f' % (lat),
+                f"{lon}",
+                f"{lat}",
                 file
             ]
             # print("Calling subprocess with {}, {}".format([self.conf.wgrib2bin] + args, kwargs))

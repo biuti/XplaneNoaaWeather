@@ -45,7 +45,7 @@ class LogFile:
 
     def write(self, data):
         if len(data) > 1:
-            self.f.write('%s  %s' % (datetime.now().strftime('%b %d %H:%M:%S'), data))
+            self.f.write(f"{datetime.now().strftime('%b %d %H:%M:%S')}  {data}")
         else:
             self.f.write(data)
 
@@ -197,7 +197,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             socket.sendto(response + b"\n", self.client_address)
             nbytes = sys.getsizeof(response)
 
-        print('%s:%s: %d bytes sent.' % (self.client_address[0], data, nbytes))
+        print(f"{self.client_address[0]}:{data}: {nbytes} bytes sent.")
 
 
 if __name__ == "__main__":
@@ -226,10 +226,10 @@ if __name__ == "__main__":
     try:
         server = SocketServer.UDPServer(("localhost", conf.server_port), ClientHandler)
     except socket.error:
-        print("Can't bind address: %s, port: %d." % ("localhost", conf.server_port))
+        print(f"Can't bind address: {'localhost'}, port: {conf.server_port}.")
 
         if conf.weatherServerPid is not False:
-            print('Killing old server with pid %d' % conf.weatherServerPid)
+            print(f"Killing old server with pid {conf.weatherServerPid}")
             os.kill(conf.weatherServerPid, signal.SIGTERM)
             time.sleep(2)
             conf.serverLoad()

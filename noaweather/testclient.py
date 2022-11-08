@@ -19,8 +19,10 @@ import sys
 from pprint import pprint
 
 # tests requests
+lat, lon = 41.38, 2.18
+
 tests = [
-    "?%f|%f" % (41.38, 2.18),  # Request weather data for lat/lon
+    f"?{lat}|{lon}",  # Request weather data for lat/lon
     '?LEBL',  # Request metar of the station
     '?KSEA',
     '?SKBO',
@@ -38,5 +40,5 @@ for request in tests:
     sock.sendto(request.encode('utf-8'), (HOST, PORT))
     received = sock.recv(1024 * 8)
 
-    print("Request: %s \nResponse:" % (request))
+    print(f"Request: {request} \nResponse:")
     pprint(cPickle.loads(received), width=160)

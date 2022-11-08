@@ -229,15 +229,9 @@ class Conf:
                     self.__dict__[var] = conf[var]
 
             # Versions config overrides
-            if 'version' in conf:
-                if conf['version'] < '2.3.1':
-                    # Enforce metar station update
-                    self.ms_update = 0
-                if conf['version'] < '2.4.0':
-                    # Clean ignore stations
-                    self.ignore_metar_stations = []
-                if conf['version'] < '2.4.3':
-                    self.inputbug = True
+            # if conf['version'] < '12.0.0':
+            #     # Enforce metar station update
+            #     self.ms_update = 0
 
     def pluginSave(self):
         """Save plugin settings"""
@@ -383,7 +377,7 @@ class Conf:
             try:
                 return json.load(f)['config']
             except (KeyError, Exception) as err:
-                print("Format ERROR parsing gfs levels file: %s" % str(err))
+                print(f"Format ERROR parsing gfs levels file: {err}")
                 return self.gfs_levels_defaults()
 
     @staticmethod

@@ -55,7 +55,7 @@ class WAFS(GribWeatherSource):
                 forecast = fcast
                 break
 
-        return '%d%02d%02d%02d' % (cnow.year, cnow.month, cnow.day, lcycle), lcycle, forecast
+        return f"{cnow.year}{cnow.month:02}{cnow.day:02}{lcycle:02}", lcycle, forecast
 
     def parse_grib_data(self, filepath, lat, lon):
         """Executes wgrib2 and parses its output
@@ -70,8 +70,8 @@ class WAFS(GribWeatherSource):
 
         args = ['-s',
                 '-lon',
-                '%f' % (lon),
-                '%f' % (lat),
+                f"{lon}",
+                f"{lat}",
                 filepath
                 ]
 
@@ -119,11 +119,13 @@ class WAFS(GribWeatherSource):
 
     @classmethod
     def get_download_url(cls, datecycle, cycle, forecast):
-        filename = "gfs.t%sz.wafs_0p25_unblended.f%02d.grib2" % (datecycle[-2:], forecast)
-        url = "%s/gfs.%s/%s/atmos/%s" % (cls.baseurl, datecycle[:-2], datecycle[-2:], filename)
+        filename = f"gfs.t{datecycle[-2:]}z.wafs_0p25_unblended.f{forecast:02}.grib2"
+        # url = "%s/gfs.%s/%s/atmos/%s" % (cls.baseurl, datecycle[:-2], datecycle[-2:], filename)
+        url = f"{cls.base_url}/gfs.{datecycle[:-2]}/{datecycle[-2:]}/atmos/{filename}"
         return url
 
     @classmethod
     def get_cache_filename(cls, datecycle, cycle, forecast):
-        filename = "%s_gfs.t%sz.wafs_0p25_unblended.f%02d.grib2" % (datecycle, datecycle[-2:], forecast)
+        # filename = "%s_gfs.t%sz.wafs_0p25_unblended.f%02d.grib2" % (datecycle, datecycle[-2:], forecast)
+        filename = f"{datecycle}_gfs.t{datecycle[-2:]}z.wafs_0p25_unblended.f{forecast:02}.grib2"
         return filename

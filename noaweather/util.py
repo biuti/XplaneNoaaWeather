@@ -22,18 +22,18 @@ class util:
         try:
             os.remove(filepath)
         except:
-            print("can't remove %s" % (filepath))
+            print(f"can't remove {filepath}")
             i = 1
             while 1:
-                npath = '%s-%d' % (filepath, i)
+                npath = f"{filepath}-{i}"
                 if not os.path.exists(npath):
                     try:
                         os.rename(filepath, npath)
                     except:
-                        print("can't rename %s" % (filepath))
+                        print(f"can't rename {filepath}")
                         if sys.platform == 'win32':
                             import ctypes
-                            print('%s marked for deletion on reboot.' % (filepath))
+                            print(f"{filepath} marked for deletion on reboot.")
                             ctypes.windll.kernel32.MoveFileExA(filepath, None, 4)
                     break
                 i += 1
@@ -45,7 +45,7 @@ class util:
         try:
             os.rename(opath, dpath)
         except OSError:
-            print("Can't rename: %s to %s, trying to copy/remove" % (opath, dpath))
+            print(f"Can't rename: {opath} to {dpath}, trying to copy/remove")
             util.copy(opath, dpath)
             util.remove(opath)
 
@@ -56,4 +56,4 @@ class util:
         try:
             shutil.copyfile(opath, dpath)
         except:
-            print("Can't copy %s to %s" % (opath, dpath))
+            print(f"Can't copy {opath} to {dpath}")

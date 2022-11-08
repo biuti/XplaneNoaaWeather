@@ -83,7 +83,7 @@ class GribWeatherSource(WeatherSource):
             adjs = +24
         forecast = (adjs + now.hour - lcycle) // 3 * 3
 
-        return '%d%02d%02d' % (cnow.year, cnow.month, cnow.day), lcycle, forecast
+        return f"{cnow.year}{cnow.month:02}{cnow.day:02}", lcycle, forecast
 
     def run(self, elapsed):
         """Worker function called by a worker thread to update the data"""
@@ -297,7 +297,7 @@ class GribDownloader(object):
         req = Request(url)
         req.add_header('Accept-encoding', 'gzip, deflate')
 
-        user_agent = kwargs.pop('user_agent', 'XPNOAAWeather/%s' % Conf.__VERSION__)
+        user_agent = kwargs.pop('user_agent', f"XPNOAAWeather/{Conf.__VERSION__}")
         req.add_header('User-Agent', user_agent)
 
         headers = kwargs.pop('headers', {})
@@ -306,7 +306,7 @@ class GribDownloader(object):
 
         # Partial download headers
         if start or end:
-            req.headers['Range'] = 'bytes=%d-%d' % (start, end)
+            req.headers['Range'] = f"bytes={start}-{end}"
 
         if hasattr(ssl, '_create_unverified_context'):
             context = ssl._create_unverified_context()
@@ -441,9 +441,9 @@ class GribDownloader(object):
             with TemporaryFile('w+b') as idx_file:
                 idx_file.seek(0)
                 try:
-                    cls.download_part('%s.idx' % url, idx_file, **kwargs)
+                    cls.download_part(f"{url}.idx", idx_file, **kwargs)
                 except URLError as err:
-                    raise GribDownloaderError('Unable to download index file for: %s - Error: %s' % (url, repr(err)))
+                    raise GribDownloaderError(f"Unable to download index file for: {url} - Error: {repr(err)}")
 
                 idx_file.seek(0)
 
@@ -459,20 +459,20 @@ class GribDownloader(object):
 
             for chunk in chunk_list:
                 try:
-                    cls.download_part('%s' % url, grib_file, start=chunk[0], end=chunk[1], **kwargs)
+                    cls.download_part(str(url), grib_file, start=chunk[0], end=chunk[1], **kwargs)
                 except URLError as err:
-                    raise GribDownloaderError('Unable to open url: %s\n\t%s' % (url, repr(err)))
+                    raise GribDownloaderError(f"Unable to open url: {url} \n\t{repr(err)}")
 
         wgrib2 = kwargs.pop('decompress', False)
         spinfo = kwargs.pop('spinfo', False)
         if wgrib2:
-            tmp_file = "%s.tmp" % file_path
+            tmp_file = f"{file_path}.tmp"
             try:
                 os.rename(file_path, tmp_file)
                 cls.decompress_grib(tmp_file, file_path, wgrib2, spinfo)
                 util.remove(tmp_file)
             except OSError as err:
-                raise GribDownloaderError('Unable to decompress: %s \n\t%s' % (file_path, repr(err)))
+                raise GribDownloaderError(f"Unable to decompress: {file_path} \n\t{repr(err)}")
 
         return file_path
 

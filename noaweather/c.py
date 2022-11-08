@@ -516,7 +516,7 @@ class c:
     @staticmethod
     def gfs_levels_help_list():
         """Returns a text list of FL levels with corresponding pressure in millibars"""
-        return ["FL%03d %i mb" % (int(c.m2ft(c.mb2alt(i)))/100, i) for i in reversed(range(100, 1050, 50))]
+        return [f"FL{c.mb2fl(i):03d} {i} mb" for i in reversed(range(100, 1050, 50))]
 
     @staticmethod
     def optimise_gfs_clouds(gfs_clouds: list) -> list:

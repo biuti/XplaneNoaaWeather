@@ -120,7 +120,7 @@ class Metar(WeatherSource):
                                 (icao.strip('"'), lat, lon, elevation))
                             parsed += 1
             except (ValueError, IndexError) as e:
-                print("Error parsing METAR station File: %s" % str(e))
+                print(f"Error parsing METAR station File: {e}")
 
             db.commit()
             self.conf.ms_update = time.time()
@@ -245,7 +245,7 @@ class Metar(WeatherSource):
         current_cycle = now + timedelta(hours=0, minutes=5)
 
         timestamp = int(time.time())
-        return ('%02d' % current_cycle.hour, timestamp)
+        return f"{current_cycle.hour:02}", timestamp
 
     @classmethod
     def parse_metar(cls, icao, metar, airport_msl=0):
@@ -413,7 +413,7 @@ class Metar(WeatherSource):
                 metar_file = self.download.result
                 self.download.join()
                 if isinstance(metar_file, GribDownloaderError):
-                    print("Error downloading METAR: %s" % str(metar_file))
+                    print(f"Error downloading METAR: {metar_file}")
                 else:
                     # print('Successfully downloaded: %s' % metar_file.split(os.path.sep)[-1])
                     updated, parsed = self.update_metar(self.th_db, metar_file)
@@ -433,12 +433,12 @@ class Metar(WeatherSource):
             stations = self.ms_download.result
 
             if isinstance(stations, GribDownloaderError):
-                print("Error downloading metar stations file %s" % stations.message)
+                print(f"Error downloading metar stations file {stations.message}")
 
             else:
                 print('Updating metar stations.')
                 nstations = self.update_stations(self.th_db, self.ms_download.result)
-                print('%d metar stations updated.' % nstations)
+                print(f"{nstations} metar stations updated.")
             self.ms_download = False
 
         # Update METAR.rwx

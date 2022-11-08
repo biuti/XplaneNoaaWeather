@@ -86,20 +86,20 @@ class Weather:
 
         for i in range(3):
             self.winds.append({
-                'alt': EasyDref('"sim/weather/wind_altitude_msl_m[%d]"' % (i), 'float'),
-                'hdg': EasyDref('"sim/weather/wind_direction_degt[%d]"' % (i), 'float'),
-                'speed': EasyDref('"sim/weather/wind_speed_kt[%d]"' % (i), 'float'),
-                'gust': EasyDref('"sim/weather/shear_speed_kt[%d]"' % (i), 'float'),
-                'gust_hdg': EasyDref('"sim/weather/shear_direction_degt[%d]"' % (i), 'float'),
-                'turbulence': EasyDref('"sim/weather/turbulence[%d]"' % (i), 'float'),
+                'alt': EasyDref(f'"sim/weather/wind_altitude_msl_m[{i}]"', 'float'),
+                'hdg': EasyDref(f'"sim/weather/wind_direction_degt[{i}]"', 'float'),
+                'speed': EasyDref(f'"sim/weather/wind_speed_kt[{i}]"', 'float'),
+                'gust': EasyDref(f'"sim/weather/shear_speed_kt[{i}]"', 'float'),
+                'gust_hdg': EasyDref(f'"sim/weather/shear_direction_degt[{i}]"', 'float'),
+                'turbulence': EasyDref(f'"sim/weather/turbulence[{i}]"', 'float'),
             })
 
         for i in range(3):
             self.clouds.append({
-                'top': EasyDref('"sim/weather/cloud_tops_msl_m[%d]"' % (i), 'float'),
-                'bottom': EasyDref('"sim/weather/cloud_base_msl_m[%d]"' % (i), 'float'),
-                'coverage': EasyDref('"sim/weather/cloud_coverage[%d]"' % (i), 'float'),
-                'type': EasyDref('"sim/weather/cloud_type[%d]"' % (i), 'int'),
+                'top': EasyDref(f'"sim/weather/cloud_tops_msl_m[{i}]"', 'float'),
+                'bottom': EasyDref(f'"sim/weather/cloud_base_msl_m[{i}]"', 'float'),
+                'coverage': EasyDref(f'"sim/weather/cloud_coverage[{i}]"', 'float'),
+                'type': EasyDref(f'"sim/weather/cloud_type[{i}]"', 'int'),
             })
 
         self.windata = []
@@ -1003,7 +1003,7 @@ class PythonInterface:
     def CreateAboutWindow(self, x, y):
         x2 = x + 780
         y2 = y - 85 - 20 * 24
-        Buffer = "X-Plane NOAA GFS Weather - %s  -- Thanks to all betatesters! --" % (self.conf.__VERSION__)
+        Buffer = f"X-Plane NOAA GFS Weather - {self.conf.__VERSION__}  -- Thanks to all betatesters! --"
         top = y
 
         # Create the Main Widget window
@@ -1230,7 +1230,7 @@ class PythonInterface:
 
         y -= 20
         sysinfo = [
-            'X-Plane 12 NOAA Weather: %s' % self.conf.__VERSION__,
+            f"X-Plane 12 NOAA Weather: {self.conf.__VERSION__}",
             '(c) antonio golfari 2022',
         ]
         for label in sysinfo:
@@ -1387,7 +1387,7 @@ class PythonInterface:
     def weatherInfo(self):
         """Return an array of strings with formatted weather data"""
         verbose = self.conf.verbose
-        sysinfo = ['XPNoaaWeather for XP12 %s Status:' % self.conf.__VERSION__]
+        sysinfo = [f"XPNoaaWeather for XP12 {self.conf.__VERSION__} Status:"]
 
         if not self.weather.weatherData:
             sysinfo += ['* Data not ready. Please wait.']
@@ -1402,7 +1402,7 @@ class PythonInterface:
                 if 'None' in wdata['info']['gfs_cycle']:
                     sysinfo += ['   XP12 is still downloading weather info ...']
                 else:
-                    sysinfo += ['   GFS Cycle: %s' % (wdata['info']['gfs_cycle'])]
+                    sysinfo += [f"   GFS Cycle: {wdata['info']['gfs_cycle']}"]
 
             if 'metar' in wdata and 'icao' in wdata['metar']:
                 sysinfo += ['']
@@ -1416,35 +1416,35 @@ class PythonInterface:
                     sysinfo += [metar]
 
                 sysinfo += [
-                    '   Apt altitude: %dft, Apt distance: %.1fkm' % (
-                        wdata['metar']['elevation'] * 3.28084, wdata['metar']['distance'] / 1000),
-                    '   Temp: %s, Dewpoint: %s, ' % (
-                        c.strFloat(wdata['metar']['temperature'][0]), c.strFloat(wdata['metar']['temperature'][1])) +
-                    'Visibility: %d m, ' % (wdata['metar']['visibility']) +
-                    'Press: %s inhg ' % (c.strFloat(wdata['metar']['pressure']))
+                    f"   Apt altitude: {int(c.m2ft(wdata['metar']['elevation']))}ft, "
+                    f"Apt distance: {round(wdata['metar']['distance'] / 1000, 1)}km",
+                    f"   Temp: {round(wdata['metar']['temperature'][0])}, "
+                    f"Dewpoint: {round(wdata['metar']['temperature'][1])}, "
+                    f"Visibility: {wdata['metar']['visibility']}m, "
+                    f"Press: {wdata['metar']['pressure']} inhg "
                 ]
 
-                wind = '   Wind:  %d %dkt, gust +%dkt' % (
-                    wdata['metar']['wind'][0], wdata['metar']['wind'][1], wdata['metar']['wind'][2])
+                wind = f"   Wind:  {wdata['metar']['wind'][0]} {wdata['metar']['wind'][1]}kt"
+                if wdata['metar']['wind'][2]:
+                    wind += f", gust {wdata['metar']['wind'][2]}kt"
                 if 'variable_wind' in wdata['metar'] and wdata['metar']['variable_wind']:
-                    wind += ' Variable: %d-%d' % (
-                        wdata['metar']['variable_wind'][0], wdata['metar']['variable_wind'][1])
-
+                    wind += f" Variable: {wdata['metar']['variable_wind'][0]}-{wdata['metar']['variable_wind'][1]}"
                 sysinfo += [wind]
+
                 if 'precipitation' in wdata['metar'] and len(wdata['metar']['precipitation']):
                     precip = ''
                     for type in wdata['metar']['precipitation']:
                         if wdata['metar']['precipitation'][type]['recent']:
                             precip += wdata['metar']['precipitation'][type]['recent']
-                        precip += '%s%s ' % (wdata['metar']['precipitation'][type]['int'], type)
+                        precip += f"{wdata['metar']['precipitation'][type]['int']}{type} "
+                    sysinfo += [f"   Precipitation: {precip}"]
 
-                    sysinfo += ['   Precipitation: %s' % (precip)]
                 if 'clouds' in wdata['metar']:
                     if len(wdata['metar']['clouds']):
                         clouds = '   Clouds: BASE|COVER    '
                         for cloud in wdata['metar']['clouds']:
                             alt, coverage, type = cloud
-                            clouds += '%03d|%s%s ' % (alt * 3.28084 / 100, coverage, type)
+                            clouds += f"{c.m2fl(alt):03}|{coverage}{type} "
                     else:
                         clouds = '   Clouds and Visibility OK'
                     sysinfo += [clouds]
@@ -1453,8 +1453,8 @@ class PythonInterface:
                         sysinfo += ['XP12 REAL WEATHER METAR:', '   no METAR file, still downloading...']
                     else:
                         sysinfo += [f"XP12 REAL WEATHER METAR ({wdata['rwmetar']['file_time']}):"]
-                        for line in wdata['rwmetar']['reports']:
-                            sysinfo += [f'   {line}']
+                        for line in wdata['rwmetar']['reports'][:2]:
+                            sysinfo += [f"   {line}"]
                     sysinfo += ['']
 
             if not self.conf.meets_wgrib2_requirements:
@@ -1479,8 +1479,8 @@ class PythonInterface:
                         out = []
                         for i, layer in enumerate(wdata['gfs']['winds'], 1):
                             alt, hdg, speed, extra = layer
-                            wlayers += '    F%03d | %03d | %02dkt | %02d | %02d' % (
-                                alt * 3.28084 / 100, hdg, speed, extra['temp'] - 273.15, extra['dev'] - 273.15)
+                            wlayers += f"    F{c.m2fl(alt):03.0F} | {hdg:03.0F} | {int(speed):03}kt" \
+                                       f" | {round(c.kel2cel(extra['temp'])):02} | {round(c.kel2cel(extra['dev'])):02}"
                             if i % 3 == 0 or i == len(wdata['gfs']['winds']):
                                 out.append(wlayers)
                                 wlayers = ''
@@ -1496,7 +1496,7 @@ class PythonInterface:
                         else:
                             for i, layer in enumerate(clouds, 1):
                                 base, top, cover = layer
-                                clayers += '    %03d | %03d | %d%%' % (base * 3.28084 / 100, top * 3.28084 / 100, cover)
+                                clayers += f"    {c.m2fl(base):03} | {c.m2fl(top):03} | {cover}%"
                                 if i % 3 == 0 or i == len(clouds):
                                     out.append(clayers)
                                     clayers = ''
@@ -1517,14 +1517,14 @@ class PythonInterface:
                 '''Normal GFS mode'''
                 if 'gfs' in wdata:
                     if 'winds' in wdata['gfs']:
-                        sysinfo += ['', 'GFS WIND LAYERS: %i FL|HDG|KT|TEMP|DEV' % (len(wdata['gfs']['winds']))]
+                        sysinfo += ['', f"GFS WIND LAYERS: {len(wdata['gfs']['winds'])} FL|HDG|KT|TEMP|DEV"]
                         wlayers = ''
                         i = 0
                         for layer in wdata['gfs']['winds']:
                             i += 1
                             alt, hdg, speed, extra = layer
-                            wlayers += '   F%03d|%03d|%02dkt|%02d|%02d' % (
-                                alt * 3.28084 / 100, hdg, speed, extra['temp'] - 273.15, extra['dev'] - 273.15)
+                            wlayers += f"   F{c.m2fl(alt):03}|{hdg:03}|{speed:02}kt|" \
+                                       f"{round(c.kel2cel(extra['temp'])):02}|{round(c.kel2cel(extra['dev'])):02}"
                             if i > 3:
                                 i = 0
                                 sysinfo += [wlayers]
@@ -1535,19 +1535,19 @@ class PythonInterface:
                         for layer in wdata['gfs']['clouds']:
                             base, top, cover = layer
                             if base > 0:
-                                clouds += '   %03d|%03d|%d%%' % (base * 3.28084 / 100, top * 3.28084 / 100, cover)
+                                clouds += f"    {c.m2fl(base):03} | {c.m2fl(top):03} | {cover}%"
                         sysinfo += [clouds]
 
                     if 'tropo' in wdata['gfs']:
                         alt, temp, dev = wdata['gfs']['tropo'].values()
                         if alt and temp and dev:
-                            sysinfo += ['TROPO LIMIT: %05dm temp %02dC ISA Dev %02dC'
-                                        % (alt, temp - 273.15, dev - 273.15)]
+                            sysinfo += [f"TROPO LIMIT: {round(alt)}m "
+                                        f"temp {round(c.kel2cel(temp)):02}C ISA Dev {round(c.kel2cel(dev)):02}C"]
 
                 if 'wafs' in wdata:
                     tblayers = ''
                     for layer in wdata['wafs']:
-                        tblayers += f"   {round(layer[0] * 3.28084 / 100)}|{round(layer[1], 2)}" \
+                        tblayers += f"   {c.m2fl(layer[0]):03}|{round(layer[1], 2)}" \
                                     f"{'*' if layer[1]>=self.conf.max_turbulence else ''}"
 
                     sysinfo += [f"WAFS TURBULENCE ({len(wdata['wafs'])}): FL|SEV (max {self.conf.max_turbulence}) ",
@@ -1735,15 +1735,15 @@ class PythonInterface:
 
         xpver, sdkver, hid = XPLMGetVersions()
         output = ['--- Platform Info ---\n',
-                  'Plugin version: %s\n' % self.conf.__VERSION__,
-                  'Xplane Version: %.3f, SDK Version: %.2f\n' % (xpver / 1000.0, sdkver / 100.0),
-                  'Platform: %s\n' % (platform.platform()),
-                  'Python version: %s\n' % (platform.python_version()),
+                  f"Plugin version: {self.conf.__VERSION__}\n",
+                  f"Xplane Version: {round(xpver/1000, 3)}, SDK Version: {round(sdkver/100, 2)}\n",
+                  f"Platform: {platform.platform()}\n",
+                  f"Python version: {platform.python_version()}\n",
                   '\n--- Weather Status ---\n'
                   ]
 
         for line in self.weatherInfo():
-            output.append('%s\n' % line)
+            output.append(f"{line}\n")
 
         output += ['\n--- Weather Data ---\n']
 
@@ -1812,7 +1812,7 @@ class PythonInterface:
                 lf = open(filepath, 'r')
                 lf.seek(0, os.SEEK_END)
                 lf.seek(lf.tell() - c.limit(1024 * 6, lfsize), os.SEEK_SET)
-                f.write('\n--- %s ---\n\n' % logfile)
+                f.write(f"\n--- {logfile} ---\n\n")
                 for line in lf.readlines():
                     f.write(line.strip('\r'))
                 lf.close()
@@ -1849,7 +1849,7 @@ class PythonInterface:
             if (lat, lon) != (self.weather.last_lat, self.weather.last_lon) or (self.fltime - self.lastParse) > 60:
                 self.weather.last_lat, self.weather.last_lon = lat, lon
 
-                self.weather.weatherClientSend("?%.2f|%.2f\n" % (lat, lon))
+                self.weather.weatherClientSend(f"?{round(lat, 2)}|{round(lon, 2)}\n")
 
                 self.flcounter = 0
                 self.lastParse = self.fltime

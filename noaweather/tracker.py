@@ -50,8 +50,7 @@ class Tracker:
             "5": ['platform', struct.calcsize("P") * 8],
         })
 
-        self.userAgent = 'X-Plane/%s (%s ; %s/%s ; %s)' % (
-        xpver, self.conf.__VERSION__, uname[0], uname[2], platform.platform())
+        self.userAgent = f"X-Plane/{xpver} ({self.conf.__VERSION__} ; {uname[0]}/{uname[2]} ; {platform.platform()})"
 
     def track(self, url, action_name='', params={}):
         if self.conf.tracker_enabled:

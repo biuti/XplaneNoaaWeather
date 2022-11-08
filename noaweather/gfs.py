@@ -33,23 +33,23 @@ class GFS(GribWeatherSource):
     @classmethod
     def get_download_url(cls, datecycle, cycle, forecast):
         """Returns the GRIB download url add .idx or .grib to the end"""
-        filename = 'gfs.t%02dz.pgrb2full.0p50.f0%02d' % (cycle, forecast)
-        url = '%s%s/%02d/atmos/%s' % (cls.base_url, datecycle, cycle, filename)
+        filename = f"gfs.t{cycle:02}z.pgrb2full.0p50.f0{forecast:02}"
+        url = f"{cls.base_url}{datecycle}/{cycle:02}/atmos/{filename}"
 
         return url
 
     @classmethod
     def get_cache_filename(cls, datecycle, cycle, forecast):
         """Returns the proper filename for the cache"""
-        return '%s_gfs.t%02dz.pgrb2full.0p50.f0%02d' % (datecycle, cycle, forecast)
+        return f"{datecycle}_gfs.t{cycle:02}z.pgrb2full.0p50.f0{forecast:02}"
 
     def parse_grib_data(self, filepath, lat, lon):
         """Executes wgrib2 and parses its output"""
 
         args = ['-s',
                 '-lon',
-                '%f' % (lon),
-                '%f' % (lat),
+                f"{lon}",
+                f"{lat}",
                 filepath
                 ]
 
