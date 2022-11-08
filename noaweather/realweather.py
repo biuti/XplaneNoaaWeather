@@ -263,16 +263,17 @@ class RealWeather(GribWeatherSource):
         for level in clouds:
             level = clouds[level]
             if 'top' in level and 'bottom' in level:
-                top, bottom = float(level['top']), float(level['bottom'])
+                top, bottom = float(level['top']) * 0.01, float(level['bottom']) * 0.01  # mb
                 # print "XPGFS: top: %.0fmbar %.0fm, bottom: %.0fmbar %.0fm %d%%" % (top * 0.01, c.mb2alt(top * 0.01), bottom * 0.01, c.mb2alt(bottom * 0.01), cover)
                 cover = float(level.get(next((k for k in level.keys() if k in ('LCDC', 'MCDC', 'HCDC')), None)) or 0)
 
                 if cover:
-                    cloudlevels.append([c.mb2alt(bottom * 0.01) * 0.3048, c.mb2alt(top * 0.01) * 0.3048, cover])
+                    # cloudlevels.append([c.mb2alt(bottom * 0.01) * 0.3048, c.mb2alt(top * 0.01) * 0.3048, cover])
+                    cloudlevels.append([round(c.mb2alt(bottom)), round(c.mb2alt(top)), cover])
 
         # convert turbulence
         for lvl, val in turb.items():
-            alt = int(c.mb2alt(float(lvl)))
+            alt = round(c.mb2alt(float(lvl)))
             turblevels.append([alt, float(val) * 8])
 
         windlevels.sort()
@@ -282,7 +283,7 @@ class RealWeather(GribWeatherSource):
 
         # tropo
         if all(k in tropo.keys() for k in ('PRES', 'TMP')):
-            alt = int(c.mb2alt(float(tropo['PRES'])*0.01))
+            alt = round(c.mb2alt(float(tropo['PRES'])*0.01))
             temp = float(tropo['TMP'])
             dev = c.isaDev(alt, temp)
             tropo = {'alt': float(alt), 'temp': temp, 'dev': dev}
