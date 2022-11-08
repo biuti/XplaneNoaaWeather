@@ -20,6 +20,7 @@ import json
 
 from datetime import datetime, timedelta
 from .util import util
+from pathlib import Path
 
 from .c import c
 from .weathersource import WeatherSource, GribDownloaderError, GribDownloader, AsyncTask
@@ -400,6 +401,30 @@ class Metar(WeatherSource):
 
         return weather
 
+    def update_metar_rwx_file(self, db):
+        """Dumps all metar data to the METAR.rwx file"""
+
+        # print(f"running Metar.update_metar_rwx_file()")
+
+        cursor = db.cursor()
+
+        try:
+            f = open(Path(self.conf.syspath, 'METAR.rwx'), 'w')
+            res = cursor.execute('SELECT icao, metar FROM airports WHERE metar NOT NULL')
+            while True:
+                rows = res.fetchmany()
+                if rows:
+                    for row in rows:
+                        f.write(f"{row[0]} {row[1]}\n")
+                else:
+                    break
+            f.close()
+        except (OSError, IOError):
+            print(f"ERROR updating METAR.rwx file: {sys.exc_info()[0]}, {sys.exc_info()[1]}")
+            return False
+
+        return True
+
     def run(self, elapsed):
 
         # Worker thread requires it's own db connection and cursor
@@ -482,30 +507,6 @@ class Metar(WeatherSource):
                                   binary=True,
                                   cancel_event=self.die, headers=headers)
         self.download.start()
-
-    def update_metar_rwx_file(self, db):
-        """Dumps all metar data to the METAR.rwx file"""
-
-        cursor = db.cursor()
-
-        try:
-            f = open(os.sep.join([self.conf.syspath, 'METAR.rwx']), 'w')
-        except (OSError, IOError):
-            print("ERROR updating METAR.rwx file: %s %s" % (sys.exc_info()[0], sys.exc_info()[1]))
-            return False
-
-        res = cursor.execute('SELECT icao, metar FROM airports WHERE metar NOT NULL')
-
-        while True:
-            rows = res.fetchmany()
-            if rows:
-                for row in rows:
-                    f.write('%s %s\n' % (row[0], row[1]))
-            else:
-                break
-
-        f.close()
-        return True
 
     def shutdown(self):
         super(Metar, self).shutdown()

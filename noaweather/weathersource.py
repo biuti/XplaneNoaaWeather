@@ -20,6 +20,7 @@ import sys
 from urllib.request import Request, urlopen, URLError
 from datetime import datetime, timedelta
 from tempfile import TemporaryFile
+from pathlib import Path
 from .util import util
 from .conf import Conf
 
@@ -59,11 +60,11 @@ class GribWeatherSource(WeatherSource):
     grib_conf_var = 'lastgrib'
 
     def __init__(self, conf):
-        self.cache_path = os.path.sep.join([conf.cachepath, 'gfs'])
+        self.cache_path = Path(conf.cachepath, 'gfs')
 
         super(GribWeatherSource, self).__init__(conf)
 
-        if self.last_grib and not os.path.isfile(os.path.sep.join([self.cache_path, self.last_grib])):
+        if self.last_grib and not Path(self.cache_path, self.last_grib).is_file():
             self.last_grib = False
 
     @classmethod
