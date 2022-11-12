@@ -23,6 +23,7 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 """
+import time
 
 # X-plane includes
 from XPLMDefs import *
@@ -47,6 +48,7 @@ import subprocess
 import os
 
 from datetime import datetime
+from pathlib import Path
 from noaweather import EasyDref, Conf, c, EasyCommand
 
 
@@ -1196,6 +1198,7 @@ class PythonInterface:
         self.saveButton = XPCreateWidget(x + 25, y, x + 125, y - 20, 1, "Apply & Save", 0, window,
                                          xpWidgetClass_Button)
         XPSetWidgetProperty(self.saveButton, xpProperty_ButtonType, xpPushButton)
+        self.saveButtonCaption = XPCreateWidget(x + 5, y - 20, x + 80, y - 40, 1, "", 0,  window, xpWidgetClass_Caption)
 
         x += 170
         y = top
@@ -1352,9 +1355,6 @@ class PythonInterface:
                 prev_file_source = self.conf.metar_use_xp12
                 print(f"METAR.rwx source: {'XP12' if self.conf.metar_use_xp12 else self.conf.metar_source}")
                 self.conf.metar_use_xp12 = XPGetWidgetProperty(self.xp12MetarCheck, xpProperty_ButtonState, None)
-                if self.conf.metar_use_xp12 != prev_file_source:
-                    print(f"METAR.rwx source changed. Get from XP12: {self.conf.metar_use_xp12}")
-
                 self.conf.inputbug = XPGetWidgetProperty(self.bugCheck, xpProperty_ButtonState, None)
 
                 # Save config and tell server to reload it
@@ -1364,7 +1364,13 @@ class PythonInterface:
 
                 # If metar source has changed tell server to reinit metar database
                 if self.conf.metar_source != prev_metar_source:
+                    print(f"METAR source changed. Get from: {self.conf.metar_source}")
                     self.weather.weatherClientSend('!resetMetar')
+
+                # If metar source for METAR.rwx file has changed tell server to reinit rwmetar database
+                if self.conf.metar_use_xp12 != prev_file_source:
+                    print(f"METAR.rwx source changed. Get from XP12: {self.conf.metar_use_xp12}")
+                    self.weather.weatherClientSend('!resetRWMetar')
 
                 self.weather.startWeatherClient()
                 self.aboutWindowUpdate()
@@ -1411,6 +1417,13 @@ class PythonInterface:
             i += 1
             if i > self.aboutlines - 1:
                 break
+
+        text = ""
+        if Path(self.conf.settingsfile).is_file():
+            d = int(time.time() - os.path.getmtime(self.conf.settingsfile))
+            if d < 15:
+                text = f"Reloading ({15 - d} sec.) ..."
+        XPSetWidgetDescriptor(self.saveButtonCaption, text)
 
     def weatherInfo(self):
         """Return an array of strings with formatted weather data"""
@@ -1736,7 +1749,7 @@ class PythonInterface:
         return 0
 
     def metarQuery(self):
-        query = XPGetWidgetDescriptor(self.metarQueryInput).strip()
+        query = XPGetWidgetDescriptor(self.metarQueryInput).strip().upper()
         XPSetWidgetDescriptor(self.metarQueryXP12, '')
         if len(query) == 4:
             self.weather.weatherClientSend('?' + query)
@@ -1750,12 +1763,12 @@ class PythonInterface:
         if self.metarWindow:
             # Filter metar text
             metar = ''.join(filter(lambda x: x in self.conf.printableChars, msg['metar']['metar']))
-            rwmetar = ''.join(filter(lambda x: x in self.conf.printableChars, msg.get('rwmetar') or 'Not found'))
+            rwmetar = ''.join(filter(lambda x: x in self.conf.printableChars, msg['rwmetar']['metar']))
             # XPSetWidgetDescriptor(self.metarQueryOutput, '%s %s' % (msg['metar']['icao'], metar))
             # adding source and internal XP12 METARs
             # XPSetWidgetDescriptor(self.metarQueryOutput, f"STATION: {msg['metar']['icao']}")
             XPSetWidgetDescriptor(self.metarQueryOutput, f"{msg['metar']['icao']} {metar}")
-            XPSetWidgetDescriptor(self.metarQueryXP12, f"{rwmetar}")
+            XPSetWidgetDescriptor(self.metarQueryXP12, f"{msg['rwmetar']['icao']} {rwmetar}")
 
     def metarQueryWindowToggle(self):
         """Metar window toggle command"""
