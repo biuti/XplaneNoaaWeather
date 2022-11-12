@@ -10,3 +10,5 @@ noaweather/cache/
 noaweather/bin/old*
 noaweather/bin/makefiles/
 /venv/
+/*.rwx
+/*test.txt
