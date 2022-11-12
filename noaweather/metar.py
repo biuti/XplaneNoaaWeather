@@ -139,10 +139,7 @@ class Metar(WeatherSource):
         inserts = []
         INSBUF = cursor.arraysize
 
-        today_prefix = datetime.utcnow().strftime('%Y%m')
-        yesterday_prefix = (datetime.utcnow() + timedelta(days=-1)).strftime('%Y%m')
-
-        today = datetime.utcnow().strftime('%d')
+        today, today_prefix, yesterday_prefix = util.date_info()
 
         if self.conf.metar_source == 'IVAO':
             r = json.loads(f.read())
@@ -427,7 +424,7 @@ class Metar(WeatherSource):
 
     def run(self, elapsed):
 
-        # Worker thread requires it's own db connection and cursor
+        # Worker thread requires its own db connection and cursor
         if not self.th_db:
             self.th_db = self.db_connect(self.database)
 

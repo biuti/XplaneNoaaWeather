@@ -98,7 +98,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             response['metar'] = metar.parse_metar(apt[0], apt[5], apt[3])
             response['metar']['latlon'] = (apt[1], apt[2])
             response['metar']['distance'] = c.greatCircleDistance((lat, lon), (apt[1], apt[2]))
-            response['rwmetar'] = gfs.get_real_weather_metar(apt[0])
+            response['rwmetar'] = gfs.get_real_weather_metars(apt[0])
             # print(f"response['rwmetar']: {response['rwmetar']}")
 
         return response
@@ -169,11 +169,12 @@ class ClientHandler(SocketServer.BaseRequestHandler):
                     apt = metar.get_metar(metar.connection, data[1:])
                     if len(apt) and apt[5]:
                         response['metar'] = metar.parse_metar(apt[0], apt[5], apt[3])
-                        response['rwmetar'] = next(iter(gfs.get_real_weather_metar(data[1:])['reports']), None)
+                        response['rwmetar'] = dict(zip(('icao', 'metar'), gfs.get_real_weather_metar(data[1:])))
                     else:
                         response['metar'] = {'icao': 'METAR STATION',
-                                             'metar': 'NOT AVAILABLE',
-                                             'rwmetar': 'NOT AVAILABLE'}
+                                             'metar': 'NOT AVAILABLE'}
+                        response['rwmetar'] = {'icao': '',
+                                               'metar': ''}
             elif data == '!shutdown':
                 conf.serverSave()
                 self.shutdown()

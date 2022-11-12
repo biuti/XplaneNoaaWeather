@@ -12,6 +12,8 @@ of the License, or any later version.
 import os
 import shutil
 import sys
+from datetime import datetime, timedelta
+from pathlib import Path
 
 
 class util:
@@ -57,3 +59,21 @@ class util:
             shutil.copyfile(opath, dpath)
         except:
             print(f"Can't copy {opath} to {dpath}")
+
+    @staticmethod
+    def date_info():
+        today_prefix = datetime.utcnow().strftime('%Y%m')
+        yesterday_prefix = (datetime.utcnow() + timedelta(days=-1)).strftime('%Y%m')
+
+        today = datetime.utcnow().strftime('%d')
+        return today, today_prefix, yesterday_prefix
+
+    @staticmethod
+    def get_rw_ordered_lines(metar_file: Path) -> list:
+        """ Get list of METARs from XP12 real Weather metar file,
+            ordered by ICAO, time desc"""
+
+        lines = [x for x in (set(open(metar_file, encoding='utf-8', errors='replace')))
+                 if x[0].isalpha() and len(x) > 11 and x[11] == 'Z']
+        lines.sort(key=lambda x: (x[0:4], -int(x[5:10])))
+        return lines
