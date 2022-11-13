@@ -187,10 +187,10 @@ class Weather:
         try:
             if self.conf.spinfo:
                 kwargs.update({'startupinfo': self.conf.spinfo, 'creationflags': DETACHED_PROCESS})
-            print("start weather server {} {}".format(args, kwargs))
+            print(f"start weather server {args} {kwargs}")
             subprocess.Popen(args, **kwargs)
         except Exception as e:
-            print("Exception while executing subprocess: {}".format(e))
+            print(f"Exception while executing subprocess: {e}")
 
     def shutdown(self):
         # Shutdown client and server
@@ -1353,7 +1353,6 @@ class PythonInterface:
 
                 # Check METAR.rwx source
                 prev_file_source = self.conf.metar_use_xp12
-                print(f"METAR.rwx source: {'XP12' if self.conf.metar_use_xp12 else self.conf.metar_source}")
                 self.conf.metar_use_xp12 = XPGetWidgetProperty(self.xp12MetarCheck, xpProperty_ButtonState, None)
                 self.conf.inputbug = XPGetWidgetProperty(self.bugCheck, xpProperty_ButtonState, None)
 
