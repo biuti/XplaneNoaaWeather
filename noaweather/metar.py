@@ -384,7 +384,7 @@ class Metar(WeatherSource):
             r = dict(rvr.groupdict())
             r['heading'] = int(r['heading']) * 10
             r['visibility'] = int(r['visibility'])
-            weather['rvr'].append(r)
+            weather['rvr'].append(r['visibility'])
 
         # Extended visibility
         if weather['visibility'] > 9998:
