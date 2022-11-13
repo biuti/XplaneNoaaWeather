@@ -9,7 +9,6 @@ as published by the Free Software Foundation; either version 2
 of the License, or any later version.
 """
 
-import os
 import shutil
 import sys
 from datetime import datetime, timedelta
@@ -19,46 +18,46 @@ from pathlib import Path
 class util:
 
     @staticmethod
-    def remove(filepath):
+    def remove(filepath: Path):
         """Remove a file or try to rename-it if it fails"""
         try:
-            os.remove(filepath)
+            filepath.unlink()
         except:
-            print(f"can't remove {filepath}")
+            print(f"can't remove {filepath.name}")
             i = 1
             while 1:
-                npath = f"{filepath}-{i}"
-                if not os.path.exists(npath):
+                npath = Path(f"{filepath}-{i}")
+                if not npath.exists():
                     try:
-                        os.rename(filepath, npath)
+                        filepath.rename(npath)
                     except:
-                        print(f"can't rename {filepath}")
+                        print(f"can't rename {filepath.name}")
                         if sys.platform == 'win32':
                             import ctypes
-                            print(f"{filepath} marked for deletion on reboot.")
-                            ctypes.windll.kernel32.MoveFileExA(filepath, None, 4)
+                            print(f"{filepath.name} marked for deletion on reboot.")
+                            ctypes.windll.kernel32.MoveFileExA(str(filepath), None, 4)
                     break
                 i += 1
 
     @staticmethod
-    def rename(opath, dpath):
-        if os.path.exists(dpath):
+    def rename(opath: Path, dpath: Path):
+        if dpath.exists():
             util.remove(dpath)
         try:
-            os.rename(opath, dpath)
+            opath.rename(dpath)
         except OSError:
-            print(f"Can't rename: {opath} to {dpath}, trying to copy/remove")
+            print(f"Can't rename: {opath.name} to {dpath.name}, trying to copy/remove")
             util.copy(opath, dpath)
             util.remove(opath)
 
     @staticmethod
-    def copy(opath, dpath):
-        if os.path.exists(dpath):
+    def copy(opath: Path, dpath: Path):
+        if dpath.exists():
             util.remove(dpath)
         try:
             shutil.copyfile(opath, dpath)
         except:
-            print(f"Can't copy {opath} to {dpath}")
+            print(f"Can't copy {opath.name} to {dpath.name}")
 
     @staticmethod
     def date_info():

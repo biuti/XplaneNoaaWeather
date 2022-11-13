@@ -10,7 +10,6 @@ of the License, or any later version.
 """
 
 import re
-import os
 import sqlite3
 import math
 import sys
@@ -53,8 +52,8 @@ class Metar(WeatherSource):
 
     def __init__(self, conf):
 
-        self.cache_path = os.sep.join([conf.cachepath, 'metar'])
-        self.database = os.sep.join([self.cache_path, 'metar.db'])
+        self.cache_path = Path(conf.cachepath, 'metar')
+        self.database = Path(self.cache_path, 'metar.db')
 
         super(Metar, self).__init__(conf)
 
@@ -67,9 +66,7 @@ class Metar(WeatherSource):
         self.next_metarRWX = time.time() + 30
 
         # Main db connection, create db if doens't exist
-        createdb = True
-        if os.path.isfile(self.database):
-            createdb = False
+        createdb = not self.database.is_file()
 
         self.connection = self.db_connect(self.database)
         self.cursor = self.connection.cursor()
@@ -128,7 +125,7 @@ class Metar(WeatherSource):
 
         return parsed
 
-    def update_metar(self, db, path):
+    def update_metar(self, db, path: Path):
         """Updates metar table from Metar file"""
         f = open(path, encoding='utf-8', errors='replace')  # deal with non utf-8 characters, avoiding error
         nupdated = 0
@@ -475,9 +472,7 @@ class Metar(WeatherSource):
 
     def download_cycle(self, cycle, timestamp):
         self.downloading = True
-
-        if not os.path.exists(self.cache_path):
-            os.makedirs(self.cache_path)
+        self.cache_path.mkdir(parents=True, exist_ok=True)
 
         prefix = self.conf.metar_source
         headers = {}
@@ -490,7 +485,7 @@ class Metar(WeatherSource):
 
         elif self.conf.metar_source == 'IVAO':
             url = self.IVAO_METAR_URL
-            file = os.sep.join([self.conf.respath, 'bin', 'ivao.bin'])
+            file = Path(self.conf.respath, 'bin', 'ivao.bin')
             with open(file) as f:
                 key = base64.b64decode(f.read())
             headers = {
@@ -498,7 +493,7 @@ class Metar(WeatherSource):
                 'apiKey': key
             }
 
-        cache_file = os.path.sep.join([self.cache_path, '%s_%d_%sZ.txt' % (prefix, timestamp, cycle)])
+        cache_file = Path(self.cache_path, f"{prefix}_{timestamp}_{cycle}Z.txt")
         self.download = AsyncTask(GribDownloader.download,
                                   url=url,
                                   file_path=cache_file,

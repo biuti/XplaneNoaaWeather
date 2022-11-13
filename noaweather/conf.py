@@ -15,6 +15,8 @@ import subprocess
 import json
 import pickle as cPickle
 
+from pathlib import Path
+
 from . import c
 
 
@@ -41,19 +43,18 @@ class Conf:
 
         if xplane_path:
             self.syspath = xplane_path
-            self.respath = os.sep.join([xplane_path, 'Resources', 'plugins', 'PythonPlugins', 'noaweather'])
-            self.wpath = os.sep.join([xplane_path, 'Output', 'real weather'])
+            self.respath = Path(xplane_path, 'Resources', 'plugins', 'PythonPlugins', 'noaweather')
         else:
-            self.respath = os.path.dirname(os.path.abspath(__file__))
-            self.wpath = os.path.realpath(os.sep.join([self.respath, '..', '..', '..', 'Output', 'real weather']))
+            self.respath = Path(__file__).resolve().parent
+            self.syspath = self.respath.parents[3]
 
-        self.settingsfile = os.sep.join([self.respath, 'settings.pkl'])
-        self.serverSettingsFile = os.sep.join([self.respath, 'weatherServer.pkl'])
-        self.gfsLevelsFile = os.sep.join([self.respath, 'gfs_levels_config.json'])
+        self.wpath = Path(self.syspath, 'Output', 'real weather')
+        self.settingsfile = Path(self.respath, 'settings.pkl')
+        self.serverSettingsFile = Path(self.respath, 'weatherServer.pkl')
+        self.gfsLevelsFile = Path(self.respath, 'gfs_levels_config.json')
 
-        self.cachepath = os.sep.join([self.respath, 'cache'])
-        if not os.path.exists(self.cachepath):
-            os.makedirs(self.cachepath)
+        self.cachepath = Path(self.respath, 'cache')
+        self.cachepath.mkdir(parents=True, exist_ok=True)
 
         self.setDefaults()
         self.pluginLoad()
@@ -83,7 +84,7 @@ class Conf:
             wgbin = 'WIN32wgrib2.exe'  # compiled in windows 11 using cygwin
             # Set environ for cygwin
             os.environ['CYGWIN'] = 'nodosfilewarning'
-            # Hide wgrib window for windows users
+            # Hide wgrib window for Windows users
             self.spinfo = subprocess.STARTUPINFO()
             self.spinfo.dwFlags |= 1  # STARTF_USESHOWWINDOW
             self.spinfo.wShowWindow = 0  # 0 or SW_HIDE 0
@@ -93,10 +94,10 @@ class Conf:
             wgbin = 'linux-wgrib2'  # compiled in Ubuntu 20.04 LTS
 
         if wgbin:
-            self.wgrib2bin = os.sep.join([self.respath, 'bin', wgbin])
+            self.wgrib2bin = Path(self.respath, 'bin', wgbin)
             # Enforce execution rights
             try:
-                os.chmod(self.wgrib2bin, 0o775)
+                self.wgrib2bin.chmod(0o775)
             except:
                 pass
 
@@ -104,6 +105,7 @@ class Conf:
 
     def setDefaults(self):
         """Default settings"""
+        print(f"Loading defaults settings ...")
 
         '''XP cloud cover'''
         # in XP 11.50+ cloud coverage and type goes:
@@ -203,23 +205,25 @@ class Conf:
 
         self.updateMetarRWX = True
 
-    def saveSettings(self, filepath, settings):
-        print("Saving Settings to {}".format(filepath))
+    def saveSettings(self, filepath: Path, settings: dict):
+        print(f"Saving Settings to {filepath.name}")
         f = open(filepath, 'wb')
         cPickle.dump(settings, f)
         f.close()
 
-    def loadSettings(self, filepath):
-        if os.path.exists(filepath):
+    def loadSettings(self, filepath: Path):
+        if filepath.is_file():
             f = open(filepath, 'rb')
             try:
                 conf = cPickle.load(f)
                 f.close()
             except:
                 # Corrupted settings, remove file
-                os.remove(filepath)
+                print(f"{filepath.name}: Corrupted file, deleting ...")
+                filepath.unlink()
                 return
 
+            print(f"Conf settings Version: {conf['version']}")
             # Reset settings on different versions.
             if 'version' not in conf or conf['version'] < '12.0.0':
                 print(f"Version unknown or very old, skipping ...")
@@ -229,11 +233,6 @@ class Conf:
             for var in conf:
                 if var in self.__dict__:
                     self.__dict__[var] = conf[var]
-
-            # Versions config overrides
-            # if conf['version'] < '12.0.0':
-            #     # Enforce metar station update
-            #     self.ms_update = 0
 
     def pluginSave(self):
         """Save plugin settings"""
@@ -289,7 +288,7 @@ class Conf:
         self.loadSettings(self.serverSettingsFile)
 
         # Load the GFS levels file or create a new one.
-        if os.path.isfile(self.gfsLevelsFile):
+        if self.gfsLevelsFile.is_file():
             self.gfs_variable_list = self.load_gfs_levels(self.gfsLevelsFile)
         else:
             self.gfs_variable_list = self.gfs_levels_defaults()
@@ -372,7 +371,7 @@ class Conf:
             config['comment'] += [' | '.join(level[i:i + 5]) for i in range(0, len(level), 5)]
             json.dump(config, f, indent=2)
 
-    def load_gfs_levels(self, json_file):
+    def load_gfs_levels(self, json_file: Path):
         """Load gfs levels configuration from a json file"""
 
         print("Trying to locate gfs jsonfile {}".format(json_file))
@@ -384,14 +383,5 @@ class Conf:
                 return self.gfs_levels_defaults()
 
     @staticmethod
-    def can_exec(file_path):
-        return os.path.isfile(file_path) and os.access(file_path, os.X_OK)
-
-    @staticmethod
-    def find_in_path(filename, path_separator=':'):
-        if 'PATH' in os.environ:
-            for path in os.environ['PATH'].split(path_separator):
-                full_path = os.path.sep.join([path, filename])
-                if Conf.can_exec(full_path):
-                    return full_path
-        return False
+    def can_exec(file_path: Path) -> bool:
+        return file_path.is_file() and os.access(file_path, os.X_OK)

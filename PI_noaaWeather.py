@@ -180,7 +180,7 @@ class Weather:
 
     def startWeatherServer(self):
         DETACHED_PROCESS = 0x00000008
-        args = [xp.pythonExecutable, os.sep.join([self.conf.respath, 'weatherServer.py']), self.conf.syspath]
+        args = [xp.pythonExecutable, Path(self.conf.respath, 'weatherServer.py'), self.conf.syspath]
 
         kwargs = {'close_fds': True}
 
@@ -1382,7 +1382,7 @@ class PythonInterface:
                 return 1
             if inParam1 == self.dumpLogButton:
                 dumpfile = self.dumpLog()
-                XPSetWidgetDescriptor(self.dumpLabel, os.sep.join(dumpfile.split(os.sep)[-3:]))
+                XPSetWidgetDescriptor(self.dumpLabel, Path(*dumpfile.parts[-3:]))
                 return 1
         return 0
 
@@ -1419,8 +1419,8 @@ class PythonInterface:
                 break
 
         text = ""
-        if Path(self.conf.settingsfile).is_file():
-            d = int(time.time() - os.path.getmtime(self.conf.settingsfile))
+        if self.conf.settingsfile.is_file():
+            d = int(time.time() - self.conf.settingsfile.stat().st_mtime)
             if d < 15:
                 text = f"Reloading ({15 - d} sec.) ..."
         XPSetWidgetDescriptor(self.saveButtonCaption, text)
@@ -1783,12 +1783,10 @@ class PythonInterface:
     def dumpLog(self):
         """Dumps all the information to a file to report bugs"""
 
-        dumpath = os.sep.join([self.conf.cachepath, 'dumplogs'])
+        dumpath = Path(self.conf.cachepath, 'dumplogs')
+        dumpath.mkdir(parents=True, exist_ok=True)
 
-        if not os.path.exists(dumpath):
-            os.makedirs(dumpath)
-
-        dumplog = os.sep.join([dumpath, datetime.utcnow().strftime('%Y%m%d_%H%M%SZdump.txt')])
+        dumplog = Path(dumpath, datetime.utcnow().strftime('%Y%m%d_%H%M%SZdump.txt'))
 
         f = open(dumplog, 'w')
 
@@ -1859,18 +1857,18 @@ class PythonInterface:
         # Append tail of PythonInterface log files
         logfiles = ['PythonInterfaceLog.txt',
                     'PythonInterfaceOutput.txt',
-                    os.path.sep.join(['noaweather', 'weatherServerLog.txt']),
+                    Path('noaweather', 'weatherServerLog.txt'),
                     ]
 
         for logfile in logfiles:
             try:
                 import XPPython
-                filepath = os.path.sep.join([XPPython.PLUGINSPATH, logfile])
+                filepath = Path(XPPython.PLUGINSPATH, logfile)
             except ImportError:
-                filepath = os.path.sep.join([self.conf.syspath, 'Resources', 'plugins', 'PythonScripts', logfile])
-            if os.path.exists(filepath):
+                filepath = Path(self.conf.syspath, 'Resources', 'plugins', 'PythonScripts', logfile)
+            if filepath.is_file():
 
-                lfsize = os.path.getsize(filepath)
+                lfsize = filepath.stat().st_size
                 lf = open(filepath, 'r')
                 lf.seek(0, os.SEEK_END)
                 lf.seek(lf.tell() - c.limit(1024 * 6, lfsize), os.SEEK_SET)

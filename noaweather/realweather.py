@@ -79,7 +79,7 @@ class RealWeather(GribWeatherSource):
 
     @property
     def metar_file(self):
-        metar_files = [p for p in Path(self.conf.wpath).iterdir() if p.is_file() and 'METAR' in p.stem]
+        metar_files = [p for p in self.conf.wpath.iterdir() if p.is_file() and 'METAR' in p.stem]
         if metar_files:
             '''get latest file'''
             return max([f for f in metar_files], key=lambda item: item.stat().st_ctime)

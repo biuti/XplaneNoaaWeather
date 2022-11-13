@@ -21,13 +21,15 @@ import time
 import threading
 import pickle as cPickle
 import socketserver as SocketServer
+from pathlib import Path
 
 try:
     from .conf import Conf
 except ImportError:
     __package__ = 'noaweather'
-    this_dir = os.path.dirname(os.path.join(os.getcwd(), __file__))
-    sys.path.append(os.path.join(this_dir, '..'))
+    this_dir = Path(__file__).resolve().parent
+    sys.path.append(str(this_dir.parent))
+    # sys.path.append(Path().cwd().parent)
     from .conf import Conf
 
 from .realweather import RealWeather
@@ -40,8 +42,8 @@ from datetime import datetime
 class LogFile:
     """File object wrapper, adds timestamp to print output"""
 
-    def __init__(self, path, options):
-        self.f = open(path, options)
+    def __init__(self, file: Path, options):
+        self.f = open(file, options)
 
     def write(self, data):
         if len(data) > 1:
@@ -220,7 +222,7 @@ if __name__ == "__main__":
     conf = Conf(path)
 
     if not debug:
-        logfile = LogFile(os.sep.join([conf.respath, 'weatherServerLog.txt']), 'w')
+        logfile = LogFile(Path(conf.respath, 'weatherServerLog.txt'), 'w')
 
         sys.stderr = logfile
         sys.stdout = logfile

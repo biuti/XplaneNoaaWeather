@@ -13,7 +13,6 @@ import io
 import threading
 import ssl
 import zlib
-import os
 import subprocess
 import sys
 
@@ -38,8 +37,7 @@ class WeatherSource(object):
         if not self.cache_path:
             self.cache_path = self.conf.cachepath
 
-        if self.cache_path and not os.path.exists(self.cache_path):
-            os.makedirs(self.cache_path)
+        self.cache_path.mkdir(parents=True, exist_ok=True)
 
     def shutdown(self):
         """Stop pending processes"""
@@ -93,41 +91,6 @@ class GribWeatherSource(WeatherSource):
             return
 
         pass
-        # time, base = self.get_real_weather_forecast()
-        # if not time == self.zulu_time:
-        #     self.zulu_time, self.base = time, base
-        #     # grab new data
-        #     self.download = AsyncTask(GribDownloader.download,
-        #                               url,
-        #                               cache_file_path,
-        #                               binary=True,
-        #                               variable_list=self.variable_list,
-        #                               cancel_event=self.die,
-        #                               decompress=self.conf.wgrib2bin,
-        #                               spinfo=self.conf.spinfo)
-        #     self.download.start()
-        # else:
-        #     if not self.download.pending():
-        #
-        #         self.download.join()
-        #         if isinstance(self.download.result, Exception):
-        #             print('Error Downloading Grib file: %s.' % str(self.download.result))
-        #             if os.path.isfile(cache_file):
-        #                 util.remove(os.sep.join([self.cache_path, cache_file]))
-        #             # wait a try again
-        #             self.download_wait = 60
-        #         else:
-        #             # New file available
-        #             if not self.conf.keepOldFiles and self.last_grib:
-        #                 util.remove(os.path.sep.join([self.cache_path, self.last_grib]))
-        #             self.last_grib = str(self.download.result.split(os.path.sep)[-1])
-        #             print('%s successfully downloaded.' % self.last_grib)
-        #
-        #         # reset download
-        #         self.download = False
-        #     else:
-        #         # Waiting for download
-        #         return
 
     # def run_xp11(self, elapsed):
     #     """Worker function called by a worker thread to update the data"""
@@ -266,7 +229,7 @@ class GribDownloader(object):
     """Grib download utilities"""
 
     @staticmethod
-    def decompress_grib(path_in, path_out, wgrib2bin, spinfo=False):
+    def decompress_grib(path_in: Path, path_out: Path, wgrib2bin, spinfo=False):
         """Unpacks grib file using wgrib2 binary
         """
         args = [wgrib2bin, path_in, '-set_grib_type', 'simple', '-grib_out', path_out]
@@ -414,7 +377,7 @@ class GribDownloader(object):
         return index
 
     @classmethod
-    def download(cls, url, file_path, binary=False, **kwargs):
+    def download(cls, url, file_path: Path, binary=False, **kwargs):
         """Download grib for the specified variable_lists
 
             Args:
@@ -467,13 +430,13 @@ class GribDownloader(object):
         wgrib2 = kwargs.pop('decompress', False)
         spinfo = kwargs.pop('spinfo', False)
         if wgrib2:
-            tmp_file = f"{file_path}.tmp"
+            tmp_file = Path(f"{file_path}.tmp")
             try:
-                os.rename(file_path, tmp_file)
+                file_path.rename(tmp_file)
                 cls.decompress_grib(tmp_file, file_path, wgrib2, spinfo)
                 util.remove(tmp_file)
             except OSError as err:
-                raise GribDownloaderError(f"Unable to decompress: {file_path} \n\t{repr(err)}")
+                raise GribDownloaderError(f"Unable to decompress: {file_path.name} \n\t{repr(err)}")
 
         return file_path
 
