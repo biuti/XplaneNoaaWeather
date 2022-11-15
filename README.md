@@ -59,6 +59,8 @@ The resulting installation should look like:
     X-Plane/Resources/plugins/PythonPlugins/noaweather/
     X-Plane/Resources/plugins/PythonPlugins/PI_noaaWeather.py
 
+Please delete completely (not overwrite) any previous release of NOAA plugin in PythonPlugins folder.
+
 =========
 RESOURCES
 =========
