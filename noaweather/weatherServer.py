@@ -29,7 +29,6 @@ except ImportError:
     __package__ = 'noaweather'
     this_dir = Path(__file__).resolve().parent
     sys.path.append(str(this_dir.parent))
-    # sys.path.append(Path().cwd().parent)
     from .conf import Conf
 
 from .realweather import RealWeather
@@ -101,7 +100,6 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             response['metar']['latlon'] = (apt[1], apt[2])
             response['metar']['distance'] = c.greatCircleDistance((lat, lon), (apt[1], apt[2]))
             response['rwmetar'] = gfs.get_real_weather_metars(apt[0])
-            # print(f"response['rwmetar']: {response['rwmetar']}")
 
         return response
 

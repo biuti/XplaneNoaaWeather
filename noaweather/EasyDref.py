@@ -1,4 +1,3 @@
-import sys
 from XPLMDataAccess import *
 from XPLMUtilities import *
 from XPLMPlugin import *
@@ -57,7 +56,7 @@ class EasyDref:
             self.dr_type = xplmType_Double
             self.cast = float
         else:
-            print("ERROR: invalid DataRef type: {}".format(type))
+            print(f"ERROR: invalid DataRef type: {type}")
 
         if dref: dataref = dref
 
@@ -99,8 +98,8 @@ class EasyDref:
 
         else:
             self.DataRef = XPLMFindDataRef(dataref)
-            if self.DataRef == False:
-                print("Can't find " + dataref + " DataRef")
+            if not self.DataRef:
+                print(f"Can't find {dataref} DataRef")
 
     def initArrayDref(self, first, last, type):
         if self.register:
@@ -127,7 +126,7 @@ class EasyDref:
             self.dr_type = xplmType_DataArray
             self.cast = float
         else:
-            print("ERROR: invalid DataRef type: {}".format(type))
+            print(f"ERROR: invalid DataRef type: {type}")
         pass
 
     def set(self, value):
@@ -232,7 +231,7 @@ class EasyCommand:
     """
 
     def __init__(self, plugin, command, function, args=False, description=''):
-        command = 'xjpc/XPNoaaWeather/' + command
+        command = f"xjpc/XPNoaaWeather/{command}"
         self.command = XPLMCreateCommand(command, description)
         self.commandCH = self.commandCHandler
         XPLMRegisterCommandHandler(self.command, self.commandCH, 1, 0)

@@ -44,7 +44,6 @@ class Metar(WeatherSource):
     METAR_STATIONS_URL = 'https://www.aviationweather.gov/docs/metar/stations.txt'
     NOAA_METAR_URL = 'https://aviationweather.gov/adds/dataserver_current/current/metars.cache.csv.gz'
     VATSIM_METAR_URL = 'https://metar.vatsim.net/metar.php?id=all'
-    # IVAO_METAR_URL = 'https://wx.ivao.aero/metar.php'
     IVAO_METAR_URL = 'https://api.ivao.aero/v2/airports/all/metar'
 
     STATION_UPDATE_RATE = 30  # In days
@@ -104,6 +103,7 @@ class Metar(WeatherSource):
 
     def update_metar(self, path: Path, batch: int = 100):
         """Updates metar table from Metar file"""
+
         f = open(path, encoding='utf-8', errors='replace')  # deal with non utf-8 characters, avoiding error
         nupdated = 0
         nparsed = 0
@@ -391,7 +391,6 @@ class Metar(WeatherSource):
             self.ms_download = False
 
         # Update METAR.rwx
-        # print(f"metar source: {self.conf.metar_source}.")
         if self.conf.updateMetarRWX and not self.conf.metar_use_xp12 and self.next_metarRWX < time.time():
             if self.update_metar_rwx_file():
                 self.next_metarRWX = time.time() + self.conf.metar_updaterate * 60

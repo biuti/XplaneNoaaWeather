@@ -1230,27 +1230,18 @@ class PythonInterface:
         # XPSetWidgetProperty(self.downloadCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
         # XPSetWidgetProperty(self.downloadCheck, xpProperty_ButtonState, self.conf.download)
 
-        # XPCreateWidget(x + 160, y, x + 260, y - 20, 1, 'Ignore Stations:', 0, window, xpWidgetClass_Caption)
-        # self.stationIgnoreInput = XPCreateWidget(x + 260, y, x + 540, y - 20, 1,
-        #                                          ' '.join(self.conf.ignore_metar_stations), 0, window,
-        #                                          xpWidgetClass_TextField)
-        # XPSetWidgetProperty(self.stationIgnoreInput, xpProperty_TextFieldType, xpTextEntryField)
-        # XPSetWidgetProperty(self.stationIgnoreInput, xpProperty_Enabled, 1)
-        #
-        # y -= 20
-
         # DumpLog Button
-        self.dumpLogButton = XPCreateWidget(x + 320, y, x + 420, y - 20, 1, "DumpLog", 0, window, xpWidgetClass_Button)
+        self.dumpLogButton = XPCreateWidget(x + 10, y, x + 130, y - 20, 1, "DumpLog", 0, window, xpWidgetClass_Button)
         XPSetWidgetProperty(self.dumpLogButton, xpProperty_ButtonType, xpPushButton)
 
-        self.dumpLabel = XPCreateWidget(x + 270, y, x + 380, y - 20, 1, '', 0, window, xpWidgetClass_Caption)
+        self.dumpLabel = XPCreateWidget(x + 150, y, x + 420, y - 20, 1, '', 0, window, xpWidgetClass_Caption)
 
-        y -= 30
-        subw = XPCreateWidget(x - 10, y - 15, x2 - 20 + 10, y2 + 15, 1, "", 0, window, xpWidgetClass_SubWindow)
+        y -= 45
+        subw = XPCreateWidget(x - 10, y, x2 - 20 + 10, y2 + 15, 1, "", 0, window, xpWidgetClass_SubWindow)
         x += 10
         # Set the style to sub window
 
-        y -= 20
+        y -= 5
         sysinfo = [
             f"X-Plane 12 NOAA Weather: {self.conf.__VERSION__}",
             '(c) antonio golfari 2022',
@@ -1299,7 +1290,7 @@ class PythonInterface:
         # Handle any button pushes
         if inMessage == xpMsg_PushButtonPressed:
 
-            if (inParam1 == self.aboutVisit):
+            if inParam1 == self.aboutVisit:
                 from webbrowser import open_new
                 open_new('https://github.com/biuti/XplaneNoaaWeather')
                 return 1
@@ -1363,12 +1354,10 @@ class PythonInterface:
 
                 # If metar source has changed tell server to reinit metar database
                 if self.conf.metar_source != prev_metar_source:
-                    print(f"METAR source changed. Get from: {self.conf.metar_source}")
                     self.weather.weatherClientSend('!resetMetar')
 
                 # If metar source for METAR.rwx file has changed tell server to reinit rwmetar database
                 if self.conf.metar_use_xp12 != prev_file_source:
-                    print(f"METAR.rwx source changed. Get from XP12: {self.conf.metar_use_xp12}")
                     self.weather.weatherClientSend('!resetRWMetar')
 
                 self.weather.startWeatherClient()
@@ -1380,6 +1369,7 @@ class PythonInterface:
 
                 return 1
             if inParam1 == self.dumpLogButton:
+                print(f"Creating dumplog file...")
                 dumpfile = self.dumpLog()
                 XPSetWidgetDescriptor(self.dumpLabel, f"created {dumpfile.name} in cache folder")
                 return 1
@@ -1430,7 +1420,7 @@ class PythonInterface:
         sysinfo = [f"XPNoaaWeather for XP12 {self.conf.__VERSION__} Status:"]
 
         if not self.weather.weatherData:
-            sysinfo += ['* Data not ready. Please wait.']
+            sysinfo += ['* Data not ready. Please wait...']
         else:
             wdata = self.weather.weatherData
             if 'info' in wdata:
@@ -1637,8 +1627,6 @@ class PythonInterface:
         XPSetWidgetProperty(self.metarWindowWidget, xpProperty_MainWindowType, xpMainWindowStyle_Translucent)
 
         # Config Sub Window, style
-        # subw = XPCreateWidget(x+10, y-30, x2-20 + 10, y2+40 -25, 1, "" ,  0,self.metarWindowWidget , xpWidgetClass_SubWindow)
-        # XPSetWidgetProperty(subw, xpProperty_SubWindowType, xpSubWindowStyle_SubWindow)
         XPSetWidgetProperty(self.metarWindowWidget, xpProperty_MainWindowHasCloseBoxes, 1)
         x += 10
         y -= 20
@@ -1763,9 +1751,7 @@ class PythonInterface:
             # Filter metar text
             metar = ''.join(filter(lambda x: x in self.conf.printableChars, msg['metar']['metar']))
             rwmetar = ''.join(filter(lambda x: x in self.conf.printableChars, msg['rwmetar']['metar']))
-            # XPSetWidgetDescriptor(self.metarQueryOutput, '%s %s' % (msg['metar']['icao'], metar))
             # adding source and internal XP12 METARs
-            # XPSetWidgetDescriptor(self.metarQueryOutput, f"STATION: {msg['metar']['icao']}")
             XPSetWidgetDescriptor(self.metarQueryOutput, f"{msg['metar']['icao']} {metar}")
             XPSetWidgetDescriptor(self.metarQueryXP12, f"{msg['rwmetar']['icao']} {rwmetar}")
 

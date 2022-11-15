@@ -202,9 +202,7 @@ class RealWeather(GribWeatherSource):
                 f"{lat}",
                 file
             ]
-            # print("Calling subprocess with {}, {}".format([self.conf.wgrib2bin] + args, kwargs))
             p = subprocess.Popen([self.conf.wgrib2bin] + args, **kwargs)
-            # print("result of grib data subprocess is p={}".format(p))
             it.extend(iter(p.stdout))
 
         data = {}
