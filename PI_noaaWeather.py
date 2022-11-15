@@ -1381,7 +1381,7 @@ class PythonInterface:
                 return 1
             if inParam1 == self.dumpLogButton:
                 dumpfile = self.dumpLog()
-                XPSetWidgetDescriptor(self.dumpLabel, Path(*dumpfile.parts[-3:]))
+                XPSetWidgetDescriptor(self.dumpLabel, f"created {dumpfile.name} in cache folder")
                 return 1
         return 0
 
@@ -1779,18 +1779,20 @@ class PythonInterface:
         else:
             self.createMetarWindow()
 
-    def dumpLog(self):
+    def dumpLog(self) -> Path:
         """Dumps all the information to a file to report bugs"""
 
         dumpath = Path(self.conf.cachepath, 'dumplogs')
         dumpath.mkdir(parents=True, exist_ok=True)
 
         dumplog = Path(dumpath, datetime.utcnow().strftime('%Y%m%d_%H%M%SZdump.txt'))
+        print(f"dumplog file: {dumplog}")
 
         f = open(dumplog, 'w')
 
         import platform
         from pprint import pprint
+        import XPPython
 
         xpver, sdkver, hid = XPLMGetVersions()
         output = ['--- Platform Info ---\n',
@@ -1861,7 +1863,6 @@ class PythonInterface:
 
         for logfile in logfiles:
             try:
-                import XPPython
                 filepath = Path(XPPython.PLUGINSPATH, logfile)
             except ImportError:
                 filepath = Path(self.conf.syspath, 'Resources', 'plugins', 'PythonScripts', logfile)

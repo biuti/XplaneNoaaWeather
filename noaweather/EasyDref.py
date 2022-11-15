@@ -194,7 +194,10 @@ class EasyDref:
 
     def __getattr__(self, name):
         if name == 'value':
-            return self.get()
+            try:
+                return self.get()
+            except (SystemError, TypeError) as e:
+                print(f"Error trying to retrieve value from {self.dataref}: {e}")
         else:
             raise AttributeError
 
