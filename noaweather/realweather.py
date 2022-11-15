@@ -13,12 +13,11 @@ of the License, or any later version.
 """
 
 import subprocess
-import sys
 import time
-import sqlite3
 
 from pathlib import Path
 from datetime import datetime
+from .database import Database
 from .weathersource import GribWeatherSource
 from .c import c
 from .util import util
@@ -52,6 +51,8 @@ class RealWeather(GribWeatherSource):
         'srfc'
     ]
 
+    table = 'realweather'
+
     def __init__(self, conf):
         self.variable_list = conf.gfs_variable_list
         self.zulu_time = None
@@ -61,14 +62,7 @@ class RealWeather(GribWeatherSource):
         self.next_rwmetar = time.time() + 30
         self.last_rwmetar = None
 
-        self.cache_path = Path(conf.cachepath, 'metar')
-        self.database = Path(self.cache_path, 'rwmetar.db')
-
-        self.th_db = False
-
-        self.connection = self.db_connect(self.database)
-        self.cursor = self.connection.cursor()
-        self.db_create()
+        self.db = Database(conf.dbfile)
 
         super(RealWeather, self).__init__(conf)
 
@@ -93,105 +87,42 @@ class RealWeather(GribWeatherSource):
                      or self.last_rwmetar < self.metar_file.stat().st_ctime
                      or self.next_rwmetar < time.time()))
 
-    def db_connect(self, path):
-        """Returns an SQLite connection to the metar database"""
-        return sqlite3.connect(path, check_same_thread=False)
-
-    def db_create(self):
-        """Creates the METAR database and tables"""
-        # cursor = db.cursor()
-        db = self.connection
-        # db.execute('''DROP TABLE IF EXISTS airports''')
-        db.execute('''CREATE TABLE IF NOT EXISTS airports (icao text KEY UNIQUE, metar text)''')
-        print(f"Creating Table airports ...")
-        db.commit()
-
-    def update_rwmetar(self, db):
+    def update_rwmetar(self, batch: int = 100) -> tuple:
         """Updates metar table from Metar file"""
-        # f = open(path, encoding='utf-8', errors='replace')  # deal with non utf-8 characters, avoiding error
-        # nupdated = 0
+        nupdated = 0
         nparsed = 0
-        # cursor = db.cursor()
-        # i = 0
         inserts = []
-        # INSBUF = cursor.arraysize
-
-        # today_prefix = datetime.utcnow().strftime('%Y%m')
-        # yesterday_prefix = (datetime.utcnow() + timedelta(days=-1)).strftime('%Y%m')
-        #
-        # today = datetime.utcnow().strftime('%d')
-
-        # today, today_prefix, yesterday_prefix = util.date_info()
-
-        # lines = f.readlines()
-
-        # lines = list(set(open(self.metar_file, encoding='utf-8', errors='replace')))
-        # lines = [x for x in (set(open(self.metar_file, encoding='utf-8', errors='replace')))
-        #          if x[0].isalpha() and len(x) > 11 and x[11] == 'Z']
-        # codes = list(set(x[0:4] for x in lines))
 
         lines = util.get_rw_ordered_lines(self.metar_file)
 
         if lines:
-            # lines.sort(key=lambda x: (x[0:4], -int(x[5:10])))
             seen = set()
-            # rows = [x for x in lines if not (x[0:4] in seen or seen.add(x[0:4]))]
             query = """
-                        INSERT OR REPLACE INTO airports 
+                        INSERT OR REPLACE INTO realweather 
                             (icao, metar)
                         VALUES
                             (?, ?)
                     """
-            for line in lines:
+
+            for i, line in enumerate(lines, 1):
                 if not line[0:4] in seen:
-                    # i += 1
                     icao, metar = line[0:4], line[5:-1].split(',')[0]
                     seen.add(icao)
-
                     inserts.append((icao, metar))
-                    nparsed += 1
+                if len(inserts) > batch or i >= len(lines):
+                    nparsed += len(inserts)
+                    nupdated += self.db.writemany(query, inserts)
+                    inserts = []
 
-            #         if (i % INSBUF) == 0:
-            #             cursor.executemany(query, inserts)
-            #             inserts = []
-            #             nupdated += cursor.rowcount
-            #
-            # if len(inserts):
-            #     cursor.executemany(query, inserts)
-            #     nupdated += cursor.rowcount
-            # db.commit()
-            with db:
-                try:
-                    db.executemany(query, inserts)
-                    db.commit()
-                except (sqlite3.OperationalError, sqlite3.IntegrityError) as e:
-                    print('SQLite Error inserting lines. Could not complete operation:', e)
-                    db.rollback()
+        return nparsed, nupdated
 
-        return nparsed
-
-    def get_real_weather_metar(self, icao: str) -> tuple:
+    @staticmethod
+    def get_real_weather_metar(db, icao: str) -> tuple:
         """ Reads METAR DB created from files in XP12 real weather folder
             icao: ICAO code for requested airport
             returns METAR string"""
 
-        # cursor = self.cursor if not self.th_db else self.th_db.cursor()
-        #
-        # res = cursor.execute('''SELECT * FROM airports WHERE icao = ? AND metar NOT NULL LIMIT 1''', (icao.upper(),))
-        #
-        # ret = res.fetchall()
-        # if len(ret) > 0:
-        #     return ret[0]
-        with self.th_db or self.connection as db:
-            icao = icao.upper()
-            try:
-                res = db.execute('''SELECT * FROM airports WHERE icao = ? AND metar NOT NULL LIMIT 1''', (icao,))
-                met = res.fetchone() or (icao, 'not found')
-                print(f"Query {icao}: {met}")
-                return met
-            except (sqlite3.OperationalError, sqlite3.IntegrityError) as e:
-                print('SQLite Error querying db. Could not complete operation:', e)
-                return icao, 'DB ERROR'
+        return db.get(RealWeather.table, icao)
 
     def get_real_weather_metars(self, icao) -> dict:
         """ Reads METAR DB created from files in XP12 real weather folder
@@ -221,25 +152,7 @@ class RealWeather(GribWeatherSource):
             print(f"ERROR updating METAR.rwx file: XP12 did not download files yet")
             return False
 
-        with self.th_db or self.connection as db:
-            try:
-                f = open(Path(self.conf.syspath, 'METAR.rwx'), 'w')
-                res = db.execute('SELECT icao, metar FROM airports WHERE metar NOT NULL')
-                while True:
-                    rows = res.fetchmany(100)
-                    if not rows:
-                        break
-                    for row in rows:
-                        f.write(f"{row[0]} {row[1]}\n")
-                f.close()
-            except (sqlite3.OperationalError, sqlite3.IntegrityError) as e:
-                print('SQLite Error querying db. Could not complete operation:', e)
-                return False
-            except (OSError, IOError):
-                print(f"ERROR updating METAR.rwx file: {sys.exc_info()[0]}, {sys.exc_info()[1]}")
-                return False
-
-        return True
+        return self.db.to_file(Path(self.conf.syspath, 'METAR.rwx'), self.table)
 
     def get_real_weather_forecast(self):
         """ configures x-plane 12 weather filenames to be read
@@ -439,14 +352,10 @@ class RealWeather(GribWeatherSource):
     def run(self, elapsed):
         """ Updates METAR.rwx file from XP12 realweather metar files if option to do so is checked"""
 
-        # Worker thread requires its own db connection and cursor
-        if not self.th_db:
-            self.th_db = self.db_connect(self.database)
-
         if self.time_to_update_rwmetar:
             # update real weather metar database
             print(f"Updating Real Weather DB ...")
-            self.update_rwmetar(self.th_db)
+            self.update_rwmetar()
             print(f"*** RW METAR DB updated: {datetime.utcnow().strftime('%H:%M:%S')} ***")
             self.last_rwmetar = time.time()
             self.next_rwmetar = time.time() + 1800  # 30 min.
@@ -457,3 +366,8 @@ class RealWeather(GribWeatherSource):
                 else:
                     # Retry in 30 sec
                     self.next_rwmetar = time.time() + 30
+
+    def shutdown(self):
+        super(RealWeather, self).shutdown()
+        self.db.commit()
+        self.db.close()

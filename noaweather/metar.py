@@ -10,9 +10,7 @@ of the License, or any later version.
 """
 
 import re
-import sqlite3
 import math
-import sys
 import time
 import base64
 import json
@@ -21,6 +19,7 @@ from datetime import datetime, timedelta
 from .util import util
 from pathlib import Path
 
+from .database import Database
 from .c import c
 from .weathersource import WeatherSource, GribDownloaderError, GribDownloader, AsyncTask
 
@@ -50,29 +49,19 @@ class Metar(WeatherSource):
 
     STATION_UPDATE_RATE = 30  # In days
 
+    table = 'source'
+
     def __init__(self, conf):
 
-        self.cache_path = Path(conf.cachepath, 'metar')
-        self.database = Path(self.cache_path, 'metar.db')
+        self.db = Database(conf.dbfile)
 
         super(Metar, self).__init__(conf)
-
-        self.th_db = False
 
         # Download flags
         self.ms_download = False
         self.downloading = False
 
         self.next_metarRWX = time.time() + 30
-
-        # Main db connection, create db if doens't exist
-        createdb = not self.database.is_file()
-
-        self.connection = self.db_connect(self.database)
-        self.cursor = self.connection.cursor()
-        if createdb:
-            conf.ms_update = 0
-            self.db_create(self.connection)
 
         # Metar stations update
         if (time.time() - conf.ms_update) > self.STATION_UPDATE_RATE * 86400:
@@ -82,59 +71,43 @@ class Metar(WeatherSource):
 
         self.last_timestamp = 0
 
-    def db_connect(self, path):
-        """Returns an SQLite connection to the metar database"""
-        return sqlite3.connect(path, check_same_thread=False)
-
-    def db_create(self, db):
-        """Creates the METAR database and tables"""
-        cursor = db.cursor()
-        cursor.execute('''CREATE TABLE airports (icao text KEY UNIQUE, lat real, lon real, elevation int,
-                        timestamp int KEY, metar text)''')
-        db.commit()
-
-    def update_stations(self, db, path):
+    def update_stations(self, path: Path, batch: int = 100):
         """Updates db's airport information from the METAR station file"""
 
-        cursor = db.cursor()
-        parsed = 0
+        nparsed = 0
+        nupdated = 0
+        inserts = []
+        query = ''' INSERT OR REPLACE INTO {} 
+                        (icao, lat, lon, elevation, timestamp) 
+                    VALUES 
+                        (?,?,?,?,0)'''.format(self.table)
 
-        with open(path, 'r') as f:
+        with open(path, encoding='utf-8', errors='replace') as f:
             try:
-                for line in f.readlines():
-                    if line[0] != '!' and len(line) > 80:
+                lines = f.readlines()
+                for i, line in enumerate(lines, 1):
+                    if line[0] != '!' and len(line) > 80 and line[20] != ' ' and line[51] != '9':
                         icao = line[20:24]
-                        lat = float(line[39:41]) + round(float(line[42:44]) / 60, 4)
-                        if line[44] == 'S':
-                            lat *= -1
-                        lon = float(line[47:50]) + round(float(line[51:53]) / 60, 4)
-                        if line[53] == 'W':
-                            lon *= -1
+                        lat = float(line[39:41]) + round(float(line[42:44]) / 60, 4) * (-1 if line[44] == 'S' else 1)
+                        lon = float(line[47:50]) + round(float(line[51:53]) / 60, 4) * (-1 if line[53] == 'W' else 1)
                         elevation = int(line[55:59])
-                        if line[20] != ' ' and line[51] != '9':
-                            cursor.execute(
-                                'INSERT OR REPLACE INTO airports (icao, lat, lon, elevation, timestamp) \
-                                 VALUES (?,?,?,?,0)',
-                                (icao.strip('"'), lat, lon, elevation))
-                            parsed += 1
+                        inserts.append((icao.strip('"'), lat, lon, elevation))
+                    if len(inserts) > batch or i >= len(lines):
+                        nparsed += len(inserts)
+                        nupdated += self.db.writemany(query, inserts)
+                        inserts = []
             except (ValueError, IndexError) as e:
                 print(f"Error parsing METAR station File: {e}")
 
-            db.commit()
-            self.conf.ms_update = time.time()
+        self.conf.ms_update = time.time()
+        return nparsed
 
-        return parsed
-
-    def update_metar(self, db, path: Path):
+    def update_metar(self, path: Path, batch: int = 100):
         """Updates metar table from Metar file"""
         f = open(path, encoding='utf-8', errors='replace')  # deal with non utf-8 characters, avoiding error
         nupdated = 0
         nparsed = 0
-        timestamp = 0
-        cursor = db.cursor()
-        i = 0
         inserts = []
-        INSBUF = cursor.arraysize
 
         today, today_prefix, yesterday_prefix = util.date_info()
 
@@ -144,9 +117,10 @@ class Metar(WeatherSource):
         else:
             lines = f.readlines()
 
-        for line in lines:
+        query = '''UPDATE {} SET timestamp = ?, metar = ? WHERE icao = ? AND timestamp < ?'''.format(self.table)
+
+        for i, line in enumerate(lines, 1):
             if line[0].isalpha() and len(line) > 11 and line[11] == 'Z':
-                i += 1
                 icao, mtime, metar = line[0:4], line[5:11], re.sub(r'[^\x00-\x7F]+', ' ', line[5:-1])
                 metar = metar.split(',')[0]
 
@@ -163,19 +137,10 @@ class Metar(WeatherSource):
                     timestamp = yesterday_prefix + mtime
 
                 inserts.append((timestamp, metar, icao, timestamp))
-                nparsed += 1
-                timestamp = 0
-
-                if (i % INSBUF) == 0:
-                    cursor.executemany('UPDATE airports SET timestamp = ?, metar = ? WHERE icao = ? AND timestamp < ?',
-                                       inserts)
-                    inserts = []
-                    nupdated += cursor.rowcount
-
-        if len(inserts):
-            cursor.executemany('UPDATE airports SET timestamp = ?, metar = ? WHERE icao = ? AND timestamp < ?', inserts)
-            nupdated += cursor.rowcount
-        db.commit()
+            if len(inserts) > batch or i >= len(lines):
+                nparsed += len(inserts)
+                nupdated += self.db.writemany(query, inserts)
+                inserts = []
 
         f.close()
 
@@ -185,16 +150,15 @@ class Metar(WeatherSource):
         return nupdated, nparsed
 
     @staticmethod
-    def clear_reports(db):
+    def clear_reports(file: Path):
         """Clears all metar reports from the db"""
-        cursor = db.cursor()
-        cursor.execute('UPDATE airports SET metar = NULL, timestamp = 0')
-        db.commit()
 
-    def get_closest_station(self, db, lat, lon, limit=1):
+        db = Database(file)
+        db.query('UPDATE source SET metar = NULL, timestamp = 0')
+
+    def get_closest_station(self, lat, lon, limit=1):
         """Return the closest airport with a metar report"""
 
-        cursor = db.cursor()
         fudge = math.pow(math.cos(math.radians(lat)), 2)
 
         cond = 'metar NOT NULL '
@@ -206,30 +170,21 @@ class Metar(WeatherSource):
         if self.conf.metar_ignore_auto:
             cond += f"AND metar NOT LIKE '%AUTO%' "
 
-        q = '''SELECT * FROM airports
-                    WHERE %s
+        q = '''SELECT * FROM source
+                    WHERE {}
                     ORDER BY ((? - lat) * (? - lat) + (? - lon) * (? - lon) * ?)
-                    LIMIT ?''' % cond
+                    LIMIT ?'''.format(cond)
         bindings.extend([lat, lat, lon, lon, fudge, limit])
 
-        res = cursor.execute(q, (tuple(bindings)))
-        ret = res.fetchall()
-
-        if limit == 1 and len(ret) > 0:
-            return ret[0]
+        with self.db.session() as db:
+            res = db.execute(q, (tuple(bindings)))
+            ret = res.fetchone()
         return ret
 
     @staticmethod
     def get_metar(db, icao):
         """Returns the METAR from an airport icao code"""
-        cursor = db.cursor()
-        res = cursor.execute('''SELECT * FROM airports
-                                WHERE icao = ? AND metar NOT NULL LIMIT 1''', (icao.upper(),))
-
-        ret = res.fetchall()
-        if len(ret) > 0:
-            return ret[0]
-        return ret
+        return db.get(Metar.table, icao)
 
     @staticmethod
     def get_current_cycle():
@@ -395,35 +350,12 @@ class Metar(WeatherSource):
 
         return weather
 
-    def update_metar_rwx_file(self, db):
+    def update_metar_rwx_file(self):
         """Dumps all metar data to the METAR.rwx file"""
 
-        # print(f"running Metar.update_metar_rwx_file()")
-
-        cursor = db.cursor()
-
-        try:
-            f = open(Path(self.conf.syspath, 'METAR.rwx'), 'w')
-            res = cursor.execute('SELECT icao, metar FROM airports WHERE metar NOT NULL')
-            while True:
-                rows = res.fetchmany()
-                if rows:
-                    for row in rows:
-                        f.write(f"{row[0]} {row[1]}\n")
-                else:
-                    break
-            f.close()
-        except (OSError, IOError):
-            print(f"ERROR updating METAR.rwx file: {sys.exc_info()[0]}, {sys.exc_info()[1]}")
-            return False
-
-        return True
+        return self.db.to_file(Path(self.conf.syspath, 'METAR.rwx'), self.table)
 
     def run(self, elapsed):
-
-        # Worker thread requires its own db connection and cursor
-        if not self.th_db:
-            self.th_db = self.db_connect(self.database)
 
         # Check for new metar downloaded data
         if self.download:
@@ -434,9 +366,7 @@ class Metar(WeatherSource):
                 if isinstance(metar_file, GribDownloaderError):
                     print(f"Error downloading METAR: {metar_file}")
                 else:
-                    # print('Successfully downloaded: %s' % metar_file.split(os.path.sep)[-1])
-                    updated, parsed = self.update_metar(self.th_db, metar_file)
-                    # print("METAR updated/parsed: %d/%d" % (updated, parsed))
+                    updated, parsed = self.update_metar(metar_file)
 
                 self.download = False
 
@@ -456,14 +386,14 @@ class Metar(WeatherSource):
 
             else:
                 print('Updating metar stations.')
-                nstations = self.update_stations(self.th_db, self.ms_download.result)
+                nstations = self.update_stations(self.ms_download.result)
                 print(f"{nstations} metar stations updated.")
             self.ms_download = False
 
         # Update METAR.rwx
         # print(f"metar source: {self.conf.metar_source}.")
         if self.conf.updateMetarRWX and not self.conf.metar_use_xp12 and self.next_metarRWX < time.time():
-            if self.update_metar_rwx_file(self.th_db):
+            if self.update_metar_rwx_file():
                 self.next_metarRWX = time.time() + self.conf.metar_updaterate * 60
                 print(f"Updated METAR.rwx file using {self.conf.metar_source}.")
             else:
@@ -503,5 +433,5 @@ class Metar(WeatherSource):
 
     def shutdown(self):
         super(Metar, self).shutdown()
-        self.connection.commit()
-        self.connection.close()
+        self.db.commit()
+        self.db.close()

@@ -56,6 +56,9 @@ class Conf:
         self.cachepath = Path(self.respath, 'cache')
         self.cachepath.mkdir(parents=True, exist_ok=True)
 
+        self.dbfile = Path(self.cachepath, 'metar', 'metar.db')
+        self.dbfile.parent.mkdir(parents=True, exist_ok=True)
+
         self.setDefaults()
         self.pluginLoad()
         self.serverLoad()

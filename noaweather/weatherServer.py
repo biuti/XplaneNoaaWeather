@@ -95,7 +95,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
                 response['wafs'] = response['gfs']['turbulence']
 
         # Parse metar
-        apt = metar.get_closest_station(metar.connection, lat, lon)
+        apt = metar.get_closest_station(lat, lon)
         if apt and len(apt) > 4:
             response['metar'] = metar.parse_metar(apt[0], apt[5], apt[3])
             response['metar']['latlon'] = (apt[1], apt[2])
@@ -168,10 +168,10 @@ class ClientHandler(SocketServer.BaseRequestHandler):
                 elif len(data) == 5:
                     # Icao
                     response = {}
-                    apt = metar.get_metar(metar.connection, data[1:])
+                    apt = metar.get_metar(metar.db, data[1:])
                     if len(apt) and apt[5]:
                         response['metar'] = metar.parse_metar(apt[0], apt[5], apt[3])
-                        response['rwmetar'] = dict(zip(('icao', 'metar'), gfs.get_real_weather_metar(data[1:])))
+                        response['rwmetar'] = dict(zip(('icao', 'metar'), gfs.get_real_weather_metar(gfs.db, data[1:])))
                     else:
                         response['metar'] = {'icao': 'METAR STATION',
                                              'metar': 'NOT AVAILABLE'}
@@ -186,7 +186,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
                 conf.pluginLoad()
             elif data == '!resetMetar':
                 # Clear database and force redownload
-                metar.clear_reports(metar.connection)
+                metar.clear_reports(conf.dbfile)
                 metar.last_timestamp = 0
                 metar.next_metarRWX = time.time() + 10
             elif data == '!resetRWMetar':
