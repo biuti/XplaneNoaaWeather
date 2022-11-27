@@ -71,7 +71,7 @@ class Metar(WeatherSource):
         self.last_timestamp = 0
 
     def update_stations(self, path: Path, batch: int = 100):
-        """Updates db's airport information from the METAR station file"""
+        """Updates db's airport information from the METAR stations file"""
 
         nparsed = 0
         nupdated = 0
@@ -87,8 +87,8 @@ class Metar(WeatherSource):
                 for i, line in enumerate(lines, 1):
                     if line[0] != '!' and len(line) > 80 and line[20] != ' ' and line[51] != '9':
                         icao = line[20:24]
-                        lat = float(line[39:41]) + round(float(line[42:44]) / 60, 4) * (-1 if line[44] == 'S' else 1)
-                        lon = float(line[47:50]) + round(float(line[51:53]) / 60, 4) * (-1 if line[53] == 'W' else 1)
+                        lat = (float(line[39:41]) + round(float(line[42:44]) / 60, 4)) * (-1 if line[44] == 'S' else 1)
+                        lon = (float(line[47:50]) + round(float(line[51:53]) / 60, 4)) * (-1 if line[53] == 'W' else 1)
                         elevation = int(line[55:59])
                         inserts.append((icao.strip('"'), lat, lon, elevation))
                     if len(inserts) > batch or i >= len(lines):
