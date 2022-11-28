@@ -32,6 +32,7 @@ except ImportError:
     from .conf import Conf
 
 from .realweather import RealWeather
+from .gfs import GFS
 from .c import c
 from .metar import Metar
 from .weathersource import Worker
@@ -69,6 +70,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
         lat, lon = float(data[0]), float(data[1])
 
         response = {
+            'rw': {},
             'gfs': {},
             'wafs': {},
             'metar': {},
@@ -87,11 +89,15 @@ class ClientHandler(SocketServer.BaseRequestHandler):
 
         # Parse gfs and wafs
         if conf.meets_wgrib2_requirements:
-            gfs.get_real_weather_forecast()
-            if all(el.is_file() for el in gfs.grib_files):
-                response['info']['gfs_cycle'] = f"{gfs.cycle}: {gfs.fcst}"
-                response['gfs'] = gfs.parse_grib_data(lat, lon)
-                response['wafs'] = response['gfs']['turbulence']
+            rw.get_real_weather_forecast()
+            if all(el.is_file() for el in rw.grib_files):
+                response['info']['gfs_cycle'] = f"{rw.cycle}: {rw.fcst}"
+                response['rw'] = rw.parse_grib_data(lat, lon)
+                # response['wafs'] = response['rw']['turbulence']
+                if gfs.last_grib:
+                    filepath = Path(gfs.cache_path, gfs.last_grib)
+                    response['gfs'] = gfs.parse_grib_data(filepath, lat, lon)
+                print(f"Grib File: {gfs.last_grib}, data: {response['gfs']}")
 
         # Parse metar
         apt = metar.get_closest_station(lat, lon)
@@ -99,8 +105,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             response['metar'] = metar.parse_metar(apt[0], apt[5], apt[3])
             response['metar']['latlon'] = (apt[1], apt[2])
             response['metar']['distance'] = c.greatCircleDistance((lat, lon), (apt[1], apt[2]))
-            response['rwmetar'] = gfs.get_real_weather_metars(apt[0])
-
+            response['rwmetar'] = rw.get_real_weather_metars(apt[0])
         return response
 
     # @staticmethod
@@ -169,7 +174,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
                     apt = metar.get_metar(metar.db, data[1:])
                     if len(apt) and apt[5]:
                         response['metar'] = metar.parse_metar(apt[0], apt[5], apt[3])
-                        response['rwmetar'] = dict(zip(('icao', 'metar'), gfs.get_real_weather_metar(gfs.db, data[1:])))
+                        response['rwmetar'] = dict(zip(('icao', 'metar'), rw.get_real_weather_metar(rw.db, data[1:])))
                     else:
                         response['metar'] = {'icao': 'METAR STATION',
                                              'metar': 'NOT AVAILABLE'}
@@ -189,7 +194,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
                 metar.next_metarRWX = time.time() + 10
             elif data == '!resetRWMetar':
                 # reload database
-                gfs.next_rwmetar = time.time() + 5
+                rw.next_rwmetar = time.time() + 5
                 metar.next_metarRWX = time.time() + 5
             elif data == '!ping':
                 response = '!pong'
@@ -247,11 +252,12 @@ if __name__ == "__main__":
     conf.serverSave()
 
     # Weather classes
-    gfs = RealWeather(conf)
+    gfs = GFS(conf)
+    rw = RealWeather(conf)
     metar = Metar(conf)
     # wafs = WAFS(conf)
 
-    workers = [metar] if not conf.meets_wgrib2_requirements else [gfs, metar]
+    workers = [metar] if not conf.meets_wgrib2_requirements else [gfs, rw, metar]
     # Init worker thread
     worker = Worker(workers, conf.parserate)
     worker.start()

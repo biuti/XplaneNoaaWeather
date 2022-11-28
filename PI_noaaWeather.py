@@ -1028,7 +1028,7 @@ class PythonInterface:
         XPSetWidgetProperty(self.enableCheck, xpProperty_ButtonState, self.conf.enabled)
         y -= 40
 
-        if not self.conf.GFS_disabled:
+        if not self.conf.real_weather_enabled:
             # Winds enable
             XPCreateWidget(x + 5, y, x + 20, y - 20, 1, 'Wind levels', 0, window, xpWidgetClass_Caption)
             self.windsCheck = XPCreateWidget(x + 110, y, x + 120, y - 20, 1, '', 0, window, xpWidgetClass_Button)
@@ -1168,7 +1168,7 @@ class PythonInterface:
 
         y -= 60
 
-        if not self.conf.GFS_disabled:
+        if not self.conf.real_weather_enabled:
             # Performance Tweaks
             XPCreateWidget(x, y, x + 80, y - 20, 1, 'Performance Tweaks', 0, window, xpWidgetClass_Caption)
             XPCreateWidget(x + 5, y - 20, x + 80, y - 40, 1, 'Max Visibility (sm)', 0, window, xpWidgetClass_Caption)
@@ -1302,7 +1302,7 @@ class PythonInterface:
             if inParam1 == self.saveButton:
                 # Save configuration
                 self.conf.enabled = XPGetWidgetProperty(self.enableCheck, xpProperty_ButtonState, None)
-                if not self.conf.GFS_disabled:
+                if not self.conf.real_weather_enabled:
                     self.conf.set_wind = XPGetWidgetProperty(self.windsCheck, xpProperty_ButtonState, None)
                     self.conf.set_clouds = XPGetWidgetProperty(self.cloudsCheck, xpProperty_ButtonState, None)
                     self.conf.opt_clouds_update = XPGetWidgetProperty(self.optUpdCheck, xpProperty_ButtonState, None)
@@ -1381,7 +1381,7 @@ class PythonInterface:
         XPSetWidgetProperty(self.autoMetarCheck, xpProperty_ButtonState, self.conf.metar_ignore_auto)
         XPSetWidgetProperty(self.xp12MetarCheck, xpProperty_ButtonState, self.conf.metar_use_xp12)
 
-        if not self.conf.GFS_disabled:
+        if not self.conf.real_weather_enabled:
             XPSetWidgetProperty(self.windsCheck, xpProperty_ButtonState, self.conf.set_wind)
             XPSetWidgetProperty(self.cloudsCheck, xpProperty_ButtonState, self.conf.set_clouds)
             XPSetWidgetProperty(self.optUpdCheck, xpProperty_ButtonState, self.conf.opt_clouds_update)
@@ -1494,32 +1494,41 @@ class PythonInterface:
                             'Windows 7 or above, MacOS 10.14 or above, Linux kernel 4.0 or above.',
                             ''
                             ]
-            elif self.conf.GFS_disabled:
+            elif 'gfs' not in wdata:
+                sysinfo += ['',
+                            '*** An error has occurred ***',
+                            'No GFS data is available, check log',
+                            ''
+                            ]
+            else:
                 sysinfo += [
-                    '*** *** GFS weather data download is disabled (XP12 early release) *** ***',
-                    'Some features will be added back as soon as a XP12 final version is available',
-                    'At this stage the plugin writes missing METAR.rwx file and monitors XP12 real weather.',
+                    '*** *** Experimental GFS weather data download *** ***',
+                    'The plugin populates METAR.rwx file, monitors XP12 real weather, adds GFS data in options.',
                     ''
                 ]
 
-                if 'gfs' in wdata:
-                    if 'winds' in wdata['gfs']:
+                gfs = wdata['gfs']
+
+                if 'rw' in wdata and self.conf.real_weather_enabled:
+                    # XP12 Real Weather is enabled
+                    rw = wdata['rw']
+                    if 'winds' in rw:
                         sysinfo += ['XP12 REAL WEATHER WIND LAYERS: FL | HDG | KT | TEMP | DEV']
                         wlayers = ''
                         out = []
-                        for i, layer in enumerate(wdata['gfs']['winds'], 1):
+                        for i, layer in enumerate(rw['winds'], 1):
                             alt, hdg, speed, extra = layer
                             wlayers += f"    F{c.m2fl(alt):03.0F} | {hdg:03.0F} | {int(speed):03}kt" \
                                        f" | {round(c.kel2cel(extra['temp'])):02} | {round(c.kel2cel(extra['dev'])):02}"
-                            if i % 3 == 0 or i == len(wdata['gfs']['winds']):
+                            if i % 3 == 0 or i == len(rw['winds']):
                                 out.append(wlayers)
                                 wlayers = ''
                         sysinfo += out
 
-                    if 'clouds' in wdata['gfs']:
+                    if 'clouds' in rw:
                         sysinfo += ['XP12 REAL WEATHER CLOUD LAYERS  FLBASE | FLTOP | COVER']
                         clayers = ''
-                        clouds = [el for el in wdata['gfs']['clouds'] if el[0] > 0]
+                        clouds = [el for el in rw['clouds'] if el[0] > 0]
                         out = []
                         if not len(clouds):
                             sysinfo += ['    None reported']
@@ -1532,25 +1541,24 @@ class PythonInterface:
                                     clayers = ''
                             sysinfo += out
 
-                    if 'wafs' in wdata:
+                    if 'turbulence' in rw:
                         tblayers = ''
-                        for layer in wdata['wafs']:
+                        for layer in rw['turbulence']:
                             tblayers += f"    {round(layer[0] * 3.28084 / 100)}|{round(layer[1], 2)}" \
                                         f"{'*' if layer[1] >= self.conf.max_turbulence else ''}"
 
-                        sysinfo += [f"XP12 REAL WEATHER TURBULENCE ({len(wdata['wafs'])}):  "
+                        sysinfo += [f"XP12 REAL WEATHER TURBULENCE ({len(rw['turbulence'])}):  "
                                     f"FL | SEV (max {self.conf.max_turbulence}) ",
                                     tblayers]
                     sysinfo += ['']
 
-            else:
-                '''Normal GFS mode'''
-                if 'gfs' in wdata:
-                    if 'winds' in wdata['gfs']:
-                        sysinfo += ['', f"GFS WIND LAYERS: {len(wdata['gfs']['winds'])} FL|HDG|KT|TEMP|DEV"]
+                else:
+                    '''Normal GFS mode'''
+                    if 'winds' in gfs:
+                        sysinfo += ['', f"GFS WIND LAYERS: {len(gfs['winds'])} FL|HDG|KT|TEMP|DEV"]
                         wlayers = ''
                         i = 0
-                        for layer in wdata['gfs']['winds']:
+                        for layer in gfs['winds']:
                             i += 1
                             alt, hdg, speed, extra = layer
                             wlayers += f"   F{c.m2fl(alt):03}|{hdg:03}|{speed:02}kt|" \
@@ -1560,53 +1568,53 @@ class PythonInterface:
                                 sysinfo += [wlayers]
                                 wlayers = ''
 
-                    if 'clouds' in wdata['gfs']:
+                    if 'clouds' in gfs:
                         clouds = 'GFS CLOUDS  FLBASE|FLTOP|COVER'
-                        for layer in wdata['gfs']['clouds']:
+                        for layer in gfs['clouds']:
                             base, top, cover = layer
                             if base > 0:
                                 clouds += f"    {c.m2fl(base):03} | {c.m2fl(top):03} | {cover}%"
                         sysinfo += [clouds]
 
-                    if 'tropo' in wdata['gfs']:
-                        alt, temp, dev = wdata['gfs']['tropo'].values()
+                    if 'tropo' in gfs:
+                        alt, temp, dev = gfs['tropo'].values()
                         if alt and temp and dev:
                             sysinfo += [f"TROPO LIMIT: {round(alt)}m "
                                         f"temp {round(c.kel2cel(temp)):02}C ISA Dev {round(c.kel2cel(dev)):02}C"]
 
-                if 'wafs' in wdata:
-                    tblayers = ''
-                    for layer in wdata['wafs']:
-                        tblayers += f"   {c.m2fl(layer[0]):03}|{round(layer[1], 2)}" \
-                                    f"{'*' if layer[1]>=self.conf.max_turbulence else ''}"
+                    if 'wafs' in wdata:
+                        tblayers = ''
+                        for layer in wdata['wafs']:
+                            tblayers += f"   {c.m2fl(layer[0]):03}|{round(layer[1], 2)}" \
+                                        f"{'*' if layer[1]>=self.conf.max_turbulence else ''}"
 
-                    sysinfo += [f"WAFS TURBULENCE ({len(wdata['wafs'])}): FL|SEV (max {self.conf.max_turbulence}) ",
-                                tblayers]
+                        sysinfo += [f"WAFS TURBULENCE ({len(wdata['wafs'])}): FL|SEV (max {self.conf.max_turbulence}) ",
+                                    tblayers]
 
-                sysinfo += ['']
-                if 'thermals' in wdata:
-                    t = wdata['thermals']
+                    sysinfo += ['']
+                    if 'thermals' in wdata:
+                        t = wdata['thermals']
 
-                    if not t['grad']:
-                        s = "THERMALS: N/A"
-                    else:
-                        if t['grad'] == "TS":
-                            s = "THERMALS (TS mode): "
+                        if not t['grad']:
+                            s = "THERMALS: N/A"
                         else:
-                            s = f"THERMALS: grad. {round(t['grad'], 2)} ºC/100m, "
-                        s += f"h {round(t['alt'])}m, p {round(t['prob']*100)}%, r {round(t['rate']*0.00508)}m/s"
-                    sysinfo += [s]
+                            if t['grad'] == "TS":
+                                s = "THERMALS (TS mode): "
+                            else:
+                                s = f"THERMALS: grad. {round(t['grad'], 2)} ºC/100m, "
+                            s += f"h {round(t['alt'])}m, p {round(t['prob']*100)}%, r {round(t['rate']*0.00508)}m/s"
+                        sysinfo += [s]
 
-                if self.conf.set_surface_layer:
-                    s = 'NOT ACTIVE' if not self.weather.surface_wind else 'ACTIVE'
-                    sysinfo += [f"SURFACE WIND LAYER: {s}"]
+                    if self.conf.set_surface_layer:
+                        s = 'NOT ACTIVE' if not self.weather.surface_wind else 'ACTIVE'
+                        sysinfo += [f"SURFACE WIND LAYER: {s}"]
 
-                if 'cloud_info' in wdata and self.conf.opt_clouds_update:
-                    ci = wdata['cloud_info']
-                    s = 'OPTIMISED FOR BEST PERFORMANCE' if ci['OVC'] and ci['above_clouds'] else 'MERGED'
-                    sysinfo += [f"CLOUD LAYERS MODE: {s}"]
-                    if verbose:
-                        sysinfo += [f"{ci['layers']}"]
+                    if 'cloud_info' in wdata and self.conf.opt_clouds_update:
+                        ci = wdata['cloud_info']
+                        s = 'OPTIMISED FOR BEST PERFORMANCE' if ci['OVC'] and ci['above_clouds'] else 'MERGED'
+                        sysinfo += [f"CLOUD LAYERS MODE: {s}"]
+                        if verbose:
+                            sysinfo += [f"{ci['layers']}"]
 
         sysinfo += ['--'] * (self.aboutlines - len(sysinfo))
 
@@ -1919,7 +1927,10 @@ class PythonInterface:
                 c.randRefs = {}
                 self.newAptLoaded = False
 
-            if not self.conf.metar_disabled:
+            # Parameters to be injected even with XP12 REAL WEATHER enabled
+
+            # Parameters to be injected ONLY IF XP12 REAL WEATHER is not enabled
+            if not self.conf.real_weather_enabled:
                 # Set metar values
                 if 'visibility' in wdata['metar']:
                     visibility = c.limit(wdata['metar']['visibility'], self.conf.max_visibility)
@@ -1964,43 +1975,43 @@ class PythonInterface:
                 self.data.metar_runwayFriction.value = friction
                 self.weather.patchy.value = patchy
 
-            self.weather.newData = False
+                ''' Data enforced/interpolated/transitioned on each cycle '''
+                if not self.data.override_pressure.value and self.conf.set_pressure:
+                    # Set METAR or GFS pressure
+                    if 'pressure' in wdata['metar'] and wdata['metar']['pressure'] is not False:
+                        self.weather.setPressure(wdata['metar']['pressure'], elapsedMe)
+                    elif self.conf.set_pressure and 'pressure' in wdata['gfs']:
+                        self.weather.setPressure(wdata['gfs']['pressure'], elapsedMe)
 
-            # Set clouds
-            if self.conf.set_clouds:
-                if self.conf.opt_clouds_update:
-                    self.weather.setCloudsOpt(ts=ts)
-                else:
-                    self.weather.setClouds()
+                # Set winds
+                if (not self.data.override_winds.value and self.conf.set_wind
+                        and 'winds' in wdata['gfs'] and len(wdata['gfs']['winds'])):
+                    self.weather.setWinds(wdata['gfs']['winds'], elapsedMe)
+
+                # Set clouds
+                if self.conf.set_clouds:
+                    if self.conf.opt_clouds_update:
+                        self.weather.setCloudsOpt(ts=ts)
+                    else:
+                        self.weather.setClouds()
+
+                # Set Atmosphere
+                if (not self.data.override_tropo.value and self.conf.set_tropo
+                        and 'tropo' in wdata['gfs'] and 'temp' in wdata['gfs']['tropo']):
+                    self.weather.setTropo(wdata['gfs']['tropo'], elapsedMe)
+
+                # Set turbulence
+                if not self.data.override_turbulence.value and self.conf.set_turb:
+                    self.weather.setTurbulence(wdata['wafs'], elapsedMe)
+
+                # Create thermals / uplift in thunderstorms
+                if not self.data.override_thermals.value and self.conf.set_thermals:
+                    self.weather.setThermals()
+
+            self.weather.newData = False
 
             # Update Dataref data
             self.data.updateData(wdata)
-
-        ''' Data enforced/interpolated/transitioned on each cycle '''
-        if not self.data.override_pressure.value and self.conf.set_pressure:
-            # Set METAR or GFS pressure
-            if 'pressure' in wdata['metar'] and wdata['metar']['pressure'] is not False:
-                self.weather.setPressure(wdata['metar']['pressure'], elapsedMe)
-            elif self.conf.set_pressure and 'pressure' in wdata['gfs']:
-                self.weather.setPressure(wdata['gfs']['pressure'], elapsedMe)
-
-        # Set winds
-        if (not self.data.override_winds.value and self.conf.set_wind
-                and 'winds' in wdata['gfs'] and len(wdata['gfs']['winds'])):
-            self.weather.setWinds(wdata['gfs']['winds'], elapsedMe)
-
-        # Set Atmosphere
-        if (not self.data.override_tropo.value and self.conf.set_tropo
-                and 'tropo' in wdata['gfs'] and 'temp' in wdata['gfs']['tropo']):
-            self.weather.setTropo(wdata['gfs']['tropo'], elapsedMe)
-
-        # Set turbulence
-        if not self.data.override_turbulence.value and self.conf.set_turb:
-            self.weather.setTurbulence(wdata['wafs'], elapsedMe)
-
-        '''create thermals / uplift in thunderstorms'''
-        if not self.data.override_thermals.value and self.conf.set_thermals:
-            self.weather.setThermals()
 
         return -1
 

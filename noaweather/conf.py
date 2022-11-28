@@ -150,10 +150,8 @@ class Conf:
         self.set_surface_layer = False
         self.turbulence_probability = 1
 
-        # disable GFS data for testing in XP12
-        self.GFS_disabled = True
-        # disable XP12 weather inject during test
-        self.metar_disabled = True
+        # Waiting API SDK to implement automatic mode switch
+        self.real_weather_enabled = True
 
         self.inputbug = False
 

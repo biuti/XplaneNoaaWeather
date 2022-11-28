@@ -87,10 +87,57 @@ class GribWeatherSource(WeatherSource):
     def run(self, elapsed):
         """Worker function called by a worker thread to update the data"""
 
+        if not self.conf.download:
+            return
+
         if not self.conf.meets_wgrib2_requirements:
             return
 
-        pass
+        if self.download_wait:
+            self.download_wait -= elapsed
+            return
+
+        datecycle, cycle, forecast = self.get_cycle_date()
+        cache_file = self.get_cache_filename(datecycle, cycle, forecast)
+        cache_file_path = Path(self.cache_path, cache_file)
+
+        if not self.download:
+            if self.last_grib == cache_file and cache_file_path.is_file():
+                # Nothing to do
+                return
+            else:
+                # Trigger new download
+                url = self.get_download_url(datecycle, cycle, forecast)
+                print(f"Downloading: {cache_file}")
+                self.download = AsyncTask(GribDownloader.download,
+                                          url,
+                                          cache_file_path,
+                                          binary=True,
+                                          variable_list=self.variable_list,
+                                          cancel_event=self.die,
+                                          decompress=self.conf.wgrib2bin,
+                                          spinfo=self.conf.spinfo)
+                self.download.start()
+        else:
+            if not self.download.pending():
+                self.download.join()
+                if isinstance(self.download.result, Exception):
+                    print(f"Error Downloading Grib file: {self.download.result}.")
+                    util.remove(cache_file_path)
+                    # wait a try again
+                    self.download_wait = 60
+                else:
+                    # New file available
+                    if not self.conf.keepOldFiles and self.last_grib:
+                        util.remove(Path(self.cache_path, self.last_grib))
+                    self.last_grib = self.download.result.name
+                    print(f"{self.last_grib} successfully downloaded.")
+
+                # reset download
+                self.download = False
+            else:
+                # Waiting for download
+                return
 
     # def run_xp11(self, elapsed):
     #     """Worker function called by a worker thread to update the data"""
@@ -377,7 +424,7 @@ class GribDownloader(object):
         return index
 
     @classmethod
-    def download(cls, url, file_path: Path, binary=False, **kwargs):
+    def download(cls, url, file_path: Path, binary=False, **kwargs) -> Path:
         """Download grib for the specified variable_lists
 
             Args:
@@ -391,7 +438,7 @@ class GribDownloader(object):
                 decompress (str): Path to the wgrib2 to decompress the file.
 
             Returns:
-                str: the path to the final file on success
+                Path: the path to the final file on success
 
             Raises:
                 GribDownloaderError: on fail.
