@@ -156,13 +156,24 @@ class GFS(GribWeatherSource):
             tropo = {}
 
         # surface
-        if all(k in surface.keys() for k in ('PRES', 'TMP', 'HGT')):
-            alt = float(surface['HGT'])
-            temp = float(surface['TMP'])
-            press = float(surface['PRES'])*0.01
-            surface = {'alt': alt, 'temp': temp, 'press': press}
+        # if all(k in surface.keys() for k in ('PRES', 'TMP', 'HGT', 'SNOD', 'APCP')):
+        #     alt = float(surface['HGT'])
+        #     temp = float(surface['TMP'])
+        #     press = float(surface['PRES'])*0.01
+        #     snow = float(surface['SNOD'])  # snow depth, m.
+        #     # w_eq = float(surface['WEASD'])  # probably not needed
+        #     apcp = float(surface['APCP'])  # Total Precipitation, kg/m2
+        #     # prate = float(surface['PRATE'])  # Precipitation rate
+        #     surface = {'snow': snow, 'acc_precip': apcp}
+        # else:
+        #     surface = {}
+
+        default = {'PRES': 'press', 'TMP': 'temp', 'HGT': 'alt', 'SNOD': 'snow', 'APCP': 'apcp'}
+        if all(x in surface.keys() for x in default.keys()):
+            for k, v in default.items():
+                surface[v] = float(surface.pop(k)) if k != 'PRES' else float(surface.pop(k)) * 0.01
         else:
-            surface = {}
+            [surface.pop(k) for k in default.keys()]
 
         data = {
             'winds': windlevels,

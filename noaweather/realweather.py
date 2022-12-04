@@ -323,16 +323,9 @@ class RealWeather(GribWeatherSource):
             tropo = {}
 
         # surface
-        if all(k in surface.keys() for k in ('PRES', 'TMP', 'HGT')):
-            alt = float(surface['HGT'])
-            temp = float(surface['TMP'])
-            press = float(surface['PRES'])*0.01
-            hdg, vel = False, False
-            if 'UGRD' in surface.keys() and 'VGRD' in surface.keys():
-                hdg, vel = c.c2p(float(surface['UGRD']), float(surface['VGRD']))
-            surface = {'alt': alt, 'temp': temp, 'press': press, 'hdg': hdg, 'spd': c.ms2knots(vel)}
-        else:
-            surface = {}
+        default = {'PRES': 'press', 'TMP': 'temp', 'HGT': 'alt', 'SNOD': 'snow', 'APCP': 'apcp'}
+        for k, v in [i for i in default.items() if i[0] in surface.keys()]:
+            surface[v] = float(surface.pop(k, None)) if k != 'PRES' else float(surface.pop(k)) * 0.01
 
         data = {
             'winds': windlevels,
