@@ -38,7 +38,7 @@ Requirements
 - X-Plane 12 
 - pbuckner's XPPython3 plugin:
 https://xppython3.readthedocs.io/en/latest/index.html
-- Python 3.6 and above:
+- Python 3.8 and above:
 http://www.python.org/getit/
 
 **You need to download correct XPPython3 version according to your Python3 installed version!
