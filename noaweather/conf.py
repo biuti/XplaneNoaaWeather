@@ -142,6 +142,7 @@ class Conf:
 
         # User settings
         self.enabled = True
+
         self.set_wind = False
         self.set_tropo = False
         self.set_clouds = False
@@ -247,6 +248,8 @@ class Conf:
         """Save plugin settings"""
         conf = {
             'version': self.__VERSION__,
+            'enabled': self.enabled,
+            'updaterate': self.updaterate,
             'set_temp': self.set_temp,
             'set_clouds': self.set_clouds,
             'set_wind': self.set_wind,
@@ -256,8 +259,6 @@ class Conf:
             'set_thermals': self.set_thermals,
             'set_surface_layer': self.set_surface_layer,
             'opt_clouds_update': self.opt_clouds_update,
-            'enabled': self.enabled,
-            'updaterate': self.updaterate,
             'metar_source': self.metar_source,
             'download_METAR': self.download_METAR,
             'download_GFS': self.download_GFS,
@@ -404,7 +405,7 @@ class Conf:
     def load_gfs_levels(self, json_file: Path):
         """Load gfs levels configuration from a json file"""
 
-        print("Trying to locate gfs jsonfile {}".format(json_file))
+        print(f"Trying to locate gfs jsonfile {json_file.name}")
         with open(json_file, 'r') as f:
             try:
                 return json.load(f)['config']

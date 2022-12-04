@@ -151,7 +151,7 @@ class GFS(GribWeatherSource):
             alt = int(c.mb2alt(float(tropo['PRES'])*0.01))
             temp = float(tropo['TMP'])
             dev = c.isaDev(alt, temp)
-            tropo ={'alt': float(alt), 'temp': temp, 'dev': dev}
+            tropo = {'alt': float(alt), 'temp': temp, 'dev': dev}
         else:
             tropo = {}
 

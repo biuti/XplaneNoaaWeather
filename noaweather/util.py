@@ -21,7 +21,7 @@ class util:
     def remove(filepath: Path):
         """Remove a file or try to rename-it if it fails"""
         try:
-            filepath.unlink()
+            filepath.unlink(missing_ok=True)
         except:
             print(f"can't remove {filepath.name}")
             i = 1

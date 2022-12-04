@@ -97,7 +97,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
                 if conf.download_GFS and gfs.last_grib:
                     filepath = Path(gfs.cache_path, gfs.last_grib)
                     response['gfs'] = gfs.parse_grib_data(filepath, lat, lon)
-                print(f"Grib File: {gfs.last_grib}, data: {response['gfs']}")
+                # print(f"Grib File: {gfs.last_grib}, data: {response['gfs']}")
 
         # Parse metar
         apt = metar.get_closest_station(lat, lon)
