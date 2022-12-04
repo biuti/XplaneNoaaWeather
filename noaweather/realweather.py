@@ -136,7 +136,7 @@ class RealWeather(GribWeatherSource):
         '''get METAR files'''
         if self.metar_file:
             '''get latest file'''
-            response['file_time'] = self.metar_file.stem[11:-5]
+            response['file_time'] = f"{self.metar_file.stem[11:-6]} {self.metar_file.stem[-5:]}Z"
             '''get ICAO metar'''
             response['reports'] = ([line for line in util.get_rw_ordered_lines(self.metar_file)
                                     if line.startswith(icao)]
@@ -181,7 +181,7 @@ class RealWeather(GribWeatherSource):
 
         now = datetime.utcnow()
         time = min(self.forecasts, key=lambda x: abs(x - now.hour))
-        self.zulu_time, self.base = time, f'GRIB-{now.year}-{now.month}-{now.day}-{time}.00-ZULU-'
+        self.zulu_time, self.base = time, f'GRIB-{now.year}-{now.month:02d}-{now.day:02d}-{time:02d}.00-ZULU-'
 
     def parse_grib_data(self, lat, lon) -> dict:
         """Executes wgrib2 and parses its output"""
