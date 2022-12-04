@@ -62,7 +62,7 @@ class GFS(GribWeatherSource):
         p = subprocess.Popen([self.conf.wgrib2bin] + args, **kwargs)
         # print("result of grib data subprocess is p={}".format(p))
         it = iter(p.stdout)
-        data = {}
+        winds = {}
         clouds = {}
         pressure = False
         tropo = {}
@@ -84,8 +84,8 @@ class GFS(GribWeatherSource):
                         clouds[level[0]][variable] = value
                 elif level[1] == 'mb':
                     # wind levels
-                    data.setdefault(level[0], {})
-                    data[level[0]][variable] = value
+                    winds.setdefault(level[0], {})
+                    winds[level[0]][variable] = value
                 elif level[0] == 'mean':
                     if variable == 'PRMSL':
                         pressure = c.pa2inhg(float(value))
@@ -100,9 +100,8 @@ class GFS(GribWeatherSource):
 
         # Let data ready to push on datarefs.
 
-        # Convert wind levels
-        wind_levels = iter(data.items())
-        for level, wind in wind_levels:
+        # Convert wind and temperature levels
+        for level, wind in iter(winds.items()):
             if 'UGRD' in wind and 'VGRD' in wind:
                 hdg, vel = c.c2p(float(wind['UGRD']), float(wind['VGRD']))
                 alt = int(c.mb2alt(float(level)))

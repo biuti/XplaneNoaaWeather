@@ -204,7 +204,7 @@ class RealWeather(GribWeatherSource):
             p = subprocess.Popen([self.conf.wgrib2bin] + args, **kwargs)
             it.extend(iter(p.stdout))
 
-        data = {}
+        wind = {}
         clouds = {}
         pressure = False
         tropo = {}
@@ -213,7 +213,7 @@ class RealWeather(GribWeatherSource):
 
         # inizialize levels
         for level in self.levels:
-            data.setdefault(level, {})
+            wind.setdefault(level, {})
 
         for line in it:
             r = line.decode('utf-8')[:-1].split(':')
@@ -242,7 +242,7 @@ class RealWeather(GribWeatherSource):
                         turb[level[0]] = value
                     elif variable in ['UGRD', 'VGRD', 'TMP', 'RH']:
                         # wind, temperature and humidity
-                        data[level[0]][variable] = value
+                        wind[level[0]][variable] = value
                 elif level[-1] == 'ground':
                     surface[variable] = value
                 elif variable == 'PRMSL':
@@ -260,7 +260,7 @@ class RealWeather(GribWeatherSource):
         # Let data ready to push on datarefs.
 
         # Convert wind levels
-        wind_levels = iter(data.items())
+        wind_levels = iter(wind.items())
         for level, wind in wind_levels:
             if 'UGRD' in wind and 'VGRD' in wind:
                 hdg, vel = c.c2p(float(wind['UGRD']), float(wind['VGRD']))
