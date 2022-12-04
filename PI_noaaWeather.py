@@ -383,14 +383,20 @@ class Weather:
         """ Set a Dataref if the current value differs
             Returns True if value was updated """
 
-        if max_diff is not False:
-            if abs(dref.value - value) > max_diff:
-                dref.value = value
-                return True
-        else:
-            if dref.value != value:
-                dref.value = value
-                return True
+        # if max_diff is not False:
+        #     if abs(dref.value - value) > max_diff:
+        #         dref.value = value
+        #         return True
+        # else:
+        #     if dref.value != value:
+        #         dref.value = value
+        #         return True
+
+        print(f"{dref.dataref} value: {dref.value}")
+        if abs(dref.value or 0 - value) > max_diff:
+            dref.value = value
+            return True
+
         return False
 
     def interpolateWindLayer(self, wlayer1, wlayer2, current_altitude, nlayer=1):
