@@ -94,7 +94,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
                 response['info']['gfs_cycle'] = f"{rw.cycle}: {rw.fcst}"
                 response['rw'] = rw.parse_grib_data(lat, lon)
                 # response['wafs'] = response['rw']['turbulence']
-                if gfs.last_grib:
+                if conf.download_GFS and gfs.last_grib:
                     filepath = Path(gfs.cache_path, gfs.last_grib)
                     response['gfs'] = gfs.parse_grib_data(filepath, lat, lon)
                 print(f"Grib File: {gfs.last_grib}, data: {response['gfs']}")

@@ -154,6 +154,11 @@ class Conf:
         self.set_surface_layer = False
         self.turbulence_probability = 1
 
+        self.download_METAR = True
+
+        # Avoid downloading GFS data until it will have some use in XP12
+        self.download_GFS = False
+
         # Waiting API SDK to implement automatic mode switch
         self.real_weather_enabled = True
 
@@ -170,7 +175,6 @@ class Conf:
 
         self.parserate = 1
         self.updaterate = 1
-        self.download = True
         self.keepOldFiles = False
 
         # Performance tweaks
@@ -255,7 +259,8 @@ class Conf:
             'enabled': self.enabled,
             'updaterate': self.updaterate,
             'metar_source': self.metar_source,
-            'download': self.download,
+            'download_METAR': self.download_METAR,
+            'download_GFS': self.download_GFS,
             'metar_agl_limit': self.metar_agl_limit,
             'metar_distance_limit': self.metar_distance_limit,
             'max_visibility': self.max_visibility,

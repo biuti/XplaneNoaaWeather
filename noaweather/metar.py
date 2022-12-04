@@ -370,7 +370,7 @@ class Metar(WeatherSource):
 
                 self.download = False
 
-        elif self.conf.download:
+        elif self.conf.download_METAR:
             # Download new data if required
             cycle, timestamp = self.get_current_cycle()
             if (timestamp - self.last_timestamp) > self.conf.metar_updaterate * 60:
