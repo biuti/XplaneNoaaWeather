@@ -117,16 +117,16 @@ class Weather:
         self.pressure = EasyDref('sim/weather/barometer_sealevel_inhg', 'float')
 
         self.precipitation = EasyDref('sim/weather/rain_percent', 'float')
-        self.thunderstorm = EasyDref('sim/weather/thunderstorm_percent', 'float')
+        # self.thunderstorm = EasyDref('sim/weather/thunderstorm_percent', 'float')  # deprecated
         self.runwayFriction = EasyDref('sim/weather/runway_friction', 'float')
-        self.patchy = EasyDref('sim/weather/runway_is_patchy', 'float')
+        # self.patchy = EasyDref('sim/weather/runway_is_patchy', 'float')  # deprecated
 
         # self.tropo_temp = EasyDref('sim/weather/temperature_tropo_c', 'float')  # default -56.5C  deprecated
         # self.tropo_alt = EasyDref('sim/weather/tropo_alt_mtr', 'float')  # default 11100 meter  deprecated
 
-        self.thermals_prob = EasyDref('sim/weather/thermal_percent', 'float')  # 0 - 0.25
+        # self.thermals_prob = EasyDref('sim/weather/thermal_percent', 'float')  # 0 - 0.25 deprecated
         self.thermals_rate = EasyDref('sim/weather/thermal_rate_ms', 'float')  # seems ft/m 0 - 1000
-        self.thermals_alt = EasyDref('sim/weather/thermal_altitude_msl_m', 'float')  # meters, default 10000
+        # self.thermals_alt = EasyDref('sim/weather/thermal_altitude_msl_m', 'float')  # m, default 10000 deprecated
 
         self.mag_deviation = EasyDref('sim/flightmodel/position/magnetic_variation', 'float')
 
