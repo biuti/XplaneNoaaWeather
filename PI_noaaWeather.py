@@ -1507,13 +1507,27 @@ class PythonInterface:
                             ''
                             ]
             else:
-                sysinfo += [
-                    '*** *** Experimental GFS weather data download *** ***',
-                    'The plugin populates METAR.rwx file, monitors XP12 real weather, adds GFS data in options.',
-                    ''
-                ]
-
-                gfs = wdata['gfs']
+                if not wdata['gfs']:
+                    sysinfo += [
+                        'The plugin populates METAR.rwx file, monitors XP12 Real Weather data.',
+                        ''
+                    ]
+                else:
+                    # GFS data download for testing is enabled
+                    sysinfo += [
+                        '*** *** Experimental GFS weather data download *** ***',
+                        'The plugin populates METAR.rwx file, monitors XP12 Real Weather, adds GFS data in options.',
+                        ''
+                    ]
+                    gfs = wdata['gfs']
+                    if 'surface' in gfs and len(gfs['surface']):
+                        s = gfs['surface']
+                        snow_depth = 'na' if s.get('snow') is None else round(s.get('snow'), 2)
+                        acc_precip = 'na' if s.get('acc_precip') is None else round(s.get('acc_precip'), 2)
+                        sysinfo += [
+                            f"Snow depth (m): {snow_depth}  |  Accumulated precip. (kg/sqm): {acc_precip}",
+                            ''
+                        ]
 
                 if 'rw' in wdata and self.conf.real_weather_enabled:
                     # XP12 Real Weather is enabled
