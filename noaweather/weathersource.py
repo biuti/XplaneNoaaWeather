@@ -140,64 +140,6 @@ class GribWeatherSource(WeatherSource):
                 # Waiting for download
                 return
 
-    # def run_xp11(self, elapsed):
-    #     """Worker function called by a worker thread to update the data"""
-    #
-    #     if not self.conf.download:
-    #         return
-    #
-    #     if not self.conf.meets_wgrib2_requirements:
-    #         return
-    #
-    #     if self.download_wait:
-    #         self.download_wait -= elapsed
-    #         return
-    #
-    #     datecycle, cycle, forecast = self.get_cycle_date()
-    #     cache_file = self.get_cache_filename(datecycle, cycle, forecast)
-    #
-    #     if not self.download:
-    #         cache_file_path = os.sep.join([self.cache_path, cache_file])
-    #
-    #         if self.last_grib == cache_file and os.path.isfile(cache_file_path):
-    #             # Nothing to do
-    #             return
-    #         else:
-    #             # Trigger new download
-    #             url = self.get_download_url(datecycle, cycle, forecast)
-    #             print('Downloading: %s' % cache_file)
-    #             self.download = AsyncTask(GribDownloader.download,
-    #                                       url,
-    #                                       cache_file_path,
-    #                                       binary=True,
-    #                                       variable_list=self.variable_list,
-    #                                       cancel_event=self.die,
-    #                                       decompress=self.conf.wgrib2bin,
-    #                                       spinfo=self.conf.spinfo)
-    #             self.download.start()
-    #     else:
-    #         if not self.download.pending():
-    #
-    #             self.download.join()
-    #             if isinstance(self.download.result, Exception):
-    #                 print('Error Downloading Grib file: %s.' % str(self.download.result))
-    #                 if os.path.isfile(cache_file):
-    #                     util.remove(os.sep.join([self.cache_path, cache_file]))
-    #                 # wait a try again
-    #                 self.download_wait = 60
-    #             else:
-    #                 # New file available
-    #                 if not self.conf.keepOldFiles and self.last_grib:
-    #                     util.remove(os.path.sep.join([self.cache_path, self.last_grib]))
-    #                 self.last_grib = str(self.download.result.split(os.path.sep)[-1])
-    #                 print('%s successfully downloaded.' % self.last_grib)
-    #
-    #             # reset download
-    #             self.download = False
-    #         else:
-    #             # Waiting for download
-    #             return
-
     def __getattr__(self, item):
         if item == 'last_grib':
             return getattr(self.conf, self.grib_conf_var)

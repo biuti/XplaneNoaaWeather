@@ -108,48 +108,6 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             response['rwmetar'] = rw.get_real_weather_metars(apt[0])
         return response
 
-    # @staticmethod
-    # def get_weather_data_xp11(data):
-    #     """Collects weather data for the response"""
-    #
-    #     lat, lon = float(data[0]), float(data[1])
-    #
-    #     response = {
-    #         'gfs': {},
-    #         'wafs': {},
-    #         'metar': {},
-    #         'info': {'lat': lat,
-    #                  'lon': lon,
-    #                  'wafs_cycle': 'na',
-    #                  'gfs_cycle': 'na'
-    #                  }
-    #     }
-    #
-    #     # lat, lon = float(data[0]), float(data[1])
-    #
-    #     if lat > 98 and lon > 98:
-    #         return False
-    #
-    #     # Parse gfs and wafs
-    #     if conf.meets_wgrib2_requirements and not conf.GFS_disabled:
-    #         if gfs.last_grib:
-    #             grib_path = os.path.sep.join([gfs.cache_path, gfs.last_grib])
-    #             response['gfs'] = gfs.parse_grib_data(grib_path, lat, lon)
-    #             response['info']['gfs_cycle'] = gfs.last_grib
-    #         if wafs.last_grib:
-    #             grib_path = os.path.sep.join([wafs.cache_path, wafs.last_grib])
-    #             response['wafs'] = wafs.parse_grib_data(grib_path, lat, lon)
-    #             response['info']['wafs_cycle'] = wafs.last_grib
-    #
-    #     # Parse metar
-    #     apt = metar.get_closest_station(metar.connection, lat, lon)
-    #     if apt and len(apt) > 4:
-    #         response['metar'] = metar.parse_metar(apt[0], apt[5], apt[3])
-    #         response['metar']['latlon'] = (apt[1], apt[2])
-    #         response['metar']['distance'] = c.greatCircleDistance((lat, lon), (apt[1], apt[2]))
-    #
-    #     return response
-
     def shutdown(self):
         # shutdown Needs to be from called from a different thread
         def shut_down_now(srv):
