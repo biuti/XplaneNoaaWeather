@@ -54,7 +54,6 @@ class RealWeather(GribWeatherSource):
     table = 'realweather'
 
     def __init__(self, conf):
-        self.variable_list = conf.gfs_variable_list
         self.zulu_time = None
         self.base = None
         self.cycle = None

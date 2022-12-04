@@ -106,6 +106,10 @@ class Conf:
 
         self.meets_wgrib2_requirements = wgbin is not False
 
+    @property
+    def gfs_variable_list(self) -> dict:
+        return self.gfs_levels_real_weather() if self.real_weather_enabled else self.gfs_levels
+
     def setDefaults(self):
         """Default settings"""
         print(f"Loading defaults settings ...")
@@ -290,10 +294,11 @@ class Conf:
 
         # Load the GFS levels file or create a new one.
         if self.gfsLevelsFile.is_file():
-            self.gfs_variable_list = self.load_gfs_levels(self.gfsLevelsFile)
+            self.gfs_levels = self.load_gfs_levels(self.gfsLevelsFile)
         else:
-            self.gfs_variable_list = self.gfs_levels_defaults()
-            self.save_gfs_levels(self.gfs_variable_list)
+            self.gfs_levels = self.gfs_levels_defaults()
+            self.save_gfs_levels(self.gfs_levels)
+        print(f"XP12 Real Weather Mode: {self.real_weather_enabled}")
 
     @staticmethod
     def gfs_levels_defaults():
@@ -303,7 +308,9 @@ class Conf:
                     "vars": [
                         "PRES",
                         "TMP",
-                        "HGT"
+                        "HGT",
+                        "SNOD",
+                        "APCP"
                     ],
                     "levels": "surface"
                 },
@@ -358,6 +365,23 @@ class Conf:
                         "TMP"
                     ],
                     "levels": "tropopause"
+                }
+        ]
+        return d
+
+    @staticmethod
+    def gfs_levels_real_weather():
+        """GFS Levels default config"""
+        d = [
+                {
+                    "vars": [
+                        "PRES",
+                        "TMP",
+                        "HGT",
+                        "SNOD",
+                        "APCP"
+                    ],
+                    "levels": "surface"
                 }
         ]
         return d
