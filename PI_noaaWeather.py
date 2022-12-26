@@ -86,47 +86,43 @@ class Weather:
         self.clouds = []
         self.turbulence = {}
 
-        for i in range(3):
-            self.winds.append({
-                'alt': EasyDref(f'"sim/weather/wind_altitude_msl_m[{i}]"', 'float'),
-                'hdg': EasyDref(f'"sim/weather/wind_direction_degt[{i}]"', 'float'),
-                'speed': EasyDref(f'"sim/weather/wind_speed_kt[{i}]"', 'float'),
-                'gust': EasyDref(f'"sim/weather/shear_speed_kt[{i}]"', 'float'),
-                'gust_hdg': EasyDref(f'"sim/weather/shear_direction_degt[{i}]"', 'float'),
-                'turbulence': EasyDref(f'"sim/weather/turbulence[{i}]"', 'float'),
-            })
+        # wind dataref are array[10] in XP12
+        self.winds = {
+            'alt': EasyDref(f'sim/weather/region/wind_altitude_msl_m', 'float'),
+            'hdg': EasyDref(f'sim/weather/region/wind_direction_degt', 'float'),
+            'speed': EasyDref(f'sim/weather/region/wind_speed_msc', 'float'),  # m/s, it was kt in XP11
+            'gust_hdg': EasyDref(f'sim/weather/region/shear_direction_degt', 'float'),
+            'gust': EasyDref(f'sim/weather/region/shear_speed_msc', 'float'),  # m/s, it was kt in XP11
+            'turb': EasyDref(f'sim/weather/region/turbulence', 'float'),
+            'temp': EasyDref(f'sim/weather/region/temperatures_aloft_deg_c', 'float'),
+            'dewp': EasyDref(f'sim/weather/region/dewpoint_deg_c', 'float')
+        }
 
-        for i in range(3):
-            self.clouds.append({
-                'top': EasyDref(f'"sim/weather/cloud_tops_msl_m[{i}]"', 'float'),
-                'bottom': EasyDref(f'"sim/weather/cloud_base_msl_m[{i}]"', 'float'),
-                'coverage': EasyDref(f'"sim/weather/cloud_coverage[{i}]"', 'float'),
-                'type': EasyDref(f'"sim/weather/cloud_type[{i}]"', 'int'),
-            })
+        # cloud dataref are array[3] in XP12
+        self.clouds = {
+            'top': EasyDref(f'sim/weather/region/cloud_tops_msl_m', 'float'),
+            'bottom': EasyDref(f'sim/weather/region/cloud_base_msl_m', 'float'),
+            'coverage': EasyDref(f'sim/weather/region/cloud_coverage_percent', 'float'),
+            'type': EasyDref(f'sim/weather/region/cloud_type', 'int'),
+        }
 
         self.windata = []
         self.surface_wind = False
 
         self.xpTime = EasyDref('sim/time/local_time_sec', 'float')  # sim time (sec from midnight)
 
-        # self.xpWeatherOn = EasyDref('sim/weather/use_real_weather_bool', 'int')  # deprecated
-        # self.xpWeatherDownloadOn = EasyDref('sim/weather/download_real_weather', 'int')  # deprecated
-        self.msltemp = EasyDref('sim/weather/temperature_sealevel_c', 'float')
-        self.msldewp = EasyDref('sim/weather/dewpoi_sealevel_c', 'float')
-        self.visibility = EasyDref('sim/weather/visibility_reported_m', 'float')
-        self.pressure = EasyDref('sim/weather/barometer_sealevel_inhg', 'float')
+        # What system is currently controlling the weather. 0 = Preset, 1 = Real Weather, 2 = Controlpad, 3 = Plugin.
+        self.xpWeather = EasyDref('sim/weather/region/weather_source', 'int')
 
-        self.precipitation = EasyDref('sim/weather/rain_percent', 'float')
-        # self.thunderstorm = EasyDref('sim/weather/thunderstorm_percent', 'float')  # deprecated
-        self.runwayFriction = EasyDref('sim/weather/runway_friction', 'float')
-        # self.patchy = EasyDref('sim/weather/runway_is_patchy', 'float')  # deprecated
+        self.msltemp = EasyDref('sim/weather/region/sealevel_temperature_c', 'float')
+        self.visibility = EasyDref('sim/weather/region/visibility_reported_sm', 'float')
+        # self.override_visibility = EasyDref('sim/private/controls/scattering/override_visibility_m', 'float')
+        self.pressure = EasyDref('sim/weather/region/sealevel_pressure_pas', 'float')  # Pascal, it was inHg in XP11
 
-        # self.tropo_temp = EasyDref('sim/weather/temperature_tropo_c', 'float')  # default -56.5C  deprecated
-        # self.tropo_alt = EasyDref('sim/weather/tropo_alt_mtr', 'float')  # default 11100 meter  deprecated
+        self.precipitation = EasyDref('sim/weather/region/rain_percent', 'float')
+        self.runwayFriction = EasyDref('sim/weather/region/runway_friction', 'float')
 
-        # self.thermals_prob = EasyDref('sim/weather/thermal_percent', 'float')  # 0 - 0.25 deprecated
-        self.thermals_rate = EasyDref('sim/weather/thermal_rate_ms', 'float')  # seems ft/m 0 - 1000
-        # self.thermals_alt = EasyDref('sim/weather/thermal_altitude_msl_m', 'float')  # m, default 10000 deprecated
+        self.thermals_rate = EasyDref('sim/weather/region/thermal_rate_ms', 'float')  # seems ft/m 0 - 1000
 
         self.mag_deviation = EasyDref('sim/flightmodel/position/magnetic_variation', 'float')
 
@@ -220,9 +216,9 @@ class Weather:
         turb *= self.conf.turbulence_probability
         turb = c.randPattern('turbulence', turb, elapsed, 20, min_time=1)
 
-        self.winds[0]['turbulence'].value = turb
-        self.winds[1]['turbulence'].value = turb
-        self.winds[2]['turbulence'].value = turb
+        self.winds[0]['turb'].value = turb
+        self.winds[1]['turb'].value = turb
+        self.winds[2]['turb'].value = turb
 
     def setWinds(self, winds, elapsed):
         """Set winds: Interpolate layers and transition new data"""
@@ -245,7 +241,7 @@ class Weather:
                     self.msltemp.value = c.oat2msltemp(temp - 273.15, self.alt)
                 if self.weatherData['metar']['temperature'][1] is not False:
                     dew = self.weatherData['metar']['temperature'][1] + 273.15
-                    self.msldewp.value = c.oat2msltemp(dew - 273.15, self.alt)
+                    self.winds['dewp'][0].value = c.oat2msltemp(dew - 273.15, self.alt)
 
             hdg, speed, gust = self.weatherData['metar']['wind']
             if not gust:
@@ -351,15 +347,15 @@ class Weather:
     def setWindLayer(self, index, wlayer):
         alt, hdg, speed, extra = wlayer
 
-        wind = self.winds[index]
+        wind = self.winds
 
         if 'variation' in extra:
             hdg = (hdg + extra['variation']) % 360
 
-        wind['alt'].value, wind['hdg'].value, wind['speed'].value = alt, hdg, speed
+        wind['alt'][index].value, wind['hdg'][index].value, wind['speed'][index].value = alt, hdg, speed
 
         if 'gust' in extra:
-            wind['gust'].value = extra['gust']
+            wind['gust'][index].value = extra['gust']
 
     def transWindLayer(self, wlayer, id, elapsed):
         """Transition wind layer values"""
@@ -728,7 +724,7 @@ class Weather:
             c.datarefTransition(self.msltemp, mslt, elapsed)
             self.opt_clouds['temp'] = [round(alt), round(temp - 273.15), round(mslt, 1)]
         if dew:
-            c.datarefTransition(self.msldewp, c.oat2msltemp(dew - 273.15, alt, tropo_temp, tropo_alt), elapsed)
+            c.datarefTransition(self.winds['dewp'][0], c.oat2msltemp(dew - 273.15, alt, tropo_temp, tropo_alt), elapsed)
 
     def setThermals(self):
         """if TS is in METAR, simulates uplift
@@ -1324,7 +1320,7 @@ class PythonInterface:
                     self.conf.set_turb = XPGetWidgetProperty(self.turbCheck, xpProperty_ButtonState, None)
                     if not self.conf.set_turb:
                         for i in range(3):
-                            self.weather.winds[i]['turbulence'].value = 0
+                            self.weather.winds[i]['turb'].value = 0
 
                     buff = XPGetWidgetDescriptor(self.maxCloudHeightInput)
                     self.conf.max_cloud_height = c.convertFromInput(buff, 'f2m', min=c.f2m(2000))
@@ -1956,7 +1952,7 @@ class PythonInterface:
                     visibility = c.limit(wdata['metar']['visibility'], self.conf.max_visibility)
 
                     if not self.data.override_visibility.value:
-                        self.weather.visibility.value = visibility
+                        self.weather.visibility.value = c.m2sm(visibility)  # Visibility seems to be in SM
 
                     self.data.visibility.value = visibility
 
