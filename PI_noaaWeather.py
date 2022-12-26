@@ -1431,7 +1431,9 @@ class PythonInterface:
                         self.latdr.value, wdata['info']['lat'], self.londr.value, wdata['info']['lon'],
                         c.m2ft(self.altdr.value) / 100, self.weather.mag_deviation.value)
                 ]
-                if 'None' in wdata['info']['gfs_cycle']:
+                if self.weather.xpWeather.value != 1:
+                    sysinfo += [f"   XP12 Real Weather is not active (value = {self.weather.xpWeather.value})"]
+                elif 'None' in wdata['info']['gfs_cycle']:
                     sysinfo += ['   XP12 is still downloading weather info ...']
                 else:
                     sysinfo += [f"   GFS Cycle: {wdata['info']['gfs_cycle']}"]
@@ -1452,8 +1454,8 @@ class PythonInterface:
                     f"Apt distance: {round(wdata['metar']['distance'] / 1000, 1)}km",
                     f"   Temp: {round(wdata['metar']['temperature'][0])}, "
                     f"Dewpoint: {round(wdata['metar']['temperature'][1])}, "
-                    f"Visibility: {wdata['metar']['visibility']}m, "
-                    f"Press: {wdata['metar']['pressure']} inhg "
+                    f"Visibility: {round(wdata['metar']['visibility'])}m, "
+                    f"Press: {wdata['metar']['pressure']:.2f} inhg ({c.inHg2mb(wdata['metar']['pressure']):.1f} mb)"
                 ]
 
                 wind = f"   Wind:  {wdata['metar']['wind'][0]} {wdata['metar']['wind'][1]}kt"
@@ -1480,14 +1482,25 @@ class PythonInterface:
                     else:
                         clouds = '   Clouds and Visibility OK'
                     sysinfo += [clouds]
-                if 'rwmetar' in wdata:
+                if 'rwmetar' in wdata and self.conf.real_weather_enabled:
                     if not wdata['rwmetar']['file_time']:
                         sysinfo += ['XP12 REAL WEATHER METAR:', '   no METAR file, still downloading...']
                     else:
                         sysinfo += [f"XP12 REAL WEATHER METAR ({wdata['rwmetar']['file_time']}):"]
                         for line in wdata['rwmetar']['reports'][:2]:
                             sysinfo += [f"   {line}"]
-                    sysinfo += ['']
+                    # check actual pressure and adjusted friction
+                    pressure = self.weather.pressure.value / 100  # mb
+                    pressure_inHg = c.mb2inHg(pressure)
+                    line = f"   Pressure: {pressure:.1f}mb ({pressure_inHg:.2f}inHg)"
+                    vis = c.sm2m(self.weather.visibility.value)
+                    line += f" | Visibility: {round(vis)}m"
+                    friction = self.weather.runwayFriction.value
+                    metar_friction = self.weather.friction
+                    line += f" | Runway Friction: {friction:02}"
+                    if friction != metar_friction:
+                        line += f" (original {metar_friction:02})"
+                    sysinfo += [line, '']
 
             if not self.conf.meets_wgrib2_requirements:
                 '''not a compatible OS with wgrib2'''
