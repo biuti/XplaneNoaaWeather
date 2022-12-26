@@ -78,6 +78,7 @@ class Weather:
             'temp': False,
             'total_redraws': 0
         }
+        self.friction = 0
 
         '''
         Bind datarefs
