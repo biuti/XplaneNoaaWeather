@@ -41,6 +41,14 @@ class c:
         return a, r
 
     @staticmethod
+    def mb2inHg(mb):
+        return mb / 33.8639
+
+    @staticmethod
+    def inHg2mb(inches):
+        return inches * 33.8639
+
+    @staticmethod
     def mb2alt(mb) -> float:
         return (1 - (mb / 1013.25) ** 0.190284) * 44307
 
