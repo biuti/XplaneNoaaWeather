@@ -22,7 +22,7 @@ class WAFS(GribWeatherSource):
 
     cycles = [0, 6, 12, 18]
     forecasts = [6, 9, 12, 15, 18, 21, 24]
-    baseurl = 'https://www.ftp.ncep.noaa.gov/data/nccf/com/gfs/prod'
+    base_url = 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.'
 
     download_wait = 0
     publish_delay = {'hours': 5, 'minutes': 0}
@@ -119,9 +119,8 @@ class WAFS(GribWeatherSource):
 
     @classmethod
     def get_download_url(cls, datecycle, cycle, forecast):
-        filename = f"gfs.t{datecycle[-2:]}z.wafs_0p25_unblended.f{forecast:02}.grib2"
-        # url = "%s/gfs.%s/%s/atmos/%s" % (cls.baseurl, datecycle[:-2], datecycle[-2:], filename)
-        url = f"{cls.base_url}/gfs.{datecycle[:-2]}/{datecycle[-2:]}/atmos/{filename}"
+        filename = f"gfs.t{datecycle[-2:]}z.awf_0p25.f0{forecast:02}.grib2"
+        url = f"{cls.base_url}{datecycle[:-2]}/{datecycle[-2:]}/atmos/{filename}"
         return url
 
     @classmethod
