@@ -1,6 +1,7 @@
 """
 X-plane NOAA GFS weather plugin.
-Copyright (C) 2012-2015 Joan Perez i Cauhe
+Copyright (C) 2011-2020 Joan Perez i Cauhe
+Copyright (C) 2021-2022 Antonio Golfari
 ---
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -21,7 +22,7 @@ class WAFS(GribWeatherSource):
 
     cycles = [0, 6, 12, 18]
     forecasts = [6, 9, 12, 15, 18, 21, 24]
-    baseurl = 'https://www.ftp.ncep.noaa.gov/data/nccf/com/gfs/prod'
+    base_url = 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.'
 
     download_wait = 0
     publish_delay = {'hours': 5, 'minutes': 0}
@@ -118,8 +119,8 @@ class WAFS(GribWeatherSource):
 
     @classmethod
     def get_download_url(cls, datecycle, cycle, forecast):
-        filename = "gfs.t%sz.wafs_0p25_unblended.f%02d.grib2" % (datecycle[-2:], forecast)
-        url = "%s/gfs.%s/%s/atmos/%s" % (cls.baseurl, datecycle[:-2], datecycle[-2:], filename)
+        filename = f"gfs.t{datecycle[-2:]}z.awf_0p25.f0{forecast:02}.grib2"
+        url = f"{cls.base_url}{datecycle[:-2]}/{datecycle[-2:]}/atmos/{filename}"
         return url
 
     @classmethod
