@@ -4,7 +4,7 @@ X-Plane 12 Real Weather daemon server
 ---
 X-plane NOAA GFS weather plugin.
 Copyright (C) 2011-2020 Joan Perez i Cauhe
-Copyright (C) 2021-2022 Antonio Golfari
+Copyright (C) 2021-2023 Antonio Golfari
 ---
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -28,15 +28,18 @@ class RealWeather(GribWeatherSource):
 
     forecasts = range(0, 24, 3)
     levels = [
-        '900',
-        '800',
-        '700',
-        '600',
-        '500',
-        '400',
-        '300',
-        '250',
-        '200'
+        '950',  # ~ 1500ft
+        '900',  # ~ 3000ft
+        '800',  # ~ 6000ft
+        '700',  # ~ FL100
+        '600',  # ~ FL140
+        '500',  # ~ FL180
+        '400',  # ~ FL240
+        '300',  # ~ FL300
+        '250',  # ~ FL340
+        '200',  # ~ FL390
+        '150',  # ~ FL440
+        '100'   # ~ FL520
     ]
 
     suffixes = [
@@ -67,8 +70,7 @@ class RealWeather(GribWeatherSource):
 
     @property
     def grib_files(self) -> list:
-        if self.base is not None:
-            return [Path(self.conf.wpath, self.base + el + '.grib') for el in self.suffixes]
+        return [] if self.base is None else [path for path in self.conf.wpath.resolve().glob(f"*{self.base}*.grib")]
 
     @property
     def metar_file(self):
@@ -181,7 +183,7 @@ class RealWeather(GribWeatherSource):
 
         now = datetime.utcnow()
         time = min(self.forecasts, key=lambda x: abs(x - now.hour))
-        self.zulu_time, self.base = time, f'GRIB-{now.year}-{now.month:02d}-{now.day:02d}-{time:02d}.00-ZULU-'
+        self.zulu_time, self.base = time, f'{now.year}-{now.month:02d}-{now.day:02d}-{time:02d}.00'
 
     def parse_grib_data(self, lat, lon) -> dict:
         """Executes wgrib2 and parses its output"""
@@ -314,8 +316,11 @@ class RealWeather(GribWeatherSource):
         turblevels.sort()
 
         # tropo
-        if all(k in tropo.keys() for k in ('PRES', 'TMP')):
-            alt = round(c.mb2alt(float(tropo['PRES'])*0.01))
+        if any(k in tropo.keys() for k in ('PRESS', 'HGT')) and 'TMP' in tropo.keys():
+            if 'PRES' in tropo.keys():
+                alt = round(c.mb2alt(float(tropo['PRES'])*0.01))
+            else:
+                alt = float(tropo['HGT'])
             temp = float(tropo['TMP'])
             dev = c.isaDev(alt, temp)
             tropo = {'alt': float(alt), 'temp': temp, 'dev': dev}
