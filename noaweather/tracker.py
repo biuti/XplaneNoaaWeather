@@ -1,7 +1,7 @@
 """
 X-plane NOAA GFS weather plugin.
 Copyright (C) 2011-2020 Joan Perez i Cauhe
-Copyright (C) 2021-2022 Antonio Golfari
+Copyright (C) 2021-2023 Antonio Golfari
 ---
 Basic tracking using piwik
 ---
