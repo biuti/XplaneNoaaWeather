@@ -143,6 +143,7 @@ class Conf:
         # User settings
         self.enabled = True
 
+        self.metar_decode = False
         self.set_wind = False
         self.set_tropo = False
         self.set_clouds = False
@@ -249,6 +250,7 @@ class Conf:
         conf = {
             'version': self.__VERSION__,
             'enabled': self.enabled,
+            'metar_decode': self.metar_decode,
             'updaterate': self.updaterate,
             'set_temp': self.set_temp,
             'set_clouds': self.set_clouds,

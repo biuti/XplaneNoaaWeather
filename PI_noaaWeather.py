@@ -1031,6 +1031,14 @@ class PythonInterface:
         XPSetWidgetProperty(self.enableCheck, xpProperty_ButtonState, self.conf.enabled)
         y -= 40
 
+        # METAR decoding
+        XPCreateWidget(x, y, x + 20, y - 20, 1, 'METAR Decoding', 0, window, xpWidgetClass_Caption)
+        self.decodeCheck = XPCreateWidget(x + 120, y, x + 140, y - 20, 1, '', 0, window, xpWidgetClass_Button)
+        XPSetWidgetProperty(self.decodeCheck, xpProperty_ButtonType, xpRadioButton)
+        XPSetWidgetProperty(self.decodeCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
+        XPSetWidgetProperty(self.decodeCheck, xpProperty_ButtonState, self.conf.metar_decode)
+        y -= 40
+
         if not self.conf.real_weather_enabled:
             # Winds enable
             XPCreateWidget(x + 5, y, x + 20, y - 20, 1, 'Wind levels', 0, window, xpWidgetClass_Caption)
@@ -1305,6 +1313,7 @@ class PythonInterface:
             if inParam1 == self.saveButton:
                 # Save configuration
                 self.conf.enabled = XPGetWidgetProperty(self.enableCheck, xpProperty_ButtonState, None)
+                self.conf.metar_decode = XPGetWidgetProperty(self.decodeCheck, xpProperty_ButtonState, None)
                 if not self.conf.real_weather_enabled:
                     self.conf.set_wind = XPGetWidgetProperty(self.windsCheck, xpProperty_ButtonState, None)
                     self.conf.set_clouds = XPGetWidgetProperty(self.cloudsCheck, xpProperty_ButtonState, None)
@@ -1380,6 +1389,7 @@ class PythonInterface:
 
     def aboutWindowUpdate(self):
         XPSetWidgetProperty(self.enableCheck, xpProperty_ButtonState, self.conf.enabled)
+        XPSetWidgetProperty(self.decodeCheck, xpProperty_ButtonState, self.conf.metar_decode)
         XPSetWidgetDescriptor(self.stationIgnoreInput, ' '.join(self.conf.ignore_metar_stations))
         XPSetWidgetProperty(self.autoMetarCheck, xpProperty_ButtonState, self.conf.metar_ignore_auto)
         XPSetWidgetProperty(self.xp12MetarCheck, xpProperty_ButtonState, self.conf.metar_use_xp12)
@@ -1445,39 +1455,43 @@ class PythonInterface:
                 metar = f"{self.conf.metar_source} METAR: {wdata['metar']['icao']} {wdata['metar']['metar']}"
                 sysinfo += util.split_text(metar)
 
-                sysinfo += [
-                    f"   Apt altitude: {int(c.m2ft(wdata['metar']['elevation']))}ft, "
-                    f"Apt distance: {round(wdata['metar']['distance'] / 1000, 1)}km",
-                    f"   Temp: {round(wdata['metar']['temperature'][0])}, "
-                    f"Dewpoint: {round(wdata['metar']['temperature'][1])}, "
-                    f"Visibility: {round(wdata['metar']['visibility'])}m, "
-                    f"Press: {wdata['metar']['pressure']:.2f} inhg ({c.inHg2mb(wdata['metar']['pressure']):.1f} mb)"
-                ]
 
-                wind = f"   Wind:  {wdata['metar']['wind'][0]} {wdata['metar']['wind'][1]}kt"
-                if wdata['metar']['wind'][2]:
-                    wind += f", gust {wdata['metar']['wind'][2]}kt"
-                if 'variable_wind' in wdata['metar'] and wdata['metar']['variable_wind']:
-                    wind += f" Variable: {wdata['metar']['variable_wind'][0]}-{wdata['metar']['variable_wind'][1]}"
-                sysinfo += [wind]
+                if self.conf.metar_decode:
+                    # METAR Decoding Section
+                    sysinfo += [
+                        f"   Apt altitude: {int(c.m2ft(wdata['metar']['elevation']))}ft, "
+                        f"Apt distance: {round(wdata['metar']['distance'] / 1000, 1)}km",
+                        f"   Temp: {round(wdata['metar']['temperature'][0])}, "
+                        f"Dewpoint: {round(wdata['metar']['temperature'][1])}, "
+                        f"Visibility: {round(wdata['metar']['visibility'])}m, "
+                        f"Press: {wdata['metar']['pressure']:.2f} inhg ({c.inHg2mb(wdata['metar']['pressure']):.1f} mb)"
+                    ]
 
-                if 'precipitation' in wdata['metar'] and len(wdata['metar']['precipitation']):
-                    precip = ''
-                    for type in wdata['metar']['precipitation']:
-                        if wdata['metar']['precipitation'][type]['recent']:
-                            precip += wdata['metar']['precipitation'][type]['recent']
-                        precip += f"{wdata['metar']['precipitation'][type]['int']}{type} "
-                    sysinfo += [f"   Precipitation: {precip}"]
+                    wind = f"   Wind:  {wdata['metar']['wind'][0]} {wdata['metar']['wind'][1]}kt"
+                    if wdata['metar']['wind'][2]:
+                        wind += f", gust {wdata['metar']['wind'][2]}kt"
+                    if 'variable_wind' in wdata['metar'] and wdata['metar']['variable_wind']:
+                        wind += f" Variable: {wdata['metar']['variable_wind'][0]}-{wdata['metar']['variable_wind'][1]}"
+                    sysinfo += [wind]
 
-                if 'clouds' in wdata['metar']:
-                    if len(wdata['metar']['clouds']):
-                        clouds = '   Clouds: BASE|COVER    '
-                        for cloud in wdata['metar']['clouds']:
-                            alt, coverage, type = cloud
-                            clouds += f"{c.m2fl(alt):03}|{coverage}{type} "
-                    else:
-                        clouds = '   Clouds and Visibility OK'
-                    sysinfo += [clouds]
+                    if 'precipitation' in wdata['metar'] and len(wdata['metar']['precipitation']):
+                        precip = ''
+                        for type in wdata['metar']['precipitation']:
+                            if wdata['metar']['precipitation'][type]['recent']:
+                                precip += wdata['metar']['precipitation'][type]['recent']
+                            precip += f"{wdata['metar']['precipitation'][type]['int']}{type} "
+                        sysinfo += [f"   Precipitation: {precip}"]
+
+                    if 'clouds' in wdata['metar']:
+                        if len(wdata['metar']['clouds']):
+                            clouds = '   Clouds: BASE|COVER    '
+                            for cloud in wdata['metar']['clouds']:
+                                alt, coverage, type = cloud
+                                clouds += f"{c.m2fl(alt):03}|{coverage}{type} "
+                        else:
+                            clouds = '   Clouds and Visibility OK'
+                        sysinfo += [clouds]
+
                 if 'rwmetar' in wdata and self.conf.real_weather_enabled:
                     if not wdata['rwmetar']['file_time']:
                         sysinfo += ['XP12 REAL WEATHER METAR:', '   no METAR file, still downloading...']
