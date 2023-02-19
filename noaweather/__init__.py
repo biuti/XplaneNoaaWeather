@@ -1,4 +1,5 @@
 from .c import c
+from .util import util
 from .conf import Conf
 from .weathersource import WeatherSource
 from .gfs import GFS

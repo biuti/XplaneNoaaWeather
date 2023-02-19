@@ -76,3 +76,11 @@ class util:
                  if x[0].isalpha() and len(x) > 11 and x[11] == 'Z']
         lines.sort(key=lambda x: (x[0:4], -int(x[5:10])))
         return lines
+
+    @staticmethod
+    def split_text(text: str, indent: int = 0, max_len: int = 80) -> list:
+        if len(text) + indent > max_len:
+            icut = text.rfind(' ', 0, max_len - indent)
+            return [indent * ' ' + text[:icut], indent * ' ' + 3 * ' ' + text[icut + 1:]]
+        else:
+            return [indent * ' ' + text]

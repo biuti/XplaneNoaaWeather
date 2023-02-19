@@ -49,7 +49,7 @@ import os
 
 from datetime import datetime
 from pathlib import Path
-from noaweather import EasyDref, Conf, c, EasyCommand
+from noaweather import EasyDref, Conf, c, EasyCommand, util
 
 
 class Weather:
@@ -1442,13 +1442,8 @@ class PythonInterface:
             if 'metar' in wdata and 'icao' in wdata['metar']:
                 sysinfo += ['']
                 # Split metar if needed
-                splitlen = 80
                 metar = f"{self.conf.metar_source} METAR: {wdata['metar']['icao']} {wdata['metar']['metar']}"
-                if len(metar) > splitlen:
-                    icut = metar.rfind(' ', 0, splitlen)
-                    sysinfo += [metar[:icut], metar[icut + 1:]]
-                else:
-                    sysinfo += [metar]
+                sysinfo += util.split_text(metar)
 
                 sysinfo += [
                     f"   Apt altitude: {int(c.m2ft(wdata['metar']['elevation']))}ft, "
@@ -1489,7 +1484,7 @@ class PythonInterface:
                     else:
                         sysinfo += [f"XP12 REAL WEATHER METAR ({wdata['rwmetar']['file_time']}):"]
                         for line in wdata['rwmetar']['reports'][:2]:
-                            sysinfo += [f"   {line}"]
+                            sysinfo += util.split_text(line, 3)
                     # check actual pressure and adjusted friction
                     pressure = self.weather.pressure.value / 100  # mb
                     pressure_inHg = c.mb2inHg(pressure)
