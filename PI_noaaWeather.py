@@ -1255,7 +1255,7 @@ class PythonInterface:
         y -= 5
         sysinfo = [
             f"X-Plane 12 NOAA Weather: {self.conf.__VERSION__}",
-            '(c) antonio golfari 2022',
+            '(c) antonio golfari 2023',
         ]
         for label in sysinfo:
             XPCreateWidget(x, y, x + 120, y - 10, 1, label, 0, window, xpWidgetClass_Caption)

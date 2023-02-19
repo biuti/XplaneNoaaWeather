@@ -50,7 +50,7 @@ class c:
 
     @staticmethod
     def mb2alt(mb) -> float:
-        return (1 - (mb / 1013.25) ** 0.190284) * 44307
+        return (1 - (mb / 1013.25) ** 0.190284) * 44307  # meters
 
     @staticmethod
     def mb2ft(mb) -> float:
