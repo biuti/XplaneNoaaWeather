@@ -35,7 +35,7 @@ Be respectful of other users, you are the one using wrong data.
 Requirements
 ============
 - MacOS 10.14, Windows 7 and Linux kernel 4.0 and above
-- X-Plane 12 
+- X-Plane 12.04b2 (not tested with vrevious versions) 
 - pbuckner's XPPython3 plugin:
 https://xppython3.readthedocs.io/en/latest/index.html
 - Python 3.8 and above:
