@@ -1567,7 +1567,7 @@ class PythonInterface:
                     if 'tropo' in rw:
                         alt, temp, dev = rw['tropo'].values()
                         if alt and temp and dev:
-                            sysinfo += [f"TROPO LIMIT: {round(alt)}m (F{c.m2fl(alt)})"
+                            sysinfo += [f"TROPO LIMIT: {round(alt)}m (F{c.m2fl(alt)}) "
                                         f"temp {round(c.kel2cel(temp)):02}C ISA Dev {round(c.kel2cel(dev)):02}C"]
 
                     if 'clouds' in rw:
