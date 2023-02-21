@@ -24,7 +24,8 @@ As soon as a final version of X-Plane 12 will be released, I will consider if so
 - Writes missing METAR.rwx file for compatibility with XP11 (e.g. Avitab)
 - monitors XP12 real weather behavior
 - METAR query window that displays both XP12 Real Weather and latest one from chosen source (NOAA, IVAO or VATSIM servers)
-- Ability to populate METAR.rwx file using XP12 Real Weather as data source.
+- Ability to populate METAR.rwx file using XP12 Real Weather as data source
+- Option to automatically delete outdated files in XP12 Real Weather folder.
 
 **WARNING**
 Be aware that using XP12 Real Weather as data source when flying online will give you outdated information. They will be consistent with the weather you experience in your simulator but at this stage (XP12 EA beta11) likely different from the live weather on the server.
@@ -38,7 +39,7 @@ Requirements
 - X-Plane 12.04b2 (not tested with vrevious versions) 
 - pbuckner's XPPython3 plugin:
 https://xppython3.readthedocs.io/en/latest/index.html
-- Python 3.8 and above:
+- Python 3.8 and above (3.10+ suggested):
 http://www.python.org/getit/
 
 **You need to download correct XPPython3 version according to your Python3 installed version!
