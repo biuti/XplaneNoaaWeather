@@ -235,7 +235,7 @@ class Conf:
                 filepath.unlink()
                 return
 
-            print(f"Conf settings Version: {conf['version']}")
+            # print(f"Conf settings Version: {conf['version']}")
             # Reset settings on different versions.
             if 'version' not in conf or conf['version'] < '12.0.0':
                 print(f"Version unknown or very old, skipping ...")

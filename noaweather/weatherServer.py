@@ -188,6 +188,7 @@ if __name__ == "__main__":
         sys.stderr = logfile
         sys.stdout = logfile
 
+    print(f"NOAA plugin version: {conf.version}")
     print('---------------')
     print('Starting server')
     print('---------------')
