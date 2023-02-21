@@ -1205,6 +1205,14 @@ class PythonInterface:
         XPSetWidgetProperty(self.bugCheck, xpProperty_ButtonState, self.conf.inputbug)
         y -= 40
 
+        # Delete old Real Weather files
+        XPCreateWidget(x, y, x + 20, y - 20, 1, 'Clear RW files', 0, window, xpWidgetClass_Caption)
+        self.RWfilesCheck = XPCreateWidget(x + 120, y, x + 140, y - 20, 1, '', 0, window, xpWidgetClass_Button)
+        XPSetWidgetProperty(self.RWfilesCheck, xpProperty_ButtonType, xpRadioButton)
+        XPSetWidgetProperty(self.RWfilesCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
+        XPSetWidgetProperty(self.RWfilesCheck, xpProperty_ButtonState, self.conf.delete_RW_files)
+        y -= 40
+
         # Save
         self.saveButton = XPCreateWidget(x + 25, y, x + 125, y - 20, 1, "Apply & Save", 0, window,
                                          xpWidgetClass_Button)
@@ -1347,6 +1355,7 @@ class PythonInterface:
 
                 self.conf.metar_ignore_auto = XPGetWidgetProperty(self.autoMetarCheck, xpProperty_ButtonState, None)
                 self.conf.ignore_metar_stations = ignore_stations
+                self.conf.delete_RW_files = XPGetWidgetProperty(self.RWfilesCheck, xpProperty_ButtonState, None)
 
                 # Check metar source
                 prev_metar_source = self.conf.metar_source
@@ -1393,6 +1402,7 @@ class PythonInterface:
         XPSetWidgetDescriptor(self.stationIgnoreInput, ' '.join(self.conf.ignore_metar_stations))
         XPSetWidgetProperty(self.autoMetarCheck, xpProperty_ButtonState, self.conf.metar_ignore_auto)
         XPSetWidgetProperty(self.xp12MetarCheck, xpProperty_ButtonState, self.conf.metar_use_xp12)
+        XPSetWidgetProperty(self.RWfilesCheck, xpProperty_ButtonState, self.conf.delete_RW_files)
 
         if not self.conf.real_weather_enabled:
             XPSetWidgetProperty(self.windsCheck, xpProperty_ButtonState, self.conf.set_wind)

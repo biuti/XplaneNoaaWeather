@@ -344,6 +344,21 @@ class RealWeather(GribWeatherSource):
 
         return data
 
+    def delete_old_files(self, hours: int = 24) -> bool:
+        """Deletes all files in XP12 real weather folder older than given parameter
+                hours: int   time in hours"""
+
+        now = time.time()
+        max_old = hours * 3600
+        try:
+            for file in self.conf.wpath.iterdir():
+                if file.suffix.endswith(('grib', 'txt', 'grib2')) and now - file.stat().st_mtime > max_old:
+                    util.remove(file)
+            return True
+        except Exception as e:
+            print(f"Error deleting old Real Weather files: {e}")
+            return False
+
     def run(self, elapsed):
         """ Updates METAR.rwx file from XP12 realweather metar files if option to do so is checked"""
 

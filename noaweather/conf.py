@@ -158,7 +158,8 @@ class Conf:
 
         self.download_METAR = True
 
-        # Avoid downloading GFS data until it will have some use in XP12
+        self.delete_RW_files = False  # automatically delete outdated files in Real Weather folder
+
         self.download_GFS = False
 
         # Waiting API SDK to implement automatic mode switch
@@ -273,7 +274,8 @@ class Conf:
             'metar_updaterate': self.metar_updaterate,
             'ignore_metar_stations': self.ignore_metar_stations,
             'metar_ignore_auto': self.metar_ignore_auto,
-            'metar_use_xp12': self.metar_use_xp12
+            'metar_use_xp12': self.metar_use_xp12,
+            "delete_RW_files": self.delete_RW_files
         }
         self.saveSettings(self.settingsfile, conf)
 
