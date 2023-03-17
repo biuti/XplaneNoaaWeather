@@ -1040,7 +1040,16 @@ class PythonInterface:
         XPSetWidgetProperty(self.decodeCheck, xpProperty_ButtonState, self.conf.metar_decode)
         y -= 40
 
-        if not self.conf.real_weather_enabled:
+        if self.conf.real_weather_enabled:
+            # WAFS download enable
+            XPCreateWidget(x, y, x + 20, y - 20, 1, 'WAFS download', 0, window, xpWidgetClass_Caption)
+            self.WAFSCheck = XPCreateWidget(x + 120, y, x + 140, y - 20, 1, '', 0, window, xpWidgetClass_Button)
+            XPSetWidgetProperty(self.WAFSCheck, xpProperty_ButtonType, xpRadioButton)
+            XPSetWidgetProperty(self.WAFSCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
+            XPSetWidgetProperty(self.WAFSCheck, xpProperty_ButtonState, self.conf.download_WAFS)
+            y -= 40
+
+        else:
             # Winds enable
             XPCreateWidget(x + 5, y, x + 20, y - 20, 1, 'Wind levels', 0, window, xpWidgetClass_Caption)
             self.windsCheck = XPCreateWidget(x + 110, y, x + 120, y - 20, 1, '', 0, window, xpWidgetClass_Button)
@@ -1323,7 +1332,9 @@ class PythonInterface:
                 # Save configuration
                 self.conf.enabled = XPGetWidgetProperty(self.enableCheck, xpProperty_ButtonState, None)
                 self.conf.metar_decode = XPGetWidgetProperty(self.decodeCheck, xpProperty_ButtonState, None)
-                if not self.conf.real_weather_enabled:
+                if self.conf.real_weather_enabled:
+                    self.conf.download_WAFS = XPGetWidgetProperty(self.WAFSCheck, xpProperty_ButtonState, None)
+                else:
                     self.conf.set_wind = XPGetWidgetProperty(self.windsCheck, xpProperty_ButtonState, None)
                     self.conf.set_clouds = XPGetWidgetProperty(self.cloudsCheck, xpProperty_ButtonState, None)
                     self.conf.opt_clouds_update = XPGetWidgetProperty(self.optUpdCheck, xpProperty_ButtonState, None)
@@ -1405,11 +1416,15 @@ class PythonInterface:
         XPSetWidgetProperty(self.xp12MetarCheck, xpProperty_ButtonState, self.conf.metar_use_xp12)
         XPSetWidgetProperty(self.RWfilesCheck, xpProperty_ButtonState, self.conf.delete_RW_files)
 
-        if not self.conf.real_weather_enabled:
+        if self.conf.real_weather_enabled:
+            XPSetWidgetProperty(self.WAFSCheck, xpProperty_ButtonState, self.conf.download_WAFS)
+
+        else:
             XPSetWidgetProperty(self.windsCheck, xpProperty_ButtonState, self.conf.set_wind)
             XPSetWidgetProperty(self.cloudsCheck, xpProperty_ButtonState, self.conf.set_clouds)
             XPSetWidgetProperty(self.optUpdCheck, xpProperty_ButtonState, self.conf.opt_clouds_update)
             XPSetWidgetProperty(self.tempCheck, xpProperty_ButtonState, self.conf.set_temp)
+            XPSetWidgetProperty(self.turbCheck, xpProperty_ButtonState, self.conf.set_turb)
             XPSetWidgetProperty(self.tropoCheck, xpProperty_ButtonState, self.conf.set_tropo)
             XPSetWidgetProperty(self.thermalsCheck, xpProperty_ButtonState, self.conf.set_thermals)
             XPSetWidgetProperty(self.surfaceCheck, xpProperty_ButtonState, self.conf.set_surface_layer)
@@ -1599,13 +1614,25 @@ class PythonInterface:
 
                     if 'turbulence' in rw:
                         tblayers = ''
-                        for layer in rw['turbulence']:
-                            tblayers += f"    {round(layer[0] * 3.28084 / 100)}|{round(layer[1], 2)}" \
-                                        f"{'*' if layer[1] >= self.conf.max_turbulence else ''}"
-
-                        sysinfo += [f"XP12 REAL WEATHER TURBULENCE ({len(rw['turbulence'])}):  "
-                                    f"FL | SEV (max {self.conf.max_turbulence}) ",
-                                    tblayers]
+                        out = []
+                        sysinfo += [f"XP12 REAL WEATHER TURBULENCE ({wdata['info']['wafs_cycle']}):  "
+                                    f"FL | SEV (max {self.conf.max_turbulence}) "]
+                        # print(f"wafs layers: {rw['turbulence']}")
+                        wafs_layers = [el for el in rw['turbulence'] if el[1] < 20]
+                        # print(f"wafs layers 2: {wafs_layers}")
+                        i = 1
+                        pf = 0
+                        for layer in wafs_layers:
+                            fl = round(layer[0] * 3.28084 / 100)
+                            if len(wafs_layers) < 19 or fl > pf + 40:
+                                tblayers += f"    {fl}|{round(layer[1], 2)}" \
+                                            f"{'*' if layer[1] >= self.conf.max_turbulence else ''}"
+                                i += 1
+                                pf = fl
+                            if i % 9 == 0 or i == len(wafs_layers):
+                                out.append(tblayers)
+                                tblayers = ''
+                        sysinfo += out
                     sysinfo += ['']
 
                 else:

@@ -91,13 +91,21 @@ class ClientHandler(SocketServer.BaseRequestHandler):
         if conf.meets_wgrib2_requirements:
             rw.get_real_weather_forecast()
             if all(el.is_file() for el in rw.grib_files):
-                response['info']['gfs_cycle'] = f"{rw.cycle}: {rw.fcst}"
+                response['info']['gfs_cycle'] = f"{rw.gfs_run}: {rw.gfs_fcst}"
+                response['info']['wafs_cycle'] = f"{rw.wafs_run}: {rw.wafs_fcst}"
                 response['rw'] = rw.parse_grib_data(lat, lon)
                 # response['wafs'] = response['rw']['turbulence']
-                if conf.download_GFS and gfs.last_grib:
+                if gfs.download_enabled and gfs.last_grib:
                     filepath = Path(gfs.cache_path, gfs.last_grib)
                     response['gfs'] = gfs.parse_grib_data(filepath, lat, lon)
                 # print(f"Grib File: {gfs.last_grib}, data: {response['gfs']}")
+                if rw.wafs_download_needed and wafs.download_enabled and wafs.last_grib:
+                    # TURB data is not up-to-date, download GRIB file needed
+                    print(f"TURB data is not up-to-date, download GRIB file needed ...")
+                    if Path(wafs.cache_path, wafs.last_grib).is_file():
+                        resp = rw.update_wafs_files(Path(wafs.cache_path, wafs.last_grib))
+                        if resp is True:
+                            rw.starting = False
 
         # Parse metar
         apt = metar.get_closest_station(lat, lon)
@@ -218,9 +226,9 @@ if __name__ == "__main__":
     gfs = GFS(conf)
     rw = RealWeather(conf)
     metar = Metar(conf)
-    # wafs = WAFS(conf)
+    wafs = WAFS(conf)
 
-    workers = [metar] if not conf.meets_wgrib2_requirements else [gfs, rw, metar]
+    workers = [metar] if not conf.meets_wgrib2_requirements else [gfs, rw, metar, wafs]
     # Init worker thread
     worker = Worker(workers, conf.parserate)
     worker.start()
