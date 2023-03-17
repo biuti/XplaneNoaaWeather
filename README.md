@@ -1,5 +1,5 @@
 ===========================================
-[XPGFS] NOAA Global Weather (Xplane 12 EA)
+[XPGFS] NOAA Global Weather (Xplane 12)
 ===========================================
 
 I created a new version of NOAAWeather originally created by [Joan](https://github.com/joanpc) and ported to python3 by [pbuckner](https://github.com/pbuckner).
@@ -36,10 +36,10 @@ Be respectful of other users, you are the one using wrong data.
 Requirements
 ============
 - MacOS 10.14, Windows 7 and Linux kernel 4.0 and above
-- X-Plane 12.04b2 (not tested with vrevious versions) 
+- X-Plane 12.04b2 and above (not tested with previous versions) 
 - pbuckner's XPPython3 plugin:
 https://xppython3.readthedocs.io/en/latest/index.html
-- Python 3.8 and above (3.10+ suggested):
+- Python 3.10 and above:
 http://www.python.org/getit/
 
 **You need to download correct XPPython3 version according to your Python3 installed version!
