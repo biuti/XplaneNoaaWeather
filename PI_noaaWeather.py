@@ -116,12 +116,13 @@ class Weather:
         self.xpWeather = EasyDref('sim/weather/region/weather_source', 'int')
 
         self.msltemp = EasyDref('sim/weather/region/sealevel_temperature_c', 'float')
-        self.visibility = EasyDref('sim/weather/region/visibility_reported_sm', 'float')
+        self.temp = EasyDref('sim/weather/temperature_ambient_c', 'float')
+        self.visibility = EasyDref('sim/weather/visibility_reported_m', 'float')
         # self.override_visibility = EasyDref('sim/private/controls/scattering/override_visibility_m', 'float')
         self.pressure = EasyDref('sim/weather/region/sealevel_pressure_pas', 'float')  # Pascal, it was inHg in XP11
 
         self.precipitation = EasyDref('sim/weather/region/rain_percent', 'float')
-        self.runwayFriction = EasyDref('sim/weather/region/runway_friction', 'float')
+        self.runwayFriction = EasyDref('sim/weather/runway_friction', 'float')
 
         self.thermals_rate = EasyDref('sim/weather/region/thermal_rate_ms', 'float')  # seems ft/m 0 - 1000
 
@@ -1513,8 +1514,8 @@ class PythonInterface:
                     pressure = self.weather.pressure.value / 100  # mb
                     pressure_inHg = c.mb2inHg(pressure)
                     line = f"   Pressure: {pressure:.1f}mb ({pressure_inHg:.2f}inHg)"
-                    vis = c.sm2m(self.weather.visibility.value)
-                    line += f" | Visibility: {round(vis)}m"
+                    vis, vis_sm = round(self.weather.visibility.value), round(c.m2sm(self.weather.visibility.value), 1)
+                    line += f" | Visibility: {vis}m ({vis_sm}sm)"
                     friction = self.weather.runwayFriction.value
                     metar_friction = self.weather.friction
                     line += f" | Runway Friction: {friction:02}"
@@ -1993,7 +1994,7 @@ class PythonInterface:
                     visibility = c.limit(wdata['metar']['visibility'], self.conf.max_visibility)
 
                     if not self.data.override_visibility.value:
-                        self.weather.visibility.value = c.m2sm(visibility)  # Visibility seems to be in SM
+                        self.weather.visibility.value = visibility
 
                     self.data.visibility.value = visibility
 
