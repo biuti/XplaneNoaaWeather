@@ -22,16 +22,16 @@ class util:
         """Remove a file or try to rename-it if it fails"""
         try:
             filepath.unlink(missing_ok=True)
-        except:
-            print(f"can't remove {filepath.name}")
+        except Exception as e:
+            print(f"can't remove {filepath.name}: {e}")
             i = 1
             while 1:
                 npath = Path(f"{filepath}-{i}")
                 if not npath.exists():
                     try:
                         filepath.rename(npath)
-                    except:
-                        print(f"can't rename {filepath.name}")
+                    except Exception as e:
+                        print(f"can't rename {filepath.name}: {e}")
                         if sys.platform == 'win32':
                             import ctypes
                             print(f"{filepath.name} marked for deletion on reboot.")
@@ -56,8 +56,8 @@ class util:
             util.remove(dpath)
         try:
             shutil.copyfile(opath, dpath)
-        except:
-            print(f"Can't copy {opath.name} to {dpath.name}")
+        except OSError as e:
+            print(f"Can't copy {opath.name} to {dpath.name}: {e}")
 
     @staticmethod
     def date_info():

@@ -64,8 +64,13 @@ class Metar(WeatherSource):
 
         # Metar stations update
         if (time.time() - conf.ms_update) > self.STATION_UPDATE_RATE * 86400:
-            self.ms_download = AsyncTask(GribDownloader.download, self.METAR_STATIONS_URL, 'stations.txt',
-                                         binary=True, cancel_event=self.die)
+            self.ms_download = AsyncTask(
+                GribDownloader.download, 
+                self.METAR_STATIONS_URL, 
+                'stations.txt',
+                binary=True, 
+                cancel_event=self.die
+            )
             self.ms_download.start()
 
         self.last_timestamp = 0
@@ -101,7 +106,7 @@ class Metar(WeatherSource):
         self.conf.ms_update = time.time()
         return nparsed
 
-    def update_metar(self, path: Path, batch: int = 100):
+    def update_metar(self, path: Path, batch: int = 100) -> tuple[int, int]:
         """Updates metar table from Metar file"""
 
         f = open(path, encoding='utf-8', errors='replace')  # deal with non utf-8 characters, avoiding error
@@ -156,8 +161,9 @@ class Metar(WeatherSource):
         db = Database(file)
         db.query('UPDATE source SET metar = NULL, timestamp = 0')
 
-    def get_closest_station(self, lat, lon, limit=1):
-        """Return the closest airport with a metar report"""
+    def get_closest_station(self, lat: float, lon: float) -> tuple[str, float, float, int, int, str]:
+        """Return the closest airport with a metar report
+            ex: ('ENSB', 78.25, 15.4667, 30, 202211271620, '271620Z 22003KT 9999 FEW025 BKN070 M02/M05 Q1017 RMK WIND 1400FT VRB03KT')"""
 
         fudge = math.pow(math.cos(math.radians(lat)), 2)
 
@@ -172,9 +178,8 @@ class Metar(WeatherSource):
 
         q = '''SELECT * FROM source
                     WHERE {}
-                    ORDER BY ((? - lat) * (? - lat) + (? - lon) * (? - lon) * ?)
-                    LIMIT ?'''.format(cond)
-        bindings.extend([lat, lat, lon, lon, fudge, limit])
+                    ORDER BY ((? - lat) * (? - lat) + (? - lon) * (? - lon) * ?)'''.format(cond)
+        bindings.extend([lat, lat, lon, lon, fudge])
 
         with self.db.session() as db:
             res = db.execute(q, (tuple(bindings)))
@@ -355,7 +360,7 @@ class Metar(WeatherSource):
 
         return self.db.to_file(Path(self.conf.syspath, 'METAR.rwx'), self.table)
 
-    def run(self, elapsed):
+    def run(self, elapsed: int):
 
         # Check for new metar downloaded data
         if self.download:
@@ -423,11 +428,13 @@ class Metar(WeatherSource):
             }
 
         cache_file = Path(self.cache_path, f"{prefix}_{timestamp}_{cycle}Z.txt")
-        self.download = AsyncTask(GribDownloader.download,
-                                  url=url,
-                                  file_path=cache_file,
-                                  binary=True,
-                                  cancel_event=self.die, headers=headers)
+        self.download = AsyncTask(
+            GribDownloader.download,
+            url=url,
+            file_path=cache_file,
+            binary=True,
+            cancel_event=self.die, headers=headers
+        )
         self.download.start()
 
     def shutdown(self):

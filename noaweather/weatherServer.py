@@ -65,10 +65,13 @@ class LogFile:
 class ClientHandler(SocketServer.BaseRequestHandler):
 
     @staticmethod
-    def get_weather_data(data):
+    def get_weather_data(data) -> dict | bool:
         """Collects weather data for the response"""
 
         lat, lon = float(data[0]), float(data[1])
+
+        if lat > 98 and lon > 98:
+            return False
 
         response = {
             'rw': {},
@@ -76,17 +79,13 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             'wafs': {},
             'metar': {},
             'rwmetar': {},
-            'info': {'lat': lat,
-                     'lon': lon,
-                     'wafs_cycle': 'na',
-                     'gfs_cycle': 'na'
-                     }
+            'info': {
+                'lat': lat,
+                'lon': lon,
+                'wafs_cycle': 'na',
+                'gfs_cycle': 'na'
+            }
         }
-
-        # lat, lon = float(data[0]), float(data[1])
-
-        if lat > 98 and lon > 98:
-            return False
 
         # Parse gfs and wafs
         if conf.meets_wgrib2_requirements:
@@ -135,10 +134,14 @@ class ClientHandler(SocketServer.BaseRequestHandler):
                         response['metar'] = metar.parse_metar(apt[0], apt[5], apt[3])
                         response['rwmetar'] = dict(zip(('icao', 'metar'), rw.get_real_weather_metar(rw.db, data[1:])))
                     else:
-                        response['metar'] = {'icao': 'METAR STATION',
-                                             'metar': 'NOT AVAILABLE'}
-                        response['rwmetar'] = {'icao': '',
-                                               'metar': ''}
+                        response['metar'] = {
+                            'icao': 'METAR STATION',
+                            'metar': 'NOT AVAILABLE'
+                        }
+                        response['rwmetar'] = {
+                            'icao': '',
+                            'metar': ''
+                        }
             elif data == '!shutdown':
                 conf.serverSave()
                 self.shutdown()

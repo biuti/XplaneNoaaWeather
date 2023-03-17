@@ -34,7 +34,7 @@ class WAFS(GribWeatherSource):
         super(WAFS, self).__init__(conf)
 
     @classmethod
-    def get_cycle_date(cls):
+    def get_cycle_date(cls) -> tuple[str, int, int]:
         """Returns last cycle date available"""
         now = datetime.utcnow()
 
@@ -104,13 +104,13 @@ class WAFS(GribWeatherSource):
         return turbulence
 
     @classmethod
-    def get_download_url(cls, datecycle, cycle, forecast):
+    def get_download_url(cls, datecycle: str, cycle: int, forecast: int) -> str:
         filename = f"gfs.t{datecycle[-2:]}z.awf_0p25.f0{forecast:02}.grib2"
         url = f"{cls.base_url}{datecycle[:-2]}/{datecycle[-2:]}/atmos/{filename}"
         return url
 
     @classmethod
-    def get_cache_filename(cls, datecycle, cycle, forecast):
+    def get_cache_filename(cls, datecycle: str, cycle: int, forecast: int) -> str:
         # filename = "%s_gfs.t%sz.wafs_0p25_unblended.f%02d.grib2" % (datecycle, datecycle[-2:], forecast)
         filename = f"{datecycle}_gfs.t{datecycle[-2:]}z.wafs_0p25_unblended.f{forecast:02}.grib2"
         return filename

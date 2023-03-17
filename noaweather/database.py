@@ -62,7 +62,7 @@ class Database:
             for query in queries:
                 db.execute(query)
 
-    def get(self, table: str, icao: str) -> tuple:
+    def get(self, table: str, icao: str) -> tuple[str, str]:
 
         query = '''SELECT * FROM {} WHERE icao = ?'''.format(table)
         with self.session() as db:
@@ -79,7 +79,7 @@ class Database:
             met = res.fetchall()
             return met
 
-    def to_file(self, file: Path, table: str, batch: int = 100):
+    def to_file(self, file: Path, table: str, batch: int = 100) -> int:
         query = '''SELECT icao, metar FROM {} WHERE metar NOT NULL'''.format(table)
         lines = 0
         try:
@@ -98,12 +98,12 @@ class Database:
             print(f"ERROR updating METAR.rwx file: {sys.exc_info()[0]}, {sys.exc_info()[1]}")
         return lines
 
-    def query(self, sql):
+    def query(self, sql: str) -> int:
         with self.session() as db:
             res = db.execute(sql).rowcount
             return res
 
-    def writemany(self, query: str, rows: list, batch: int = 100):
+    def writemany(self, query: str, rows: list, batch: int = 100) -> int:
         with self.session() as db:
             return db.executemany(query, rows).rowcount
 

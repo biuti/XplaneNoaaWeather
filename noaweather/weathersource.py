@@ -16,7 +16,8 @@ import zlib
 import subprocess
 import sys
 
-from urllib.request import Request, urlopen, URLError
+from urllib.request import Request, urlopen
+from urllib.error import URLError
 from datetime import datetime, timedelta
 from tempfile import TemporaryFile
 from pathlib import Path
@@ -40,6 +41,7 @@ class WeatherSource(object):
         self.cache_path.mkdir(parents=True, exist_ok=True)
 
     def read_grib_file(self, file: Path, lat: float = 46, lon: float = 9) -> list:
+        """Executes wgrib2 on given GRIB file and parses its output"""
 
         args = [
             '-s',
@@ -87,7 +89,7 @@ class GribWeatherSource(WeatherSource):
             self.last_grib = False
 
     @classmethod
-    def get_cycle_date(cls):
+    def get_cycle_date(cls) -> tuple[str, int, int]:
         """Returns last cycle date available"""
 
         now = datetime.utcnow()
@@ -105,7 +107,7 @@ class GribWeatherSource(WeatherSource):
 
         return f"{cnow.year}{cnow.month:02}{cnow.day:02}", lcycle, forecast
 
-    def run(self, elapsed):
+    def run(self, elapsed: int):
         """Worker function called by a worker thread to update the data"""
 
         if not self.download_enabled:
@@ -127,19 +129,21 @@ class GribWeatherSource(WeatherSource):
             if self.last_grib == cache_file and cache_file_path.is_file():
                 # Nothing to do
                 return
-            else:
-                # Trigger new download
-                url = self.get_download_url(datecycle, cycle, forecast)
-                print(f"Downloading: {cache_file}")
-                self.download = AsyncTask(GribDownloader.download,
-                                          url,
-                                          cache_file_path,
-                                          binary=True,
-                                          variable_list=self.variable_list,
-                                          cancel_event=self.die,
-                                          decompress=self.conf.wgrib2bin,
-                                          spinfo=self.conf.spinfo)
-                self.download.start()
+
+            # Trigger new download
+            url = self.get_download_url(datecycle, cycle, forecast)
+            print(f"Downloading: {url}")
+            self.download = AsyncTask(
+                GribDownloader.download,
+                url,
+                cache_file_path,
+                binary=True,
+                variable_list=self.variable_list,
+                cancel_event=self.die,
+                decompress=self.conf.wgrib2bin,
+                spinfo=self.conf.spinfo
+            )
+            self.download.start()
         else:
             if not self.download.pending():
                 self.download.join()
@@ -253,7 +257,7 @@ class GribDownloader(object):
         p.wait()
 
     @staticmethod
-    def download_part(url, file_out, start=0, end=0, **kwargs):
+    def download_part(url: str, file_out, start: int = 0, end: int = 0, **kwargs):
         """File Downloader supports gzip and cancel
 
         Args:
@@ -293,7 +297,7 @@ class GribDownloader(object):
         else:
             params = {}
 
-        print("Downloading part of {} with params: {}".format(url, params))
+        print(f"Downloading part of {url} with params: {params}")
         response = urlopen(req, **params)
 
         gz = False
@@ -318,11 +322,11 @@ class GribDownloader(object):
                 else:
                     file_out.write(data)
             except Exception as e:
-                print("Failed to write out bit: {}".format(e))
+                print(f"Failed to write out bit: {e}")
                 raise e
 
     @staticmethod
-    def to_download(level, var, variable_list):
+    def to_download(level, var, variable_list) -> bool:
         """Returns true if level/var combination is in the download list"""
         for group in variable_list:
             if var in group['vars'] and level in group['levels']:
@@ -330,13 +334,13 @@ class GribDownloader(object):
         return False
 
     @classmethod
-    def gen_chunk_list(cls, grib_index, variable_list):
+    def gen_chunk_list(cls, grib_index: list, variable_list: list) -> list:
         """Returns a download list from a grib index and a variable list
 
         Args:
-            grib_index (list): parsed grib index
-            variable_list (list): list of dicts defining data to download
-                                  [{'levels': [], 'vars': []}, ]
+            grib_index (list):      parsed grib index
+            variable_list (list):   list of dicts defining data to download
+                                    [{'levels': [], 'vars': []}, ]
 
         Returns:
             list: The chunk list [[start, stop], ]
@@ -358,7 +362,7 @@ class GribDownloader(object):
         return chunk_list
 
     @staticmethod
-    def parse_grib_index(index_file):
+    def parse_grib_index(index_file) -> list:
         """Returns
 
         args:
@@ -377,11 +381,11 @@ class GribDownloader(object):
         for line in index_file:
             cols = line.decode('utf-8').split(':')
             if len(cols) != 7:
-                raise RuntimeError("Bad GRIB file index format: Missing columns. Expected 7,  Found {} columns: {}".format(len(cols), cols))
+                raise RuntimeError(f"Bad GRIB file index format: Missing columns. Expected 7,  Found {len(cols)} columns: {cols}")
             try:
                 cols[1] = int(cols[1])
             except ValueError:
-                raise RuntimeError("Bad GRIB file index format: Bad integer, found: {}".format(cols[1]))
+                raise RuntimeError(f"Bad GRIB file index format: Bad integer, found: {cols[1]}")
 
             index.append(cols)
 

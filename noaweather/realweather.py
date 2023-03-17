@@ -81,13 +81,14 @@ class RealWeather(GribWeatherSource):
             return None
 
     @property
-    def time_to_update_rwmetar(self):
+    def time_to_update_rwmetar(self) -> bool:
         return (self.metar_file is not None
                 and (not self.last_rwmetar
-                     or self.last_rwmetar < self.metar_file.stat().st_ctime
-                     or self.next_rwmetar < time.time()))
+                        or self.last_rwmetar < self.metar_file.stat().st_ctime
+                        or self.next_rwmetar < time.time()
+                    ))
 
-    def update_rwmetar(self, batch: int = 100) -> tuple:
+    def update_rwmetar(self, batch: int = 100) -> tuple[int, int]:
         """Updates metar table from Metar file"""
         nupdated = 0
         nparsed = 0
@@ -117,14 +118,14 @@ class RealWeather(GribWeatherSource):
         return nparsed, nupdated
 
     @staticmethod
-    def get_real_weather_metar(db, icao: str) -> tuple:
+    def get_real_weather_metar(db, icao: str) -> tuple[str, str]:
         """ Reads METAR DB created from files in XP12 real weather folder
             icao: ICAO code for requested airport
             returns METAR string"""
 
         return db.get(RealWeather.table, icao)
 
-    def get_real_weather_metars(self, icao) -> dict:
+    def get_real_weather_metars(self, icao: str) -> dict:
         """ Reads METAR DB created from files in XP12 real weather folder
             icao: ICAO code for requested airport
             returns a dict with time of last METAR update and a LIST of METARs for given ICAO"""
@@ -141,7 +142,7 @@ class RealWeather(GribWeatherSource):
             '''get ICAO metar'''
             response['reports'] = ([line for line in util.get_rw_ordered_lines(self.metar_file)
                                     if line.startswith(icao)]
-                                   or [f"{icao} not found in XP12 real weather METAR files"])
+                                    or [f"{icao} not found in XP12 real weather METAR files"])
 
         return response
 
@@ -184,7 +185,7 @@ class RealWeather(GribWeatherSource):
         time = min(self.forecasts, key=lambda x: abs(x - now.hour))
         self.zulu_time, self.base = time, f'{now.year}-{now.month:02d}-{now.day:02d}-{time:02d}.00'
 
-    def parse_grib_data(self, lat, lon) -> dict:
+    def parse_grib_data(self, lat: float, lon: float) -> dict:
         """Executes wgrib2 and parses its output"""
 
         it = []
@@ -205,6 +206,7 @@ class RealWeather(GribWeatherSource):
 
         for line in it:
             r = line.split(':')
+
             # Level, variable, value
             level, variable, value = [r[4].split(' '), r[3], r[7].split(',')[2].split('=')[1]]
 
@@ -263,11 +265,14 @@ class RealWeather(GribWeatherSource):
                 if temp and rh:
                     dew = c.dewpoint(temp, rh)
 
-                windlevels.append([alt, hdg, c.ms2knots(vel), {'temp': temp,
-                                                               'dev': dev,
-                                                               'rh': rh,
-                                                               'dew': dew,
-                                                               'gust': 0}])
+                windlevels.append(
+                    [
+                        alt,
+                        hdg,
+                        c.ms2knots(vel),
+                        {'temp': temp, 'dev': dev, 'rh': rh, 'dew': dew, 'gust': 0}
+                    ]
+                )
                 if alt and temp:
                     templevels.append([alt, temp, dev, dew])
 
@@ -276,15 +281,12 @@ class RealWeather(GribWeatherSource):
                     tropo = {'PRES': level, 'TMP': wind['TMP']}
 
         # Convert cloud level
-        for level in clouds:
-            level = clouds[level]
-            if 'top' in level and 'bottom' in level:
+        for level in clouds.values():
+            if all(k in level.keys() for k in ('top', 'bottom')):
                 top, bottom = float(level['top']) * 0.01, float(level['bottom']) * 0.01  # mb
-                # print "XPGFS: top: %.0fmbar %.0fm, bottom: %.0fmbar %.0fm %d%%" % (top * 0.01, c.mb2alt(top * 0.01), bottom * 0.01, c.mb2alt(bottom * 0.01), cover)
                 cover = float(level.get(next((k for k in level.keys() if k in ('LCDC', 'MCDC', 'HCDC')), None)) or 0)
 
                 if cover:
-                    # cloudlevels.append([c.mb2alt(bottom * 0.01) * 0.3048, c.mb2alt(top * 0.01) * 0.3048, cover])
                     cloudlevels.append([round(c.mb2alt(bottom)), round(c.mb2alt(top)), cover])
 
         # convert turbulence
@@ -339,14 +341,14 @@ class RealWeather(GribWeatherSource):
             return True
         except Exception as e:
             print(f"Error deleting old Real Weather files: {e}")
-            return False
+        return False
 
     def run(self, elapsed):
         """ Updates METAR.rwx file from XP12 realweather metar files if option to do so is checked"""
 
         if self.time_to_update_rwmetar:
             # update real weather metar database
-            print(f"Updating Real Weather DB ...")
+            print("Updating Real Weather DB ...")
             self.update_rwmetar()
             print(f"*** RW METAR DB updated: {datetime.utcnow().strftime('%H:%M:%S')} ***")
             self.last_rwmetar = time.time()

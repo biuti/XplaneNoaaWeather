@@ -30,7 +30,7 @@ class GFS(GribWeatherSource):
         super(GFS, self).__init__(conf)
 
     @classmethod
-    def get_download_url(cls, datecycle, cycle, forecast):
+    def get_download_url(cls, datecycle: str, cycle: int, forecast: int) -> str:
         """Returns the GRIB download url add .idx or .grib to the end"""
         filename = f"gfs.t{cycle:02}z.pgrb2full.0p50.f0{forecast:02}"
         url = f"{cls.base_url}{datecycle}/{cycle:02}/atmos/{filename}"
@@ -38,7 +38,7 @@ class GFS(GribWeatherSource):
         return url
 
     @classmethod
-    def get_cache_filename(cls, datecycle, cycle, forecast):
+    def get_cache_filename(cls, datecycle: str, cycle: int, forecast: int) -> str:
         """Returns the proper filename for the cache"""
         return f"{datecycle}_gfs.t{cycle:02}z.pgrb2full.0p50.f0{forecast:02}"
 

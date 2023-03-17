@@ -946,7 +946,7 @@ class PythonInterface:
     def XPluginStart(self):
         self.syspath = []
         self.conf = Conf(XPLMGetSystemPath(self.syspath)[:-1])
-        print("Conf is {}".format(self.conf))
+        print(f"Conf is {self.conf}")
 
         self.Name = "NOAA Weather - " + self.conf.__VERSION__
         self.Sig = "noaaweather.xppython3"
@@ -1574,7 +1574,7 @@ class PythonInterface:
                                 wlayers = ''
                         sysinfo += out
 
-                    if 'tropo' in rw:
+                    if 'tropo' in rw and rw['tropo'].values():
                         alt, temp, dev = rw['tropo'].values()
                         if alt and temp and dev:
                             sysinfo += [f"TROPO LIMIT: {round(alt)}m (F{c.m2fl(alt)}) "
@@ -1844,13 +1844,14 @@ class PythonInterface:
         import XPPython
 
         xpver, sdkver, hid = XPLMGetVersions()
-        output = ['--- Platform Info ---\n',
-                  f"Plugin version: {self.conf.__VERSION__}\n",
-                  f"Xplane Version: {round(xpver/1000, 3)}, SDK Version: {round(sdkver/100, 2)}\n",
-                  f"Platform: {platform.platform()}\n",
-                  f"Python version: {platform.python_version()}\n",
-                  '\n--- Weather Status ---\n'
-                  ]
+        output = [
+            '--- Platform Info ---\n',
+            f"Plugin version: {self.conf.__VERSION__}\n",
+            f"Xplane Version: {round(xpver/1000, 3)}, SDK Version: {round(sdkver/100, 2)}\n",
+            f"Platform: {platform.platform()}\n",
+            f"Python version: {platform.python_version()}\n",
+            '\n--- Weather Status ---\n'
+        ]
 
         for line in self.weatherInfo():
             output.append(f"{line}\n")
@@ -1905,10 +1906,11 @@ class PythonInterface:
         pprint(vars, f, width=160)
 
         # Append tail of PythonInterface log files
-        logfiles = ['PythonInterfaceLog.txt',
-                    'PythonInterfaceOutput.txt',
-                    Path('noaweather', 'weatherServerLog.txt'),
-                    ]
+        logfiles = [
+            'PythonInterfaceLog.txt',
+            'PythonInterfaceOutput.txt',
+            Path('noaweather', 'weatherServerLog.txt'),
+        ]
 
         for logfile in logfiles:
             try:

@@ -140,9 +140,11 @@ class Conf:
         }
 
         # Minimum redraw difference per layer (legacy cloud layers procedure)
-        self.minRedraw = [c.f2m(500),
-                          c.f2m(5000),
-                          c.f2m(10000)]
+        self.minRedraw = [
+            c.f2m(500),
+            c.f2m(5000),
+            c.f2m(10000)
+        ]
 
         # User settings
         self.enabled = True
@@ -318,7 +320,7 @@ class Conf:
         print(f"XP12 Real Weather Mode: {self.real_weather_enabled}")
 
     @staticmethod
-    def gfs_levels_defaults():
+    def gfs_levels_defaults() -> list:
         """GFS Levels default config"""
         d = [
                 {
@@ -387,7 +389,7 @@ class Conf:
         return d
 
     @staticmethod
-    def gfs_levels_real_weather():
+    def gfs_levels_real_weather() -> list:
         """GFS Levels default config"""
         d = [
                 {
@@ -404,7 +406,7 @@ class Conf:
         return d
 
     @staticmethod
-    def wafs_levels_default():
+    def wafs_levels_default() -> list:
         """GFS Levels default config"""
         d = [
                 {
@@ -430,28 +432,29 @@ class Conf:
         return d
 
     @staticmethod
-    def wafs_levels_real_weather():
+    def wafs_levels_real_weather() -> list:
         """GFS Levels 
         At the moment gfs.t00z.awf_0p25.fFFF.grib2 do not permit partial download. Empty list will use the whole file"""
         d = [
         ]
         return d
 
-    def save_gfs_levels(self, levels):
+    def save_gfs_levels(self, levels: list):
         """Save gfs levels settings to a json file"""
-        with open(self.gfsLevelsFile, 'w') as f:
-            config = {'comment': [line.strip() for line in iter(self.GFS_JSON_HELP.splitlines())],
-                      'config': levels,
-                      }
+        with open(self.gfsLevelsFile, 'w', encoding='UTF-8') as f:
+            config = {
+                'comment': [line.strip() for line in iter(self.GFS_JSON_HELP.splitlines())],
+                'config': levels,
+            }
             level = c.gfs_levels_help_list()
             config['comment'] += [' | '.join(level[i:i + 5]) for i in range(0, len(level), 5)]
             json.dump(config, f, indent=2)
 
-    def load_gfs_levels(self, json_file: Path):
+    def load_gfs_levels(self, json_file: Path) -> list:
         """Load gfs levels configuration from a json file"""
 
         print(f"Trying to locate gfs jsonfile {json_file.name}")
-        with open(json_file, 'r') as f:
+        with open(json_file, 'r', encoding='UTF-8') as f:
             try:
                 return json.load(f)['config']
             except (KeyError, Exception) as err:
