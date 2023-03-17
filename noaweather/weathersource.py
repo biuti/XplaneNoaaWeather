@@ -39,6 +39,27 @@ class WeatherSource(object):
 
         self.cache_path.mkdir(parents=True, exist_ok=True)
 
+    def read_grib_file(self, file: Path, lat: float = 46, lon: float = 9) -> list:
+
+        args = [
+            '-s',
+            '-lon',
+            f"{lon}",
+            f"{lat}",
+            file
+        ]
+
+        kwargs = {'stdout': subprocess.PIPE, "text": True}
+        if self.conf.spinfo:
+            kwargs.update({'startupinfo': self.conf.spinfo, 'shell': True})
+
+        proc = subprocess.Popen([self.conf.wgrib2bin] + args, **kwargs)
+
+        if not proc.stdout:
+            return [] 
+
+        return proc.stdout.read().splitlines()
+
     def shutdown(self):
         """Stop pending processes"""
         self.die.set()

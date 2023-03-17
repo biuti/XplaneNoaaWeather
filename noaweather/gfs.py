@@ -12,8 +12,6 @@ as published by the Free Software Foundation; either version 2
 of the License, or any later version.
 """
 
-import subprocess
-
 from .weathersource import GribWeatherSource
 from .c import c
 
@@ -46,22 +44,7 @@ class GFS(GribWeatherSource):
     def parse_grib_data(self, filepath, lat, lon):
         """Executes wgrib2 and parses its output"""
 
-        args = ['-s',
-                '-lon',
-                f"{lon}",
-                f"{lat}",
-                filepath
-                ]
-
-        kwargs = {'stdout': subprocess.PIPE}
-
-        if self.conf.spinfo:
-            kwargs.update({'startupinfo': self.conf.spinfo, 'shell': True})
-
-        # print("Calling subprocess with {}, {}".format([self.conf.wgrib2bin] + args, kwargs))
-        p = subprocess.Popen([self.conf.wgrib2bin] + args, **kwargs)
-        # print("result of grib data subprocess is p={}".format(p))
-        it = iter(p.stdout)
+        it = self.read_grib_file(filepath, lat, lon)
         winds = {}
         clouds = {}
         pressure = False
@@ -69,7 +52,7 @@ class GFS(GribWeatherSource):
         surface = {}
 
         for line in it:
-            r = line.decode('utf-8')[:-1].split(':')
+            r = line.split(':')
             # Level, variable, value
             level, variable, value = [r[4].split(' '), r[3], r[7].split(',')[2].split('=')[1]]
 

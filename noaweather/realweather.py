@@ -12,7 +12,6 @@ as published by the Free Software Foundation; either version 2
 of the License, or any later version.
 """
 
-import subprocess
 import time
 
 from pathlib import Path
@@ -188,23 +187,10 @@ class RealWeather(GribWeatherSource):
     def parse_grib_data(self, lat, lon) -> dict:
         """Executes wgrib2 and parses its output"""
 
-        kwargs = {'stdout': subprocess.PIPE}
-
-        if self.conf.spinfo:
-            kwargs.update({'startupinfo': self.conf.spinfo, 'shell': True})
-
         it = []
 
         for file in [el for el in self.grib_files if el.is_file()]:
-            args = [
-                '-s',
-                '-lon',
-                f"{lon}",
-                f"{lat}",
-                file
-            ]
-            p = subprocess.Popen([self.conf.wgrib2bin] + args, **kwargs)
-            it.extend(iter(p.stdout))
+            it.extend(self.read_grib_file(file, lat, lon))
 
         wind = {}
         clouds = {}
@@ -218,11 +204,7 @@ class RealWeather(GribWeatherSource):
             wind.setdefault(level, {})
 
         for line in it:
-            r = line.decode('utf-8')[:-1].split(':')
-            if not r[2].split('=')[1] == self.cycle:
-                # getting info
-                self.cycle = r[2].split('=')[1]
-                self.fcst = r[5]
+            r = line.split(':')
             # Level, variable, value
             level, variable, value = [r[4].split(' '), r[3], r[7].split(',')[2].split('=')[1]]
 

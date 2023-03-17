@@ -9,7 +9,6 @@ as published by the Free Software Foundation; either version 2
 of the License, or any later version.
 """
 
-import subprocess
 import re
 
 from datetime import datetime, timedelta
@@ -68,26 +67,12 @@ class WAFS(GribWeatherSource):
         of EDR range from white near 0 to violet near 1.
         """
 
-        args = ['-s',
-                '-lon',
-                f"{lon}",
-                f"{lat}",
-                filepath
-                ]
-
-        kwargs = {'stdout': subprocess.PIPE}
-
-        if self.conf.spinfo:
-            '''windows'''
-            kwargs.update({'startupinfo': self.conf.spinfo, 'shell': True})
-
-        p = subprocess.Popen([self.conf.wgrib2bin] + args, **kwargs)
-        it = iter(p.stdout)
+        it = self.read_grib_file(filepath, lat, lon)
 
         cat = {}
         for line in it:
             # print(line)
-            sline = line.decode('utf-8').split(':')
+            sline = line.split(':')
 
             if sline[3] == 'EDPARM':
                 # Eddy Dissipation Param
