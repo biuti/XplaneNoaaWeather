@@ -110,6 +110,10 @@ class Conf:
     def gfs_variable_list(self) -> dict:
         return self.gfs_levels_real_weather() if self.real_weather_enabled else self.gfs_levels
 
+    @property
+    def wafs_variable_list(self) -> dict:
+        return self.wafs_levels_real_weather() if self.real_weather_enabled else self.gfs_levels
+
     def setDefaults(self):
         """Default settings"""
         print(f"Loading defaults settings ...")
@@ -160,10 +164,12 @@ class Conf:
 
         self.delete_RW_files = False  # automatically delete outdated files in Real Weather folder
 
-        self.download_GFS = False
-
         # Waiting API SDK to implement automatic mode switch
         self.real_weather_enabled = True
+
+        # Avoid downloading GFS and WAFS data until it will have some use in XP12
+        self.download_GFS = False
+        self.download_WAFS = True
 
         self.inputbug = False
 
@@ -265,6 +271,7 @@ class Conf:
             'metar_source': self.metar_source,
             'download_METAR': self.download_METAR,
             'download_GFS': self.download_GFS,
+            'download_WAFS': self.download_WAFS,
             'metar_agl_limit': self.metar_agl_limit,
             'metar_distance_limit': self.metar_distance_limit,
             'max_visibility': self.max_visibility,
@@ -393,6 +400,40 @@ class Conf:
                     ],
                     "levels": "surface"
                 }
+        ]
+        return d
+
+    @staticmethod
+    def wafs_levels_default():
+        """GFS Levels default config"""
+        d = [
+                {
+                    "vars": [
+                        "ICESEV",
+                        "EDPARM"
+                    ],
+                    "levels": [
+                                "900 mb",
+                                "800 mb",
+                                "700 mb",
+                                "600 mb",
+                                "500 mb",
+                                "400 mb",
+                                "350 mb",
+                                "300 mb",
+                                "250 mb",
+                                "200 mb",
+                                "150 mb"
+                    ]
+                }
+        ]
+        return d
+
+    @staticmethod
+    def wafs_levels_real_weather():
+        """GFS Levels 
+        At the moment gfs.t00z.awf_0p25.fFFF.grib2 do not permit partial download. Empty list will use the whole file"""
+        d = [
         ]
         return d
 

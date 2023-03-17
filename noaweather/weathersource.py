@@ -108,8 +108,8 @@ class GribWeatherSource(WeatherSource):
     def run(self, elapsed):
         """Worker function called by a worker thread to update the data"""
 
-        if not self.conf.download_GFS:
-            # GFS data download is disabled
+        if not self.download_enabled:
+            # data download is disabled
             return
 
         if not self.conf.meets_wgrib2_requirements:

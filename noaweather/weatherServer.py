@@ -33,6 +33,7 @@ except ImportError:
 
 from .realweather import RealWeather
 from .gfs import GFS
+from .wafs import WAFS
 from .c import c
 from .metar import Metar
 from .weathersource import Worker

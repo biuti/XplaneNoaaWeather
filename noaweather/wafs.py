@@ -19,17 +19,18 @@ from .c import c
 class WAFS(GribWeatherSource):
     """World Area Forecast System - Upper Air Forecast weather source"""
 
-    cycles = [0, 6, 12, 18]
     forecasts = [6, 9, 12, 15, 18, 21, 24]
     base_url = 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.'
 
     download_wait = 0
-    publish_delay = {'hours': 5, 'minutes': 0}
     grib_conf_var = 'lastwafsgrib'
 
     RE_PRAM = re.compile(r'\bparmcat=(?P<parmcat>[0-9]+) parm=(?P<parm>[0-9]+)')
 
     def __init__(self, conf):
+        self.variable_list = conf.wafs_variable_list
+        self.download_enabled = conf.download_WAFS
+        self.download_needed = False
         super(WAFS, self).__init__(conf)
 
     @classmethod
@@ -56,7 +57,7 @@ class WAFS(GribWeatherSource):
 
         return f"{cnow.year}{cnow.month:02}{cnow.day:02}{lcycle:02}", lcycle, forecast
 
-    def parse_grib_data(self, filepath, lat, lon):
+    def parse_grib_data(self, filepath, lat: float, lon: float) -> list:
         """Executes wgrib2 and parses its output
 
         https://aviationweather.gov/turbulence/help?page=plot

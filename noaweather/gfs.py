@@ -26,6 +26,7 @@ class GFS(GribWeatherSource):
 
     def __init__(self, conf):
         self.variable_list = conf.gfs_variable_list
+        self.download_enabled = conf.download_GFS
         super(GFS, self).__init__(conf)
 
     @classmethod
@@ -41,7 +42,7 @@ class GFS(GribWeatherSource):
         """Returns the proper filename for the cache"""
         return f"{datecycle}_gfs.t{cycle:02}z.pgrb2full.0p50.f0{forecast:02}"
 
-    def parse_grib_data(self, filepath, lat, lon):
+    def parse_grib_data(self, filepath, lat: float, lon: float) -> dict:
         """Executes wgrib2 and parses its output"""
 
         it = self.read_grib_file(filepath, lat, lon)
@@ -102,11 +103,14 @@ class GFS(GribWeatherSource):
                 if temp and rh:
                     dew = c.dewpoint(temp, rh)
 
-                windlevels.append([alt, hdg, c.ms2knots(vel), {'temp': temp,
-                                                               'dev': dev,
-                                                               'rh': rh,
-                                                               'dew': dew,
-                                                               'gust': 0}])
+                windlevels.append(
+                    [
+                        alt, 
+                        hdg, 
+                        c.ms2knots(vel), 
+                        {'temp': temp, 'dev': dev, 'rh': rh, 'dew': dew, 'gust': 0}
+                    ]
+                )
                 if alt and temp:
                     templevels.append([alt, temp, dev, dew])
 
@@ -115,15 +119,13 @@ class GFS(GribWeatherSource):
                     tropo = {'PRES': level, 'TMP': wind['TMP']}
 
         # Convert cloud level
-        for level in clouds:
-            level = clouds[level]
-            if 'top' in level and 'bottom' in level:
-                top, bottom = float(level['top']), float(level['bottom'])
-                # print "XPGFS: top: %.0fmbar %.0fm, bottom: %.0fmbar %.0fm %d%%" % (top * 0.01, c.mb2alt(top * 0.01), bottom * 0.01, c.mb2alt(bottom * 0.01), cover)
+        for level in clouds.values():
+            if all(k in level.keys() for k in ('top', 'bottom')):
+                top, bottom = float(level['top']) * 0.01, float(level['bottom']) * 0.01  # mb
                 cover = float(level.get(next((k for k in level.keys() if k in ('LCDC', 'MCDC', 'HCDC')), None)) or 0)
 
                 if cover:
-                    cloudlevels.append([c.mb2alt(bottom * 0.01) * 0.3048, c.mb2alt(top * 0.01) * 0.3048, cover])
+                    cloudlevels.append([round(c.mb2alt(bottom)), round(c.mb2alt(top)), cover])
 
         windlevels.sort()
         cloudlevels.sort()
