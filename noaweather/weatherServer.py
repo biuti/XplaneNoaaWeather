@@ -233,11 +233,6 @@ if __name__ == "__main__":
     worker = Worker(workers, conf.parserate)
     worker.start()
 
-    # remove old Real Weather files
-    if conf.delete_RW_files:
-        print(f"deleting old files from Real Weather folder ...")
-        rw.delete_old_files()
-
     if not conf.meets_wgrib2_requirements:
         print('*** OS does not meet minimum requirements. GFS data disabled ***')
     print('Server started.')

@@ -164,16 +164,12 @@ class Conf:
 
         self.download_METAR = True
 
-        self.delete_RW_files = False  # automatically delete outdated files in Real Weather folder
-
         # Waiting API SDK to implement automatic mode switch
         self.real_weather_enabled = True
 
         # Avoid downloading GFS and WAFS data until it will have some use in XP12
         self.download_GFS = False
-        self.download_WAFS = True
-
-        self.inputbug = False
+        self.download_WAFS = False
 
         # From this AGL level METAR values are interpolated to GFS ones.
         self.metar_agl_limit = 20  # In meters
@@ -279,12 +275,10 @@ class Conf:
             'max_visibility': self.max_visibility,
             'max_cloud_height': self.max_cloud_height,
             'turbulence_probability': self.turbulence_probability,
-            'inputbug': self.inputbug,
             'metar_updaterate': self.metar_updaterate,
             'ignore_metar_stations': self.ignore_metar_stations,
             'metar_ignore_auto': self.metar_ignore_auto,
             'metar_use_xp12': self.metar_use_xp12,
-            "delete_RW_files": self.delete_RW_files
         }
         self.saveSettings(self.settingsfile, conf)
 

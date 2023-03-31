@@ -389,21 +389,6 @@ class RealWeather(GribWeatherSource):
                     continue
         return None
 
-    def delete_old_files(self, hours: int = 24) -> bool:
-        """Deletes all files in XP12 real weather folder older than given parameter
-                hours: int   time in hours"""
-
-        now = time.time()
-        max_old = hours * 3600
-        try:
-            for file in self.conf.wpath.iterdir():
-                if file.suffix.endswith(('grib', 'txt', 'grib2')) and now - file.stat().st_mtime > max_old:
-                    util.remove(file)
-            return True
-        except Exception as e:
-            print(f"Error deleting old Real Weather files: {e}")
-        return False
-
     def update_wafs_files(self, grib_file: Path) -> bool:
         """takes the downloaded WAFS file and copies it to the XP12 Real Weather folder"""
         if self.starting:
