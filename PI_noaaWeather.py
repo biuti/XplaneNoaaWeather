@@ -193,32 +193,30 @@ class Weather:
         self.weatherClientSend('!shutdown')
         self.weatherClientThread = False
 
-    def setTurbulence(self, turbulence, elapsed):
-        """Set turbulence for all wind layers with our own interpolation"""
-        turb = 0
 
-        prevlayer = False
-        if len(turbulence) > 1:
-            for clayer in turbulence:
-                '''apply max value'''
-                clayer[1] = min(clayer[1], self.conf.max_turbulence)
-                if clayer[0] > self.alt:
-                    # last layer
-                    break
-                else:
-                    prevlayer = clayer
-            if prevlayer:
-                turb = c.interpolate(prevlayer[1], clayer[1], prevlayer[0], clayer[0], self.alt)
-            else:
-                turb = clayer[1]
+    def setTurbulence(self, turbulence: list):
+        """ Set turbulence for all wind layers with our own interpolation
+            it seems that value in DRef is value / 4
+        """
+
+        # print('turbulence Dref:')
+        # print(f" test 1: {self.winds['turb'].value}")
+
+        # print(f"Writing turbulence data")
+
+        values = []
+        for lvl, (alt, value) in enumerate(turbulence, 2):
+            '''check value'''
+            if value > 100 or value < 0:
+                # probably below surface or data error
+                value = c.rand(0, 0.02)
+            '''using value/4 as seen in observations and applying turbulence max value'''
+            # values.append(min(value, self.conf.max_turbulence))
+            values.append(min(value / 4, self.conf.max_turbulence))
+        # print(f"values: {values}")
 
         # set turbulence
-        turb *= self.conf.turbulence_probability
-        turb = c.randPattern('turbulence', turb, elapsed, 20, min_time=1)
-
-        self.winds[0]['turb'].value = turb
-        self.winds[1]['turb'].value = turb
-        self.winds[2]['turb'].value = turb
+        self.winds['turb'].change_if_diff(values)
 
     def setWinds(self, winds, elapsed):
         """Set winds: Interpolate layers and transition new data"""
@@ -1040,12 +1038,13 @@ class PythonInterface:
 
         if self.conf.real_weather_enabled:
             # WAFS download enable
-            XPCreateWidget(x, y, x + 20, y - 20, 1, 'WAFS download', 0, window, xpWidgetClass_Caption)
-            self.WAFSCheck = XPCreateWidget(x + 120, y, x + 140, y - 20, 1, '', 0, window, xpWidgetClass_Button)
-            XPSetWidgetProperty(self.WAFSCheck, xpProperty_ButtonType, xpRadioButton)
-            XPSetWidgetProperty(self.WAFSCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
-            XPSetWidgetProperty(self.WAFSCheck, xpProperty_ButtonState, self.conf.download_WAFS)
-            y -= 40
+            # XPCreateWidget(x, y, x + 20, y - 20, 1, 'WAFS download', 0, window, xpWidgetClass_Caption)
+            # self.WAFSCheck = XPCreateWidget(x + 120, y, x + 140, y - 20, 1, '', 0, window, xpWidgetClass_Button)
+            # XPSetWidgetProperty(self.WAFSCheck, xpProperty_ButtonType, xpRadioButton)
+            # XPSetWidgetProperty(self.WAFSCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
+            # XPSetWidgetProperty(self.WAFSCheck, xpProperty_ButtonState, self.conf.download_WAFS)
+            # y -= 40
+            pass
 
         else:
             # Winds enable
@@ -1315,7 +1314,9 @@ class PythonInterface:
                 self.conf.enabled = XPGetWidgetProperty(self.enableCheck, xpProperty_ButtonState, None)
                 self.conf.metar_decode = XPGetWidgetProperty(self.decodeCheck, xpProperty_ButtonState, None)
                 if self.conf.real_weather_enabled:
-                    self.conf.download_WAFS = XPGetWidgetProperty(self.WAFSCheck, xpProperty_ButtonState, None)
+                    # nothing to do now
+                    # self.conf.download_WAFS = XPGetWidgetProperty(self.WAFSCheck, xpProperty_ButtonState, None)
+                    pass
                 else:
                     self.conf.set_wind = XPGetWidgetProperty(self.windsCheck, xpProperty_ButtonState, None)
                     self.conf.set_clouds = XPGetWidgetProperty(self.cloudsCheck, xpProperty_ButtonState, None)
@@ -1396,7 +1397,9 @@ class PythonInterface:
         XPSetWidgetProperty(self.xp12MetarCheck, xpProperty_ButtonState, self.conf.metar_use_xp12)
 
         if self.conf.real_weather_enabled:
-            XPSetWidgetProperty(self.WAFSCheck, xpProperty_ButtonState, self.conf.download_WAFS)
+            # nothing to do now
+            # XPSetWidgetProperty(self.WAFSCheck, xpProperty_ButtonState, self.conf.download_WAFS)
+            pass
 
         else:
             XPSetWidgetProperty(self.windsCheck, xpProperty_ButtonState, self.conf.set_wind)
@@ -1592,23 +1595,31 @@ class PythonInterface:
                             sysinfo += out
 
                     if 'turbulence' in rw:
+                        wafs = rw['turbulence']
                         tblayers = ''
                         out = []
-                        sysinfo += [f"XP12 REAL WEATHER TURBULENCE ({wdata['info']['wafs_cycle']}):  "
-                                    f"FL | SEV (max {self.conf.max_turbulence}) "]
-                        # print(f"wafs layers: {rw['turbulence']}")
-                        wafs_layers = [el for el in rw['turbulence'] if el[1] < 20]
-                        # print(f"wafs layers 2: {wafs_layers}")
-                        i = 1
-                        pf = 0
-                        for layer in wafs_layers:
-                            fl = round(layer[0] * 3.28084 / 100)
-                            if len(wafs_layers) < 19 or fl > pf + 40:
-                                tblayers += f"    {fl}|{round(layer[1], 2)}" \
-                                            f"{'*' if layer[1] >= self.conf.max_turbulence else ''}"
-                                i += 1
-                                pf = fl
-                            if i % 9 == 0 or i == len(wafs_layers):
+                        cycle = 'not ready yet' if 'None' in wdata['info']['rw_wafs_cycle'] else wdata['info']['rw_wafs_cycle']
+                        sysinfo += [f"XP12 REAL WEATHER TURBULENCE ({wdata['info']['rw_wafs_cycle']}):  "
+                                    f"FL | SEV (val*10, max {self.conf.max_turbulence * 10}) "]
+                        for i, layer in enumerate(wafs, 1):
+                            fl = c.m2fl(layer[0])
+                            tblayers += f"    {fl}|{round(layer[1] / 4 * 10, 2)}" \
+                                        f"{'*' if layer[1] >= self.conf.max_turbulence else ''}"
+                            if i % 9 == 0 or i == len(wafs):
+                                out.append(tblayers)
+                                tblayers = ''
+                        sysinfo += out
+                    if self.conf.download_WAFS and 'wafs' in wdata and 'turbulence' in wdata['wafs']:
+                        wafs = wdata['wafs']['turbulence']
+                        tblayers = ''
+                        out = []
+                        sysinfo += [f"NOAA Downloaded WAFS data ({wdata['info']['wafs_cycle']}):  "
+                                    f"FL | SEV (val*10, max {self.conf.max_turbulence * 10}) "]
+                        for i, layer in enumerate(wafs, 1):
+                            fl = c.m2fl(layer[0])
+                            tblayers += f"    {fl:03}|{round(layer[1] / 4 * 10, 2)}" \
+                                        f"{'*' if layer[1] >= self.conf.max_turbulence else ''}"
+                            if i % 9 == 0 or i == len(wafs):
                                 out.append(tblayers)
                                 tblayers = ''
                         sysinfo += out

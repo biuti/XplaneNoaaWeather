@@ -204,8 +204,8 @@ class Conf:
         self.maxRandomWindHdg = 5  # degrees
         self.maxRandomWindGust = 5  # kt
 
-        # Max Turbulence (4 = severe turbulence)
-        self.max_turbulence = 4
+        # Max Turbulence (1 = severe turbulence)
+        self.max_turbulence = 0.9
 
         # Transitions
         self.windTransSpeed = 0.5  # kt/s

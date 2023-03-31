@@ -31,6 +31,8 @@ class WAFS(GribWeatherSource):
         self.variable_list = conf.wafs_variable_list
         self.download_enabled = conf.download_WAFS
         self.download_needed = False
+        self.wafs_run = None
+        self.wafs_fcst = None
         super(WAFS, self).__init__(conf)
 
     @classmethod
@@ -57,7 +59,7 @@ class WAFS(GribWeatherSource):
 
         return f"{cnow.year}{cnow.month:02}{cnow.day:02}{lcycle:02}", lcycle, forecast
 
-    def parse_grib_data(self, filepath, lat: float, lon: float) -> list:
+    def parse_grib_data(self, filepath, lat: float, lon: float) -> dict:
         """Executes wgrib2 and parses its output
 
         https://aviationweather.gov/turbulence/help?page=plot
@@ -74,12 +76,18 @@ class WAFS(GribWeatherSource):
         for line in it:
             # print(line)
             sline = line.split(':')
+            if not any(el in sline[4] for el in self.levels):
+                # print(f"{sline[4]} not in levels")
+                continue
 
             if sline[3] == 'EDPARM':
                 # Eddy Dissipation Param
                 alt = int(c.mb2alt(float(sline[4][:-3])))
                 value = float(sline[7].split(',')[-1:][0][4:-1])
                 cat[alt] = value
+                if not sline[2].split('=')[1] == self.wafs_run:
+                    self.wafs_run = sline[2].split('=')[1]
+                    self.wafs_fcst = sline[5]
             elif sline[3] == 'ICESEV':
                 # Icing severity
                 pass
@@ -98,10 +106,10 @@ class WAFS(GribWeatherSource):
 
         for key, value in turb_items:
             '''tweaking turbulence intensity using a factor'''
-            turbulence.append([key, value * 8])
+            turbulence.append([key, value])
         turbulence.sort()
-
-        return turbulence
+        # print(f"wafs turb: {turbulence}")
+        return {'turbulence': turbulence}
 
     @classmethod
     def get_download_url(cls, datecycle: str, cycle: int, forecast: int) -> str:

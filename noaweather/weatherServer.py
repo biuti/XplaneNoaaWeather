@@ -82,30 +82,37 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             'info': {
                 'lat': lat,
                 'lon': lon,
+                'gfs_cycle': 'na',
                 'wafs_cycle': 'na',
-                'gfs_cycle': 'na'
+                'rw_gfs_cycle': 'na',
+                'rw_wafs_cycle': 'na',
             }
         }
 
         # Parse gfs and wafs
-        if conf.meets_wgrib2_requirements:
+        if conf.meets_wgrib2_requirements and conf.real_weather_enabled:
             rw.get_real_weather_forecast()
             if all(el.is_file() for el in rw.grib_files):
-                response['info']['gfs_cycle'] = f"{rw.gfs_run}: {rw.gfs_fcst}"
-                response['info']['wafs_cycle'] = f"{rw.wafs_run}: {rw.wafs_fcst}"
                 response['rw'] = rw.parse_grib_data(lat, lon)
+                response['info']['rw_gfs_cycle'] = f"{rw.gfs_run}: {rw.gfs_fcst}" if rw.gfs_run else 'na'
+                response['info']['rw_wafs_cycle'] = f"{rw.wafs_run}: {rw.wafs_fcst}" if rw.wafs_run else 'na'
                 # response['wafs'] = response['rw']['turbulence']
                 if gfs.download_enabled and gfs.last_grib:
                     filepath = Path(gfs.cache_path, gfs.last_grib)
                     response['gfs'] = gfs.parse_grib_data(filepath, lat, lon)
                 # print(f"Grib File: {gfs.last_grib}, data: {response['gfs']}")
-                if rw.wafs_download_needed and wafs.download_enabled and wafs.last_grib:
+                if conf.download_WAFS and  rw.wafs_download_needed and wafs.last_grib:
                     # TURB data is not up-to-date, download GRIB file needed
                     print(f"TURB data is not up-to-date, download GRIB file needed ...")
-                    if Path(wafs.cache_path, wafs.last_grib).is_file():
-                        resp = rw.update_wafs_files(Path(wafs.cache_path, wafs.last_grib))
-                        if resp is True:
-                            rw.starting = False
+                    wafs_file = Path(wafs.cache_path, wafs.last_grib)
+                    if wafs_file.is_file():
+                        # resp = rw.update_wafs_files(Path(wafs.cache_path, wafs.last_grib))
+                        # if resp is True:
+                        #     rw.starting = False
+                        print(f"Turbulence updated from WFS data: {wafs_file.name}")
+                        response['wafs'] = wafs.parse_grib_data(wafs_file, lat, lon)
+                        print(f"response['wafs]: {response['wafs']}")
+                        response['info']['wafs_cycle'] = f"{wafs.wafs_run}: {wafs.wafs_fcst}" if wafs.wafs_run else 'na'
 
         # Parse metar
         apt = metar.get_closest_station(lat, lon)
