@@ -498,6 +498,10 @@ class c:
             return int(round(value))
 
     @classmethod
+    def rand(cls, min: float = 0, max: float = 1) -> float:
+        return min + random() * (max - min)
+
+    @classmethod
     def randPattern(cls, id, max_val, elapsed, max_time=1, min_val=0, min_time=1, heading=False):
         """ Creates random cosine interpolated "patterns" """
 
