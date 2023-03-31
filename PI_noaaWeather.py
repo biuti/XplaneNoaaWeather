@@ -83,20 +83,18 @@ class Weather:
         '''
         Bind datarefs
         '''
-        self.winds = []
-        self.clouds = []
-        self.turbulence = {}
 
-        # wind dataref are array[10] in XP12
+        # wind dataref are array[13] in XP12
+
         self.winds = {
-            'alt': EasyDref(f'sim/weather/region/wind_altitude_msl_m', 'float'),
-            'hdg': EasyDref(f'sim/weather/region/wind_direction_degt', 'float'),
-            'speed': EasyDref(f'sim/weather/region/wind_speed_msc', 'float'),  # m/s, it was kt in XP11
-            'gust_hdg': EasyDref(f'sim/weather/region/shear_direction_degt', 'float'),
-            'gust': EasyDref(f'sim/weather/region/shear_speed_msc', 'float'),  # m/s, it was kt in XP11
-            'turb': EasyDref(f'sim/weather/region/turbulence', 'float'),
-            'temp': EasyDref(f'sim/weather/region/temperatures_aloft_deg_c', 'float'),
-            'dewp': EasyDref(f'sim/weather/region/dewpoint_deg_c', 'float')
+            'alt': EasyDref(f'sim/weather/region/wind_altitude_msl_m[0:12]', 'float', writable=True),
+            'hdg': EasyDref(f'sim/weather/region/wind_direction_degt[0:12]', 'float', writable=True),
+            'speed': EasyDref(f'sim/weather/region/wind_speed_msc[0:12]', 'float', writable=True),  # m/s, it was kt in XP11
+            'gust_hdg': EasyDref(f'sim/weather/region/shear_direction_degt[0:12]', 'float', writable=True),
+            'gust': EasyDref(f'sim/weather/region/shear_speed_msc[0:12]', 'float', writable=True),  # m/s, it was kt in XP11
+            'turb': EasyDref(f'sim/weather/region/turbulence[0:12]', 'float', writable=True),
+            'temp': EasyDref(f'sim/weather/region/temperatures_aloft_deg_c[0:12]', 'float', writable=True),
+            'dewp': EasyDref(f'sim/weather/region/dewpoint_deg_c[0:12]', 'float', writable=True)
         }
 
         # cloud dataref are array[3] in XP12
@@ -116,13 +114,13 @@ class Weather:
         self.xpWeather = EasyDref('sim/weather/region/weather_source', 'int')
 
         self.msltemp = EasyDref('sim/weather/region/sealevel_temperature_c', 'float')
-        self.temp = EasyDref('sim/weather/temperature_ambient_c', 'float')
-        self.visibility = EasyDref('sim/weather/visibility_reported_m', 'float')
+        self.temp = EasyDref('sim/weather/aircraft/temperature_ambient_deg_c', 'float')
+        self.visibility = EasyDref('sim/weather/aircraft/visibility_reported_sm', 'float')
         # self.override_visibility = EasyDref('sim/private/controls/scattering/override_visibility_m', 'float')
         self.pressure = EasyDref('sim/weather/region/sealevel_pressure_pas', 'float')  # Pascal, it was inHg in XP11
 
         self.precipitation = EasyDref('sim/weather/region/rain_percent', 'float')
-        self.runwayFriction = EasyDref('sim/weather/runway_friction', 'float')
+        self.runwayFriction = EasyDref('sim/weather/region/runway_friction', 'float')
 
         self.thermals_rate = EasyDref('sim/weather/region/thermal_rate_ms', 'float')  # seems ft/m 0 - 1000
 
@@ -1529,8 +1527,8 @@ class PythonInterface:
                     pressure = self.weather.pressure.value / 100  # mb
                     pressure_inHg = c.mb2inHg(pressure)
                     line = f"   Pressure: {pressure:.1f}mb ({pressure_inHg:.2f}inHg)"
-                    vis, vis_sm = round(self.weather.visibility.value), round(c.m2sm(self.weather.visibility.value), 1)
-                    line += f" | Visibility: {vis}m ({vis_sm}sm)"
+                    vis_m, vis_sm = round(c.sm2m(self.weather.visibility.value)), round(self.weather.visibility.value, 1)
+                    line += f" | Visibility: {vis_m}m ({vis_sm}sm)"
                     friction = self.weather.runwayFriction.value
                     metar_friction = self.weather.friction
                     line += f" | Runway Friction: {friction:02}"
