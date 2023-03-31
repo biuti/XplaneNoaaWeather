@@ -26,20 +26,6 @@ class RealWeather(GribWeatherSource):
     """X-Plane 12 Real Weather files source"""
 
     timeframes = range(0, 24, 3)
-    levels = [
-        '950',  # ~ 1500ft
-        '900',  # ~ 3000ft
-        '800',  # ~ 6000ft
-        '700',  # ~ FL100
-        '600',  # ~ FL140
-        '500',  # ~ FL180
-        '400',  # ~ FL240
-        '300',  # ~ FL300
-        '250',  # ~ FL340
-        '200',  # ~ FL390
-        '150',  # ~ FL440
-        '100'   # ~ FL520
-    ]
 
     suffixes = [
         'calt',
@@ -252,9 +238,9 @@ class RealWeather(GribWeatherSource):
                     else:
                         # level coverage/temperature
                         clouds[level[0]][variable] = value
-                elif level[1] == 'mb':
+                elif any(el in variable for el in ('ICESEV', 'EDPARM', 'UGRD', 'VGRD', 'TMP', 'RH')):
                     if variable == 'ICESEV':
-                        # Icing severity, not used yet
+                        # Icing severity
                         pass
                     elif variable == 'EDPARM':
                         # Eddy Dissipation Param
@@ -265,14 +251,14 @@ class RealWeather(GribWeatherSource):
                                 self.wafs_run = r[2].split('=')[1]
                                 self.wafs_fcst = r[5]
                             checked = True
-                        turb[level[0]] = value
+                        turb['1000' if float(level[0]) < 100 else level[0]] = value
                     elif variable in ['UGRD', 'VGRD', 'TMP', 'RH']:
                         # wind, temperature and humidity
                         if not r[2].split('=')[1] == self.gfs_run:
                             # getting cycle info
                             self.gfs_run = r[2].split('=')[1]
                             self.gfs_fcst = r[5]
-                        wind[level[0]][variable] = value
+                        wind['1000' if float(level[0]) < 100 else level[0]][variable] = value
                 elif level[-1] == 'ground':
                     surface[variable] = value
                 elif variable == 'PRMSL':
@@ -336,7 +322,7 @@ class RealWeather(GribWeatherSource):
         # convert turbulence
         for lvl, val in turb.items():
             alt = round(c.mb2alt(float(lvl)))
-            turblevels.append([alt, float(val) * 8])
+            turblevels.append([alt, float(val)])
 
         windlevels.sort()
         cloudlevels.sort()

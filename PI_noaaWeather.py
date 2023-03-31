@@ -1454,6 +1454,8 @@ class PythonInterface:
                     sysinfo += [f"   XP12 Real Weather is not active (value = {self.weather.xpWeather.value})"]
                 elif 'None' in wdata['info']['gfs_cycle']:
                     sysinfo += ['   XP12 is still downloading weather info ...']
+                elif self.conf.real_weather_enabled:
+                    sysinfo += [f"   GFS Cycle: {wdata['info']['rw_gfs_cycle']}"]
                 else:
                     sysinfo += [f"   GFS Cycle: {wdata['info']['gfs_cycle']}"]
 
@@ -1988,11 +1990,24 @@ class PythonInterface:
         wdata = self.weather.weatherData
 
         ''' Return if there's no weather data'''
-        if self.weather.weatherData is False:
+        if wdata is False:
             return -1
 
+        if self.conf.real_weather_enabled:
+            # Real Weather active
+            # check Dref values, RW overwrites them. Probably needed for any change to Real Weather data
+            # looking at actual weather, does not seem to have any impact tho.
+            if not self.data.metar_runwayFriction.value or self.weather.runwayFriction.value != self.data.metar_runwayFriction.value:
+                self.data.metar_runwayFriction.value = self.weather.runwayFriction.value
+            if self.weather.runwayFriction.value > 6:
+                # set runway friction to Puddly, to avoid extreme and unrealistic slippery conditions.
+                self.weather.friction = self.weather.runwayFriction.value
+                self.weather.runwayFriction.value = 6 if self.weather.friction < 10 else 9
+            if not self.data.override_turbulence.value and self.conf.download_WAFS and wdata['wafs']:
+                self.weather.setTurbulence(wdata['wafs']['turbulence'])
+
         ''' Data set on new weather Data '''
-        if self.weather.newData:
+        if not self.conf.real_weather_enabled and self.weather.newData:
             rain, ts, friction, patchy = 0, 0, 0, 0
 
             # Clear transitions on airport load
@@ -2001,37 +2016,34 @@ class PythonInterface:
                 c.randRefs = {}
                 self.newAptLoaded = False
 
-            # Parameters to be injected even with XP12 REAL WEATHER enabled
-
             # Parameters to be injected ONLY IF XP12 REAL WEATHER is not enabled
-            if not self.conf.real_weather_enabled:
-                # Set metar values
-                if 'visibility' in wdata['metar']:
-                    visibility = c.limit(wdata['metar']['visibility'], self.conf.max_visibility)
+            # Set metar values
+            if 'visibility' in wdata['metar']:
+                visibility = c.limit(wdata['metar']['visibility'], self.conf.max_visibility)
 
-                    if not self.data.override_visibility.value:
-                        self.weather.visibility.value = visibility
+                if not self.data.override_visibility.value:
+                    self.weather.visibility.value = visibility
 
-                    self.data.visibility.value = visibility
+                self.data.visibility.value = visibility
 
-                if 'precipitation' in wdata['metar']:
-                    p = wdata['metar']['precipitation']
-                    for el in p:
-                        precip, wet, is_patchy = c.metar2xpprecipitation(el, p[el]['int'], p[el]['int'], p[el]['recent'])
+            if 'precipitation' in wdata['metar']:
+                p = wdata['metar']['precipitation']
+                for el in p:
+                    precip, wet, is_patchy = c.metar2xpprecipitation(el, p[el]['int'], p[el]['int'], p[el]['recent'])
 
-                        if precip is not False:
-                            rain = precip
-                        if wet is not False:
-                            friction = wet
-                        if is_patchy is not False:
-                            patchy = 1
+                    if precip is not False:
+                        rain = precip
+                    if wet is not False:
+                        friction = wet
+                    if is_patchy is not False:
+                        patchy = 1
 
-                    if 'TS' in p:
-                        ts = 0.5
-                        if p['TS']['int'] == '-':
-                            ts = 0.25
-                        elif p['TS']['int'] == '+':
-                            ts = 1
+                if 'TS' in p:
+                    ts = 0.5
+                    if p['TS']['int'] == '-':
+                        ts = 0.25
+                    elif p['TS']['int'] == '+':
+                        ts = 1
 
                 if not self.data.override_precipitation.value:
                     self.weather.thunderstorm.value = ts

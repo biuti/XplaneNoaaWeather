@@ -80,6 +80,22 @@ class GribWeatherSource(WeatherSource):
     download_wait = 0
     grib_conf_var = 'lastgrib'
 
+    levels = [
+        '1000',  # ~ surface
+        '950',   # ~ 1500ft
+        '900',   # ~ 3000ft
+        '800',   # ~ 6000ft
+        '700',   # ~ FL100
+        '600',   # ~ FL140
+        '500',   # ~ FL180
+        '400',   # ~ FL240
+        '300',   # ~ FL300
+        '250',   # ~ FL340
+        '200',   # ~ FL390
+        '150',   # ~ FL440
+        '100'    # ~ FL520
+    ]
+
     def __init__(self, conf):
         self.cache_path = Path(conf.cachepath, 'gfs')
 

@@ -18,7 +18,7 @@ class EasyDref:
     def __init__(self, dataref, type="float", register=False, writable=False):
         # Clear dataref
         dataref = dataref.strip()
-        self.isarray, dref = False, False
+        self.is_array, dref = False, False
         self.register = register
 
         if ('"' in dataref):
@@ -32,7 +32,7 @@ class EasyDref:
 
         if ('[' in dataref):
             # We have an array
-            self.isarray = True
+            self.is_array = True
             range = dataref[dataref.find('[') + 1:dataref.find(']')].split(':')
             dataref = dataref[:dataref.find('[')]
             if (len(range) < 2):
@@ -66,7 +66,7 @@ class EasyDref:
             self.setCB, self.getCB = False, False
             self.rsetCB, self.rgetCB = False, False
 
-            if self.isarray:
+            if self.is_array:
                 if writable: self.rsetCB = self.set_cb
                 self.rgetCB = self.rget_cb
             else:
@@ -90,7 +90,7 @@ class EasyDref:
             self.get = self.get_f
 
             # Init default value
-            if self.isarray:
+            if self.is_array:
                 self.value_f = [self.cast(0)] * self.index
                 self.set = self.rset_f
             else:
@@ -130,13 +130,13 @@ class EasyDref:
         pass
 
     def set(self, value):
-        if self.isarray:
+        if self.is_array:
             self.rset(self.DataRef, value, self.index, len(value))
         else:
             self.dr_set(self.DataRef, self.cast(value))
 
     def get(self):
-        if (self.isarray):
+        if self.is_array:
             list = []
             self.rget(self.DataRef, list, self.index, self.count)
             return list
@@ -148,7 +148,7 @@ class EasyDref:
         self.value_f = value
 
     def get_f(self):
-        if self.isarray:
+        if self.is_array:
             vals = []
             for item in self.value_f:
                 vals.append(self.cast(item))
@@ -205,6 +205,12 @@ class EasyDref:
             self.set(value)
         else:
             self.__dict__[name] = value
+
+    def change_if_diff(self, value) -> bool:
+        if self.value != value:
+            self.set(value)
+            return True
+        return False
 
     @classmethod
     def cleanup(cls):
