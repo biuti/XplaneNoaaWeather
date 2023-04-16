@@ -22,6 +22,21 @@ class WAFS(GribWeatherSource):
     forecasts = [6, 9, 12, 15, 18, 21, 24]
     base_url = 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.'
 
+    levels = [
+        '1000',  # ~ FL10
+        '950',   # ~ FL100
+        '900',   # ~ FL100
+        '800',   # ~ FL100
+        '700',   # ~ FL100
+        '600',   # ~ FL140
+        '500',   # ~ FL180
+        '400',   # ~ FL240
+        '300',   # ~ FL300
+        '250',   # ~ FL340
+        '200',   # ~ FL390
+        '150',   # ~ FL440
+    ]
+
     download_wait = 0
     grib_conf_var = 'lastwafsgrib'
 

@@ -16,10 +16,22 @@ import time
 
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
+
+from . import c, util
 from .database import Database
 from .weathersource import GribWeatherSource
-from .c import c
-from .util import util
+
+# import xp
+# xp.log(f"test realweather: {xp.VERSION}")
+
+# try:
+#     from . import xp
+#     xp.log(f"test realweather: {xp.VERSION}")
+# except Exception as e:
+#     print(f"** ** error realweather: {e}")
+#     pass
+# from . import xp_test
+# xp_test.xp.log(f"test realweather: {xp_test.xp.VERSION}")
 
 
 class RealWeather(GribWeatherSource):
@@ -36,7 +48,8 @@ class RealWeather(GribWeatherSource):
         'dewp',
         'pres',
         'svis',
-        'srfc'
+        'srfc',
+        'prcp'
     ]
 
     table = 'realweather'
@@ -81,6 +94,9 @@ class RealWeather(GribWeatherSource):
 
     @property
     def grib_files(self) -> list:
+        # print(f"time: {self.zulu_time} | base = {self.base}")
+        # from . import xp
+        # print(f"test xp: {xp.getMETARForAirport('LIME')}")
         return [] if self.base is None else [path for path in self.conf.wpath.resolve().glob(f"*{self.base}*.grib")]
 
     @property
@@ -103,6 +119,7 @@ class RealWeather(GribWeatherSource):
     @property
     def wafs_download_needed(self) -> bool:
         wafs_run = self.wafs_run if self.latest_wafs_checked == self.idx_ahead else self.check_latest_wafs()
+        print(f"idx_ahead: {self.idx_ahead} | latest checked: {self.latest_wafs_checked} | wafs_run: {wafs_run}")
         return self.gfs_run is not None and wafs_run is not None and int(self.gfs_run) - int(wafs_run) > 100
 
     def update_rwmetar(self, batch: int = 100) -> tuple[int, int]:
@@ -140,7 +157,27 @@ class RealWeather(GribWeatherSource):
             icao: ICAO code for requested airport
             returns METAR string"""
 
+        # xp.log(xp.getMETARForAirport(icao))
+        # print(f"METAR: {xp.getMETARForAirport(icao)}")
+
         return db.get(RealWeather.table, icao)
+
+    # @staticmethod
+    # def get_real_weather_metar(icao: str) -> tuple[str, str]:
+    #     """ Reads METAR DB created from files in XP12 real weather folder
+    #         icao: ICAO code for requested airport
+    #         returns METAR string"""
+    #     try:
+    #         import XPPython3.xp as xp
+    #     except (ImportError, Exception) as e:
+    #         print(f" *** Import Error for xp: {e}")
+    #         try:
+    #             from . import xp
+    #         except (ImportError, Exception) as e:
+    #             print(f" *** Import Error for xp: {e}")
+    #             return (icao, f'{e}')
+
+    #     return (icao, xp.getMETARForAirport(icao))
 
     def get_real_weather_metars(self, icao: str) -> dict:
         """ Reads METAR DB created from files in XP12 real weather folder
@@ -245,8 +282,7 @@ class RealWeather(GribWeatherSource):
                     elif variable == 'EDPARM':
                         # Eddy Dissipation Param
                         if not checked:
-                            # check if turb data are up-ti-date
-                            print(f"EDPARM check: {r[2].split('=')[1]} == {self.gfs_run}?")
+                            # getting cycle info
                             if not r[2].split('=')[1] == self.wafs_run:
                                 self.wafs_run = r[2].split('=')[1]
                                 self.wafs_fcst = r[5]

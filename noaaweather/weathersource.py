@@ -453,11 +453,13 @@ class GribDownloader(object):
                 chunk_list = [[False, False]]
 
             for chunk in chunk_list:
+                print(f"downloading ...")
                 try:
                     cls.download_part(str(url), grib_file, start=chunk[0], end=chunk[1], **kwargs)
                 except URLError as err:
                     raise GribDownloaderError(f"Unable to open url: {url} \n\t{repr(err)}")
 
+        print(f"download ended")
         wgrib2 = kwargs.pop('decompress', False)
         spinfo = kwargs.pop('spinfo', False)
         if wgrib2:

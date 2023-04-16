@@ -21,12 +21,14 @@ import time
 import threading
 import pickle as cPickle
 import socketserver as SocketServer
+
 from pathlib import Path
+from datetime import datetime
 
 try:
     from .conf import Conf
 except ImportError:
-    __package__ = 'noaweather'
+    __package__ = 'noaaweather'
     this_dir = Path(__file__).resolve().parent
     sys.path.append(str(this_dir.parent))
     from .conf import Conf
@@ -37,7 +39,17 @@ from .wafs import WAFS
 from .c import c
 from .metar import Metar
 from .weathersource import Worker
-from datetime import datetime
+
+# try:
+#     from .xp_test import xp
+#     print(f"test from .xp_test import xp: {xp.VERSION}")
+# except Exception as e:
+#     print(f"error from .xp_test import xp: {e}")
+#     try:
+#         from . import xp
+#         print(f"test from . import xp: {xp.VERSION}")
+#     except Exception as e:
+#         print(f"error from . import xp: {e}")
 
 
 class LogFile:
@@ -97,11 +109,11 @@ class ClientHandler(SocketServer.BaseRequestHandler):
                 response['info']['rw_gfs_cycle'] = f"{rw.gfs_run}: {rw.gfs_fcst}" if rw.gfs_run else 'na'
                 response['info']['rw_wafs_cycle'] = f"{rw.wafs_run}: {rw.wafs_fcst}" if rw.wafs_run else 'na'
                 # response['wafs'] = response['rw']['turbulence']
-                if gfs.download_enabled and gfs.last_grib:
+                if conf.download_GFS and gfs.last_grib:
                     filepath = Path(gfs.cache_path, gfs.last_grib)
                     response['gfs'] = gfs.parse_grib_data(filepath, lat, lon)
                 # print(f"Grib File: {gfs.last_grib}, data: {response['gfs']}")
-                if conf.download_WAFS and  rw.wafs_download_needed and wafs.last_grib:
+                if conf.download_WAFS and rw.wafs_download_needed and wafs.last_grib:
                     # TURB data is not up-to-date, download GRIB file needed
                     print(f"TURB data is not up-to-date, download GRIB file needed ...")
                     wafs_file = Path(wafs.cache_path, wafs.last_grib)
@@ -148,6 +160,10 @@ class ClientHandler(SocketServer.BaseRequestHandler):
                     if len(apt) and apt[5]:
                         response['metar'] = metar.parse_metar(apt[0], apt[5], apt[3])
                         response['rwmetar'] = dict(zip(('icao', 'metar'), rw.get_real_weather_metar(rw.db, data[1:])))
+                        # response['rwmetar'] = dict(zip(('icao', 'metar'), rw.get_real_weather_metar(data[1:])))
+                        # print(f"METAR TEST: {xp.getMETARForAirport(data[1:])}")
+                        # xp.log(f"METAR TEST: {xp.getMETARForAirport(data[1:])}")
+
                     else:
                         response['metar'] = {
                             'icao': 'METAR STATION',
@@ -207,7 +223,7 @@ if __name__ == "__main__":
         sys.stderr = logfile
         sys.stdout = logfile
 
-    print(f"NOAA plugin version: {conf.version}")
+    print(f"NOAA plugin version: {conf.__VERSION__}")
     print('---------------')
     print('Starting server')
     print('---------------')
@@ -230,18 +246,25 @@ if __name__ == "__main__":
     conf.serverSave()
 
     # Weather classes
-    gfs = GFS(conf)
-    rw = RealWeather(conf)
+    workers = []
     metar = Metar(conf)
-    wafs = WAFS(conf)
+    workers.append(metar)
+    if conf.meets_wgrib2_requirements:
+        rw = RealWeather(conf)
+        workers.append(rw)
+        if conf.download_GFS:
+            gfs = GFS(conf)
+            workers.append(gfs)
+        if conf.download_WAFS:
+            wafs = WAFS(conf)
+            workers.append(wafs)
 
-    workers = [metar] if not conf.meets_wgrib2_requirements else [gfs, rw, metar, wafs]
     # Init worker thread
     worker = Worker(workers, conf.parserate)
     worker.start()
 
     if not conf.meets_wgrib2_requirements:
-        print('*** OS does not meet minimum requirements. GFS data disabled ***')
+        print('*** OS does not meet minimum requirements. GRIB data download disabled ***')
     print('Server started.')
 
     # Server loop

@@ -5,11 +5,11 @@
 __pycache__
 *.pkl
 stations.txt
-noaweather/__pycache__
-noaweather/gfs_levels_config.json
-noaweather/cache/
-noaweather/bin/old*
-noaweather/bin/makefiles/
+noaaweather/__pycache__
+noaaweather/gfs_levels_config.json
+noaaweather/cache/
+noaaweather/bin/old*
+noaaweather/bin/makefiles/
 /venv/
 /*.rwx
 /*test.*

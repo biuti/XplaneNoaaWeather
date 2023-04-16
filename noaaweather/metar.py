@@ -16,11 +16,10 @@ import base64
 import json
 
 from datetime import datetime, timedelta
-from .util import util
 from pathlib import Path
 
+from . import c, util
 from .database import Database
-from .c import c
 from .weathersource import WeatherSource, GribDownloaderError, GribDownloader, AsyncTask
 
 

@@ -25,7 +25,7 @@ class Conf:
     syspath, dirsep = '', os.sep
     printableChars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ '
 
-    __VERSION__ = '12.0.4-beta2'
+    __VERSION__ = '12.0.5-beta1'
 
     GFS_JSON_HELP = '''Here you can edit which wind levels will be downloaded from NOAA without hacking the code.
                     Keep the list short to optimize the download size and parsing times.
@@ -43,7 +43,7 @@ class Conf:
 
         if xplane_path:
             self.syspath = xplane_path
-            self.respath = Path(xplane_path, 'Resources', 'plugins', 'PythonPlugins', 'noaweather')
+            self.respath = Path(xplane_path, 'Resources', 'plugins', 'PythonPlugins', 'noaaweather')
         else:
             self.respath = Path(__file__).resolve().parent
             self.syspath = self.respath.parents[3]
@@ -265,9 +265,9 @@ class Conf:
             'set_tropo': self.set_tropo,
             'set_thermals': self.set_thermals,
             'set_surface_layer': self.set_surface_layer,
+            # 'set_snow': self.set_snow,
             'opt_clouds_update': self.opt_clouds_update,
             'metar_source': self.metar_source,
-            'download_METAR': self.download_METAR,
             'download_GFS': self.download_GFS,
             'download_WAFS': self.download_WAFS,
             'metar_agl_limit': self.metar_agl_limit,
@@ -449,7 +449,6 @@ class Conf:
     def load_gfs_levels(self, json_file: Path) -> list:
         """Load gfs levels configuration from a json file"""
 
-        print(f"Trying to locate gfs jsonfile {json_file.name}")
         with open(json_file, 'r', encoding='UTF-8') as f:
             try:
                 return json.load(f)['config']
