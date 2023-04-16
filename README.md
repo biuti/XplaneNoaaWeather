@@ -36,7 +36,7 @@ Be respectful of other users, you are the one using wrong data.
 Requirements
 ============
 - MacOS 10.14, Windows 7 and Linux kernel 4.0 and above
-- X-Plane 12.04b2 and above (not tested with previous versions) 
+- X-Plane 12.05b2 and above (not tested with previous versions) 
 - pbuckner's XPPython3 plugin:
 https://xppython3.readthedocs.io/en/latest/index.html
 - Python 3.10 and above:
@@ -57,7 +57,7 @@ Installation
 Copy the zip file contents to your X-Plane/Resources/plugins/PythonPlugins folder.
 The resulting installation should look like:
 
-    X-Plane/Resources/plugins/PythonPlugins/noaweather/
+    X-Plane/Resources/plugins/PythonPlugins/noaaweather/
     X-Plane/Resources/plugins/PythonPlugins/PI_noaaWeather.py
 
 Please delete completely (not overwrite) any previous release of NOAA plugin in PythonPlugins folder.
