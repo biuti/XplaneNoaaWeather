@@ -1,4 +1,4 @@
-#!/usb/bin/python
+#!/usr/bin/env python3
 """
 NOAA weather daemon server
 

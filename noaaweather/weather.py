@@ -1,4 +1,3 @@
-#!/usb/bin/python
 """
 X-plane NOAA GFS weather plugin.
 
