@@ -733,8 +733,8 @@ class PythonInterface:
                                     f"FL | SEV (val*10, max {self.conf.max_turbulence * 10}) "]
                         for i, layer in enumerate(wafs, 1):
                             fl = c.m2fl(layer[0])
-                            tblayers += f"    {fl}|{round(layer[1] / 4 * 10, 2)}" \
-                                        f"{'*' if layer[1] >= self.conf.max_turbulence else ''}"
+                            value = round(layer[1] * 10, 2) if layer[1] < self.conf.max_turbulence else '*'
+                            tblayers += f"    {fl:03}|{value}"
                             if i % 9 == 0 or i == len(wafs):
                                 out.append(tblayers)
                                 tblayers = ''
@@ -747,8 +747,8 @@ class PythonInterface:
                                     f"FL | SEV (val*10, max {self.conf.max_turbulence * 10}) "]
                         for i, layer in enumerate(wafs, 1):
                             fl = c.m2fl(layer[0])
-                            tblayers += f"    {fl:03}|{round(layer[1] / 4 * 10, 2)}" \
-                                        f"{'*' if layer[1] >= self.conf.max_turbulence else ''}"
+                            value = round(layer[1] * 10, 2) if layer[1] < self.conf.max_turbulence else '*'
+                            tblayers += f"    {fl:03}|{value}"
                             if i % 9 == 0 or i == len(wafs):
                                 out.append(tblayers)
                                 tblayers = ''
