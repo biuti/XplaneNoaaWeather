@@ -69,7 +69,7 @@ class RealWeather(GribWeatherSource):
 
         self.db = Database(conf.dbfile)
 
-        super(RealWeather, self).__init__(conf)
+        super().__init__(conf)
 
     @property
     def base_behind(self) -> str | None:
@@ -442,6 +442,6 @@ class RealWeather(GribWeatherSource):
                     self.next_rwmetar = time.time() + 30
 
     def shutdown(self):
-        super(RealWeather, self).shutdown()
+        super().shutdown()
         self.db.commit()
         self.db.close()

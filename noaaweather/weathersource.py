@@ -99,7 +99,7 @@ class GribWeatherSource(WeatherSource):
     def __init__(self, conf):
         self.cache_path = Path(conf.cachepath, 'gfs')
 
-        super(GribWeatherSource, self).__init__(conf)
+        super().__init__(conf)
 
         if self.last_grib and not Path(self.cache_path, self.last_grib).is_file():
             self.last_grib = False

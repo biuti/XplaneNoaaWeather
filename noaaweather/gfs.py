@@ -27,7 +27,7 @@ class GFS(GribWeatherSource):
     def __init__(self, conf):
         self.variable_list = conf.gfs_variable_list
         self.download_enabled = conf.download_GFS
-        super(GFS, self).__init__(conf)
+        super().__init__(conf)
 
     @classmethod
     def get_download_url(cls, datecycle: str, cycle: int, forecast: int) -> str:

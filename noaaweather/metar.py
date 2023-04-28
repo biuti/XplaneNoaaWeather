@@ -53,7 +53,7 @@ class Metar(WeatherSource):
 
         self.db = Database(conf.dbfile)
 
-        super(Metar, self).__init__(conf)
+        super().__init__(conf)
 
         # Download flags
         self.ms_download = False
@@ -437,6 +437,6 @@ class Metar(WeatherSource):
         self.download.start()
 
     def shutdown(self):
-        super(Metar, self).shutdown()
+        super().shutdown()
         self.db.commit()
         self.db.close()

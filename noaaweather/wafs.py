@@ -48,7 +48,7 @@ class WAFS(GribWeatherSource):
         self.download_needed = False
         self.wafs_run = None
         self.wafs_fcst = None
-        super(WAFS, self).__init__(conf)
+        super().__init__(conf)
 
     @classmethod
     def get_cycle_date(cls) -> tuple[str, int, int]:
