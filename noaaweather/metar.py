@@ -185,10 +185,9 @@ class Metar(WeatherSource):
             ret = res.fetchone()
         return ret
 
-    @staticmethod
-    def get_metar(db, icao):
+    def get_metar(self, icao: str) -> tuple[str, str]:
         """Returns the METAR from an airport icao code"""
-        return db.get(Metar.table, icao)
+        return self.db.get(self.table, icao)
 
     @staticmethod
     def get_current_cycle():

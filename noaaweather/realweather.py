@@ -109,6 +109,13 @@ class RealWeather(GribWeatherSource):
             return None
 
     @property
+    def metar_file_time(self) -> str:
+        if self.metar_file:
+            return f"{self.metar_file.stem[11:-6]} {self.metar_file.stem[-5:]}Z"
+        else:
+            return ''
+
+    @property
     def time_to_update_rwmetar(self) -> bool:
         return (self.metar_file is not None
                 and (not self.last_rwmetar
@@ -151,54 +158,12 @@ class RealWeather(GribWeatherSource):
 
         return nparsed, nupdated
 
-    @staticmethod
-    def get_real_weather_metar(db, icao: str) -> tuple[str, str]:
+    def get_rwmetar(self, icao: str) -> tuple[str, str]:
         """ Reads METAR DB created from files in XP12 real weather folder
             icao: ICAO code for requested airport
             returns METAR string"""
 
-        # xp.log(xp.getMETARForAirport(icao))
-        # print(f"METAR: {xp.getMETARForAirport(icao)}")
-
-        return db.get(RealWeather.table, icao)
-
-    # @staticmethod
-    # def get_real_weather_metar(icao: str) -> tuple[str, str]:
-    #     """ Reads METAR DB created from files in XP12 real weather folder
-    #         icao: ICAO code for requested airport
-    #         returns METAR string"""
-    #     try:
-    #         import XPPython3.xp as xp
-    #     except (ImportError, Exception) as e:
-    #         print(f" *** Import Error for xp: {e}")
-    #         try:
-    #             from . import xp
-    #         except (ImportError, Exception) as e:
-    #             print(f" *** Import Error for xp: {e}")
-    #             return (icao, f'{e}')
-
-    #     return (icao, xp.getMETARForAirport(icao))
-
-    def get_real_weather_metars(self, icao: str) -> dict:
-        """ Reads METAR DB created from files in XP12 real weather folder
-            icao: ICAO code for requested airport
-            returns a dict with time of last METAR update and a LIST of METARs for given ICAO"""
-
-        response = {
-            'file_time': None,
-            'reports': []
-        }
-
-        '''get METAR files'''
-        if self.metar_file:
-            '''get latest file'''
-            response['file_time'] = f"{self.metar_file.stem[11:-6]} {self.metar_file.stem[-5:]}Z"
-            '''get ICAO metar'''
-            response['reports'] = ([line for line in util.get_rw_ordered_lines(self.metar_file)
-                                    if line.startswith(icao)]
-                                    or [f"{icao} not found in XP12 real weather METAR files"])
-
-        return response
+        return self.db.get(self.table, icao)
 
     def update_metar_rwx_file(self):
         """Dumps all metar data from XP12 METAR files to the METAR.rwx file"""
