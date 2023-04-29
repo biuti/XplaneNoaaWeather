@@ -36,6 +36,8 @@ from XPWidgetDefs import *
 from XPWidgets import *
 from XPStandardWidgets import *
 
+from XPLMGraphics import XPLMGetFontDimensions
+
 # XPPython3 plugin
 # import xp
 
@@ -824,10 +826,14 @@ class PythonInterface:
         x = 100
         w = 480
         y = 600
-        h = 180
+        h = 200
         x2 = x + w
         y2 = y - h
         windowTitle = "METAR Request"
+        widget_width = w - 20
+        font_width, font_height, _ = XPLMGetFontDimensions(0)
+        self.MetarWindowMaxChar = int(widget_width / font_width)
+        # print(f"max char: {self.MetarWindowMaxChar}")
 
         # Create the Main Widget window
         self.metarWindow = True
@@ -847,7 +853,6 @@ class PythonInterface:
         # Airport input
         self.metarQueryInput = XPCreateWidget(x + 5, y, x + 120, y - 20, 1, "", 0, self.metarWindowWidget,
                                               xpWidgetClass_TextField)
-        XPSetWidgetProperty(self.metarQueryInput, xpProperty_TextFieldType, xpTextEntryField)
         XPSetWidgetProperty(self.metarQueryInput, xpProperty_Enabled, 1)
         XPSetWidgetProperty(self.metarQueryInput, xpProperty_TextFieldType, xpTextTranslucent)
 
@@ -864,25 +869,33 @@ class PythonInterface:
 
         y -= 20
         # Query output
-        self.metarQueryOutput = XPCreateWidget(x + 5, y, x + 450, y - 20, 1, "", 0, self.metarWindowWidget,
+        self.metarQueryOutput = XPCreateWidget(x + 5, y, x + widget_width, y - 20, 1, "", 0, self.metarWindowWidget,
                                                xpWidgetClass_TextField)
-        XPSetWidgetProperty(self.metarQueryOutput, xpProperty_TextFieldType, xpTextEntryField)
         XPSetWidgetProperty(self.metarQueryOutput, xpProperty_Enabled, 1)
         XPSetWidgetProperty(self.metarQueryOutput, xpProperty_TextFieldType, xpTextTranslucent)
 
         y -= 20
-        # Help caption
+        self.metarQueryOutput_2 = XPCreateWidget(x + 5, y, x + widget_width, y - 20, 0, "", 0, self.metarWindowWidget,
+                                                xpWidgetClass_TextField)
+        XPSetWidgetProperty(self.metarQueryOutput_2, xpProperty_Enabled, 1)
+        XPSetWidgetProperty(self.metarQueryOutput_2, xpProperty_TextFieldType, xpTextTranslucent)
+
+        y -= 20
         cap = XPCreateWidget(x, y, x + 300, y - 20, 1, f"XP12 Real Weather:", 0, self.metarWindowWidget,
                              xpWidgetClass_Caption)
         XPSetWidgetProperty(cap, xpProperty_CaptionLit, 1)
 
         y -= 20
-        # Query output
-        self.metarQueryXP12 = XPCreateWidget(x + 5, y, x + 450, y - 20, 1, "", 0, self.metarWindowWidget,
+        self.metarQueryXP12 = XPCreateWidget(x + 5, y, x + widget_width, y - 20, 1, "", 0, self.metarWindowWidget,
                                                xpWidgetClass_TextField)
-        XPSetWidgetProperty(self.metarQueryXP12, xpProperty_TextFieldType, xpTextEntryField)
         XPSetWidgetProperty(self.metarQueryXP12, xpProperty_Enabled, 1)
         XPSetWidgetProperty(self.metarQueryXP12, xpProperty_TextFieldType, xpTextTranslucent)
+
+        y -= 20
+        self.metarQueryXP12_2 = XPCreateWidget(x + 5, y, x + widget_width, y - 20, 0, "", 0, self.metarWindowWidget,
+                                               xpWidgetClass_TextField)
+        XPSetWidgetProperty(self.metarQueryXP12_2, xpProperty_Enabled, 1)
+        XPSetWidgetProperty(self.metarQueryXP12_2, xpProperty_TextFieldType, xpTextTranslucent)
 
         # Register our query widget handler
         self.metarQueryInputHandlerCB = self.metarQueryInputHandler
@@ -956,11 +969,21 @@ class PythonInterface:
 
         if self.metarWindow:
             # Filter metar text
-            metar = ''.join(filter(lambda x: x in self.conf.printableChars, msg['metar']['metar']))
-            rwmetar = ''.join(filter(lambda x: x in self.conf.printableChars, msg['rwmetar']['metar']))
+            metar = util.split_text(''.join(filter(lambda x: x in self.conf.printableChars, msg['metar']['metar'])), 0, self.MetarWindowMaxChar)
+            rwmetar = util.split_text(''.join(filter(lambda x: x in self.conf.printableChars, msg['rwmetar']['metar'])), 0, self.MetarWindowMaxChar)
             # adding source and internal XP12 METARs
-            XPSetWidgetDescriptor(self.metarQueryOutput, f"{msg['metar']['icao']} {metar}")
-            XPSetWidgetDescriptor(self.metarQueryXP12, f"{msg['rwmetar']['icao']} {rwmetar}")
+            XPSetWidgetDescriptor(self.metarQueryOutput, f"{msg['metar']['icao']} {metar[0]}")
+            if len(metar) > 1:
+                XPShowWidget(self.metarQueryOutput_2)
+                XPSetWidgetDescriptor(self.metarQueryOutput_2, f"{metar[1]}")
+            else:
+                XPHideWidget(self.metarQueryOutput_2)
+            XPSetWidgetDescriptor(self.metarQueryXP12, f"{msg['rwmetar']['icao']} {rwmetar[0]}")
+            if len(rwmetar) > 1:
+                XPShowWidget(self.metarQueryXP12_2)
+                XPSetWidgetDescriptor(self.metarQueryXP12_2, f"{rwmetar[1]}")
+            else:
+                XPHideWidget(self.metarQueryXP12_2)
 
     def metarQueryWindowToggle(self):
         """Metar window toggle command"""
