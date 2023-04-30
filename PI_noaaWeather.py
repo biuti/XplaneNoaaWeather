@@ -291,13 +291,20 @@ class PythonInterface:
         XPSetWidgetProperty(self.autoMetarCheck, xpProperty_ButtonType, xpRadioButton)
         XPSetWidgetProperty(self.autoMetarCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
         XPSetWidgetProperty(self.autoMetarCheck, xpProperty_ButtonState, self.conf.metar_ignore_auto)
+        y -= 40
+
+        # Create METAR.rwx file
+        XPCreateWidget(x + 5, y, x + 20, y - 20, 1, 'Create RWX file:', 0, window, xpWidgetClass_Caption)
+        self.rwxCheck = XPCreateWidget(x + 120, y, x + 140, y - 20, 1, '', 0, window, xpWidgetClass_Button)
+        XPSetWidgetProperty(self.rwxCheck, xpProperty_ButtonType, xpRadioButton)
+        XPSetWidgetProperty(self.rwxCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
+        XPSetWidgetProperty(self.rwxCheck, xpProperty_ButtonState, self.conf.update_rwx_file)
         y -= 20
 
         # Use XP12 Real weather files to populate METAR.rwx file
-        XPCreateWidget(x + 5, y, x + 20, y - 20, 1, 'Use XP12 RW as source', 0, window, xpWidgetClass_Caption)
-        XPCreateWidget(x + 5, y - 20, x + 20, y - 40, 1, '   for METAR.rwx:', 0, window, xpWidgetClass_Caption)
-        self.xp12MetarCheck = XPCreateWidget(x + 120, y - 20, x + 140, y - 40, 1, '', 0, window, xpWidgetClass_Button)
-        XPCreateWidget(x + 5, y - 40, x + 20, y - 60, 1, '   READ the README file!', 0, window, xpWidgetClass_Caption)
+        XPCreateWidget(x + 5, y, x + 20, y - 20, 1, 'Use RW for RWX file:', 0, window, xpWidgetClass_Caption)
+        self.xp12MetarCheck = XPCreateWidget(x + 120, y, x + 140, y - 20, 1, '', 0, window, xpWidgetClass_Button)
+        XPCreateWidget(x + 5, y - 20, x + 20, y - 40, 1, '   READ the README file!', 0, window, xpWidgetClass_Caption)
         XPSetWidgetProperty(self.xp12MetarCheck, xpProperty_ButtonType, xpRadioButton)
         XPSetWidgetProperty(self.xp12MetarCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
         XPSetWidgetProperty(self.xp12MetarCheck, xpProperty_ButtonState, self.conf.metar_use_xp12)
@@ -485,6 +492,10 @@ class PythonInterface:
                     if XPGetWidgetProperty(check, xpProperty_ButtonState, None):
                         self.conf.metar_source = self.mtSourceChecks[check]
 
+                # Check METAR.rwx file
+                prev_rwx = self.conf.update_rwx_file
+                self.conf.update_rwx_file = XPGetWidgetProperty(self.rwxCheck, xpProperty_ButtonState, None)
+
                 # Check METAR.rwx source
                 prev_file_source = self.conf.metar_use_xp12
                 self.conf.metar_use_xp12 = XPGetWidgetProperty(self.xp12MetarCheck, xpProperty_ButtonState, None)
@@ -499,7 +510,7 @@ class PythonInterface:
                     self.weather.weatherClientSend('!resetMetar')
 
                 # If metar source for METAR.rwx file has changed tell server to reinit rwmetar database
-                if self.conf.metar_use_xp12 != prev_file_source:
+                if self.conf.update_rwx_file != prev_rwx or self.conf.metar_use_xp12 != prev_file_source:
                     self.weather.weatherClientSend('!resetRWMetar')
 
                 self.weather.startWeatherClient()
@@ -523,6 +534,7 @@ class PythonInterface:
         XPSetWidgetProperty(self.decodeCheck, xpProperty_ButtonState, self.conf.metar_decode)
         XPSetWidgetDescriptor(self.stationIgnoreInput, ' '.join(self.conf.ignore_metar_stations))
         XPSetWidgetProperty(self.autoMetarCheck, xpProperty_ButtonState, self.conf.metar_ignore_auto)
+        XPSetWidgetProperty(self.rwxCheck, xpProperty_ButtonState, self.conf.update_rwx_file)
         XPSetWidgetProperty(self.xp12MetarCheck, xpProperty_ButtonState, self.conf.metar_use_xp12)
 
         if self.conf.real_weather_enabled:
