@@ -53,6 +53,7 @@ class RealWeather(GribWeatherSource):
     ]
 
     table = 'realweather'
+    rwmetar_check_interval = 300  # 5 minutes
 
     def __init__(self, conf):
         self.starting = True
@@ -118,10 +119,7 @@ class RealWeather(GribWeatherSource):
     @property
     def time_to_update_rwmetar(self) -> bool:
         return (self.metar_file is not None
-                and (not self.last_rwmetar
-                        or self.last_rwmetar < self.metar_file.stat().st_ctime
-                        or self.next_rwmetar < time.time()
-                    ))
+                and (not self.last_rwmetar or self.last_rwmetar < self.metar_file.stat().st_ctime))
 
     @property
     def wafs_download_needed(self) -> bool:
@@ -397,12 +395,14 @@ class RealWeather(GribWeatherSource):
             self.update_rwmetar()
             print(f"*** RW METAR DB updated: {datetime.utcnow().strftime('%H:%M:%S')} ***")
             self.last_rwmetar = time.time()
-            self.next_rwmetar = time.time() + 1800  # 30 min.
-            if self.conf.updateMetarRWX and self.conf.metar_use_xp12:
+            self.next_rwmetar = self.last_rwmetar + self.rwmetar_check_interval
+
+            if self.conf.update_rwx_file and self.conf.metar_use_xp12:
                 # Update METAR.rwx
                 if self.update_metar_rwx_file():
                     print('Updated METAR.rwx file using XP12 Real Weather METAR files.')
                 else:
+                    print('There was an issue trying to update METAR.rwx file using XP12 Real Weather METAR files. Retrying in 30 seconds')
                     # Retry in 30 sec
                     self.next_rwmetar = time.time() + 30
 
