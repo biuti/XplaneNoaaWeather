@@ -66,43 +66,6 @@ class PythonInterface:
         self.desc = "NOAA GFS Weather Data in X-Plane"
         self.windowId = None
 
-    def XPluginStart(self):
-        # self.syspath = []
-        # self.conf = Conf(XPLMGetSystemPath(self.syspath)[:-1])
-        print(f"Conf is {self.conf}")
-
-        self.data = dref.Dref()
-        self.weather = weather.Weather(self.conf, self.data)
-
-        # floop
-        self.floop = self.floopCallback
-        XPLMRegisterFlightLoopCallback(self.floop, -1, 0)
-
-        # Menu / About
-        self.Mmenu = self.mainMenuCB
-        self.aboutWindow = False
-        self.metarWindow = False
-        self.mPluginItem = XPLMAppendMenuItem(XPLMFindPluginsMenu(), 'XP NOAA Weather', 0)
-        self.mMain = XPLMCreateMenu('XP NOAA Weather', XPLMFindPluginsMenu(), self.mPluginItem, self.Mmenu, 0)
-        # Menu Items
-        XPLMAppendMenuItem(self.mMain, 'Configuration', 1)
-        XPLMAppendMenuItem(self.mMain, 'Metar Query', 2)
-
-        # Register commands
-        self.metarWindowCMD = EasyCommand(self, 'metar_query_window_toggle', self.metarQueryWindowToggle,
-                                          description="Toggle METAR query window.")
-
-        # Flightloop counters
-        self.flcounter = 0
-        self.fltime = 1
-        self.lastParse = 0
-
-        self.newAptLoaded = False
-
-        self.aboutlines = 28
-
-        return self.name, self.sig, self.desc
-
     def mainMenuCB(self, menuRef, menuItem):
         """Main menu Callback"""
 
@@ -282,7 +245,6 @@ class PythonInterface:
             XPSetWidgetProperty(check, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
             XPSetWidgetProperty(check, xpProperty_ButtonState,
                                 int(self.conf.metar_source == self.mtSourceChecks[check]))
-
         y -= 40
 
         # Ignore AUTO METAR sources
@@ -601,12 +563,13 @@ class PythonInterface:
                     sysinfo += [f"   GFS Cycle: {wdata['info']['gfs_cycle']}"]
 
             if 'metar' in wdata and 'icao' in wdata['metar']:
-                sysinfo += ['']
+                sysinfo += [
+                    '',
+                    f"{self.conf.metar_source} METAR:"
+                ]
                 # Split metar if needed
-                icao = wdata['metar']['icao']
-                metar = f"{self.conf.metar_source} METAR: {icao} {wdata['metar']['metar']}"
-                sysinfo += util.split_text(metar)
-
+                metar = f"{wdata['metar']['icao']} {wdata['metar']['metar']}"
+                sysinfo += util.split_text(metar, 3)
 
                 if self.conf.metar_decode:
                     # METAR Decoding Section
@@ -645,12 +608,12 @@ class PythonInterface:
                         sysinfo += [clouds]
 
                 if 'rwmetar' in wdata and self.conf.real_weather_enabled:
-                    if not wdata['rwmetar']['file_time']:
+                    if not wdata['rwmetar'].get('file_time'):
                         sysinfo += ['XP12 REAL WEATHER METAR:', '   no METAR file, still downloading...']
                     else:
                         sysinfo += [f"XP12 REAL WEATHER METAR ({wdata['rwmetar']['file_time']}):"]
-                        for line in wdata['rwmetar']['reports'][:2]:
-                            sysinfo += util.split_text(line, 3)
+                        line = f"{wdata['rwmetar']['result'][0]} {wdata['rwmetar']['result'][1]}"
+                        sysinfo += util.split_text(line, 3)
                     # check actual pressure and adjusted friction
                     pressure = self.data.pressure.value / 100  # mb
                     pressure_inHg = c.mb2inHg(pressure)
@@ -679,16 +642,11 @@ class PythonInterface:
                             ]
             else:
                 if not wdata['gfs']:
-                    sysinfo += [
-                        'The plugin populates METAR.rwx file, monitors XP12 Real Weather data.',
-                        ''
-                    ]
+                    pass
                 else:
                     # GFS data download for testing is enabled
                     sysinfo += [
-                        '*** *** Experimental GFS weather data download *** ***',
-                        'The plugin populates METAR.rwx file, monitors XP12 Real Weather, adds GFS data in options.',
-                        ''
+                        '*** *** Experimental GFS weather data download *** ***'
                     ]
                     gfs = wdata['gfs']
                     if 'surface' in gfs and len(gfs['surface']):
@@ -1069,6 +1027,40 @@ class PythonInterface:
 
         self.weather.newData = False
         return -1
+
+    def XPluginStart(self):
+
+        self.data = dref.Dref()
+        self.weather = weather.Weather(self.conf, self.data)
+
+        # floop
+        self.floop = self.floopCallback
+        XPLMRegisterFlightLoopCallback(self.floop, -1, 0)
+
+        # Menu / About
+        self.Mmenu = self.mainMenuCB
+        self.aboutWindow = False
+        self.metarWindow = False
+        self.mPluginItem = XPLMAppendMenuItem(XPLMFindPluginsMenu(), 'XP NOAA Weather', 0)
+        self.mMain = XPLMCreateMenu('XP NOAA Weather', XPLMFindPluginsMenu(), self.mPluginItem, self.Mmenu, 0)
+        # Menu Items
+        XPLMAppendMenuItem(self.mMain, 'Configuration', 1)
+        XPLMAppendMenuItem(self.mMain, 'Metar Query', 2)
+
+        # Register commands
+        self.metarWindowCMD = EasyCommand(self, 'metar_query_window_toggle', self.metarQueryWindowToggle,
+                                          description="Toggle METAR query window.")
+
+        # Flightloop counters
+        self.flcounter = 0
+        self.fltime = 1
+        self.lastParse = 0
+
+        self.newAptLoaded = False
+
+        self.aboutlines = 28
+
+        return self.name, self.sig, self.desc
 
     def XPluginStop(self):
 

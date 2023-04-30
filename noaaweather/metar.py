@@ -399,6 +399,7 @@ class Metar(WeatherSource):
                 self.next_metarRWX = time.time() + self.conf.metar_updaterate * 60
                 print(f"Updated METAR.rwx file using {self.conf.metar_source}.")
             else:
+                print(f"There was an issue trying to update METAR.rwx file using {self.conf.metar_source}. Retrying in 30 seconds")
                 # Retry in 30 sec
                 self.next_metarRWX = time.time() + 30
 
