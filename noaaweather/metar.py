@@ -394,7 +394,7 @@ class Metar(WeatherSource):
             self.ms_download = False
 
         # Update METAR.rwx
-        if self.conf.updateMetarRWX and not self.conf.metar_use_xp12 and self.next_metarRWX < time.time():
+        if self.conf.update_rwx_file and not self.conf.metar_use_xp12 and self.next_metarRWX < time.time():
             if self.update_metar_rwx_file():
                 self.next_metarRWX = time.time() + self.conf.metar_updaterate * 60
                 print(f"Updated METAR.rwx file using {self.conf.metar_source}.")

@@ -219,7 +219,9 @@ class Conf:
 
         self.ignore_metar_stations = []
 
-        self.updateMetarRWX = True
+        # write METAR.rwx file
+        self.update_rwx_file = False  # Not needed by AviTab latest versions
+        self.metar_use_xp12 = False
 
     def saveSettings(self, filepath: Path, settings: dict):
         print(f"Saving Settings to {filepath.name}")
@@ -278,7 +280,7 @@ class Conf:
             'metar_updaterate': self.metar_updaterate,
             'ignore_metar_stations': self.ignore_metar_stations,
             'metar_ignore_auto': self.metar_ignore_auto,
-            'metar_use_xp12': self.metar_use_xp12,
+            'update_rwx_file': self.update_rwx_file,
         }
         self.saveSettings(self.settingsfile, conf)
 
