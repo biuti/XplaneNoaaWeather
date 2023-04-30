@@ -84,3 +84,8 @@ class util:
             return [indent * ' ' + text[:icut], indent * ' ' + 3 * ' ' + text[icut + 1:]]
         else:
             return [indent * ' ' + text]
+
+    @staticmethod
+    def date_in_filename(file: Path) -> int:
+        """ metar-2023-04-30-13.30.txt -> 202304301330"""
+        return int(''.join([s for s in file.stem.replace('-', '.').split('.') if s.isdigit()])) or 0

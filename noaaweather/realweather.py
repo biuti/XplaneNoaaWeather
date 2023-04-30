@@ -102,10 +102,13 @@ class RealWeather(GribWeatherSource):
 
     @property
     def metar_file(self) -> Path | None:
+        """ Should get the latest RW METAR file
+            Unfortunately when RW initialize does not save files in a smart order, so we need to use filename"""
         metar_files = [p for p in self.conf.wpath.iterdir() if p.is_file() and 'METAR' in p.stem.upper()]
         if metar_files:
             '''get latest file'''
-            return max([f for f in metar_files], key=lambda item: item.stat().st_ctime)
+            # return max([f for f in metar_files], key=lambda item: item.stat().st_ctime)
+            return max(metar_files, key=lambda x: util.date_in_filename(x))
         else:
             return None
 
