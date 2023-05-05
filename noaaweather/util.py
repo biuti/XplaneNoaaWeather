@@ -11,8 +11,10 @@ of the License, or any later version.
 
 import shutil
 import sys
+
 from datetime import datetime, timedelta
 from pathlib import Path
+from textwrap import wrap
 
 
 class util:
@@ -78,10 +80,9 @@ class util:
         return lines
 
     @staticmethod
-    def split_text(text: str, indent: int = 0, max_len: int = 80) -> list:
-        if len(text) + indent > max_len:
-            icut = text.rfind(' ', 0, max_len - indent)
-            return [indent * ' ' + text[:icut], indent * ' ' + 3 * ' ' + text[icut + 1:]]
+    def split_and_indent(text: str, max_len: int = 80, indent: int = 0, hanging: int = 0) -> list:
+        if len(text) + indent > max_len: 
+            return [indent * ' ' + line for line in wrap(text, max_len - indent)]
         else:
             return [indent * ' ' + text]
 
