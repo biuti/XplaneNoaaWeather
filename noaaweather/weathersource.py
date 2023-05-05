@@ -21,8 +21,8 @@ from urllib.error import URLError
 from datetime import datetime, timedelta
 from tempfile import TemporaryFile
 from pathlib import Path
-from .util import util
-from .conf import Conf
+
+from . import util, Conf
 
 
 class WeatherSource(object):

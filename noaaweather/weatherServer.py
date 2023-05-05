@@ -33,23 +33,12 @@ except ImportError:
     sys.path.append(str(this_dir.parent))
     from .conf import Conf
 
+from .metar import Metar
 from .realweather import RealWeather
 from .gfs import GFS
 from .wafs import WAFS
 from .c import c
-from .metar import Metar
 from .weathersource import Worker
-
-# try:
-#     from .xp_test import xp
-#     print(f"test from .xp_test import xp: {xp.VERSION}")
-# except Exception as e:
-#     print(f"error from .xp_test import xp: {e}")
-#     try:
-#         from . import xp
-#         print(f"test from . import xp: {xp.VERSION}")
-#     except Exception as e:
-#         print(f"error from . import xp: {e}")
 
 
 class LogFile:

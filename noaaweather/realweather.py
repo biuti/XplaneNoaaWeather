@@ -21,18 +21,6 @@ from . import c, util
 from .database import Database
 from .weathersource import GribWeatherSource
 
-# import xp
-# xp.log(f"test realweather: {xp.VERSION}")
-
-# try:
-#     from . import xp
-#     xp.log(f"test realweather: {xp.VERSION}")
-# except Exception as e:
-#     print(f"** ** error realweather: {e}")
-#     pass
-# from . import xp_test
-# xp_test.xp.log(f"test realweather: {xp_test.xp.VERSION}")
-
 
 class RealWeather(GribWeatherSource):
     """X-Plane 12 Real Weather files source"""

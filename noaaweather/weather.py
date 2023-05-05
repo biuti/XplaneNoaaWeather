@@ -21,7 +21,9 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
-from . import xp
+# XPPython3 library
+import xp
+
 from . import c
 
 
