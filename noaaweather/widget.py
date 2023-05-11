@@ -620,7 +620,7 @@ class Widget:
 
                 # Save config and tell server to reload it
                 self.conf.pluginSave()
-                print(f"Config saved. Weather client reloading ...")
+                xp.log(f"Config saved. Weather client reloading ...")
                 self.weather.weatherClientSend('!reload')
 
                 # If metar source has changed tell server to reinit metar database
@@ -641,7 +641,6 @@ class Widget:
                 return 1
 
             if inParam1 == self.dumplog_button:
-                print(f"Creating dumplog file...")
                 dumpfile = self.weather.dumpLog()
                 xp.setWidgetDescriptor(self.dump_caption, f"created {dumpfile.name} in cache folder")
                 return 1

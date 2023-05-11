@@ -223,7 +223,6 @@ class Conf:
         self.metar_use_xp12 = False
 
     def saveSettings(self, filepath: Path, settings: dict):
-        print(f"Saving Settings to {filepath.name}")
         f = open(filepath, 'wb')
         cPickle.dump(settings, f)
         f.close()

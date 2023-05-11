@@ -109,7 +109,7 @@ class Weather:
         return xp.getMETARForAirport('icao')
 
     # def setSnow(self):
-    #     """Set snot cover"""
+    #     """Set snow cover"""
     #     # Not used at the moment, probably needs a different API if we want to implement
     #     print(f"weatherdata['gfs']: {self.weatherData['gfs']}")
     #     if 'snow' in self.weatherData['gfs']:
@@ -389,8 +389,6 @@ class Weather:
         xp.log(f"creating dumplog file: {dumplog}")
 
         f = open(dumplog, 'w')
-
-        # import XPPython
 
         xpver, sdkver, hid = xp.getVersions()
         output = [
