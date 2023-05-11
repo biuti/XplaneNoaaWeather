@@ -15,22 +15,25 @@ https://github.com/pbuckner/XplaneNoaaWeather
 Features
 ============
 
-At this stage the plugin is almost only monitoring what XP real weather engine is doing.
+At this stage the plugin in its X-Plane 12 version is almost only monitoring what XP Real Weather engine is doing.
 
 As it already takes data from GFS Grib files, probably there will be no need to download them anylonger.
 
 As soon as a final version of X-Plane 12 will be released, I will consider if some of the XP11 version features will still be needed.
 
-- Writes missing METAR.rwx file for compatibility with XP11 (e.g. Avitab)
-- monitors XP12 real weather behavior
-- METAR query window that displays both XP12 Real Weather and latest one from chosen source (NOAA, IVAO or VATSIM servers)
+- Writes missing METAR.rwx file for compatibility with XP11
 - Ability to populate METAR.rwx file using XP12 Real Weather as data source
-- Option to automatically delete outdated files in XP12 Real Weather folder.
+
+**NOTE: latest versions of AviTab do not need METAR.rwx file anymore, so this function is disabled by default and probably deprecated in next versions**
+- monitors XP12 real weather behavior
+- METAR query window that displays both from XP12 Real Weather and chosen source (NOAA, IVAO or VATSIM servers)
+
 
 **WARNING**
-Be aware that using XP12 Real Weather as data source when flying online will give you outdated information. They will be consistent with the weather you experience in your simulator but at this stage (XP12 EA beta11) likely different from the live weather on the server.
+Be aware that using XP12 Real Weather as data source when flying online could give you outdated information.
 This means that ATC information, ATIS, runway in use and generally weather for any pilot not using XP12 could be different from what you expect looking at your data.
-Be respectful of other users, you are the one using wrong data.
+Lately (XP12.05r1) Real Weather METAR is a lot improved compared to previous versions and almost always up-to-date. 
+Anyway, be respectful of other users, you are the one using wrong data.
 
 ============
 Requirements
