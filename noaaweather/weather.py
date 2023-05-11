@@ -292,8 +292,8 @@ class Weather:
                                     f"FL | SEV (val*10, max {self.conf.max_turbulence * 10}) "]
                         for i, layer in enumerate(wafs, 1):
                             fl = c.m2fl(layer[0])
-                            value = round(layer[1] * 10, 2) if layer[1] < self.conf.max_turbulence else '*'
-                            tblayers += f"    F{fl:03} | {value:3.1f}"
+                            value = f"{round(layer[1] * 10, 1):.1f}" if layer[1] < self.conf.max_turbulence else '*'
+                            tblayers += f"    F{fl:03} | {value:3}"
                             if i % 7 == 0 or i == len(wafs):
                                 out.append(tblayers)
                                 tblayers = ''
@@ -306,8 +306,8 @@ class Weather:
                                     f"FL | SEV (val*10, max {self.conf.max_turbulence * 10}) "]
                         for i, layer in enumerate(wafs, 1):
                             fl = c.m2fl(layer[0])
-                            value = round(layer[1] * 10, 2) if layer[1] < self.conf.max_turbulence else '*   '
-                            tblayers += f"    F{fl:03} | {value:3.1f}"
+                            value = f"{round(layer[1] * 10, 1):.1f}" if layer[1] < self.conf.max_turbulence else '*'
+                            tblayers += f"    F{fl:03} | {value:3}"
                             if i % 7 == 0 or i == len(wafs):
                                 out.append(tblayers)
                                 tblayers = ''
