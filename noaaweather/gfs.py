@@ -12,8 +12,8 @@ as published by the Free Software Foundation; either version 2
 of the License, or any later version.
 """
 
+from . import c
 from .weathersource import GribWeatherSource
-from .c import c
 
 
 class GFS(GribWeatherSource):

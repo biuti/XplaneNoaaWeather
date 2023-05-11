@@ -26,18 +26,18 @@ from pathlib import Path
 from datetime import datetime
 
 try:
-    from .conf import Conf
+    from . import Conf
 except ImportError:
     __package__ = 'noaaweather'
     this_dir = Path(__file__).resolve().parent
     sys.path.append(str(this_dir.parent))
     from .conf import Conf
 
+from . import c
 from .metar import Metar
 from .realweather import RealWeather
 from .gfs import GFS
 from .wafs import WAFS
-from .c import c
 from .weathersource import Worker
 
 

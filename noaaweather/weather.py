@@ -21,10 +21,7 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
-# XPPython3 library
-import xp
-
-from . import c
+from . import xp, c, dref, util
 
 
 class Weather:

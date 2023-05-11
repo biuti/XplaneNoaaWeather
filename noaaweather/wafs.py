@@ -13,8 +13,8 @@ import re
 
 from datetime import datetime, timedelta
 
+from . import c
 from .weathersource import GribWeatherSource
-from .c import c
 
 
 class WAFS(GribWeatherSource):

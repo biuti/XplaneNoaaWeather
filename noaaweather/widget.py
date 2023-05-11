@@ -10,10 +10,7 @@ of the License, or any later version.
 
 import time
 
-# XPPython3 library
-import xp
-
-from . import Conf, c, util, dref, weather
+from . import xp, Conf, c, util, dref, weather
 from .easydref import EasyCommand
 
 

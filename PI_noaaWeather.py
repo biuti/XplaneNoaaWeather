@@ -24,10 +24,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 """
 
-# XPPython3 library
-import xp
+from noaaweather import xp, widget
 
-from noaaweather import widget
 
 name = "NOAA Weather"
 sig = "noaaweather.xppython3"

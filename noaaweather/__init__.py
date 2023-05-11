@@ -8,6 +8,13 @@ as published by the Free Software Foundation; either version 2
 of the License, or any later version.
 """
 
+try:
+    import xp
+    xp.log(f"XPython3 module correctly imported: {xp.VERSION}")
+except ImportError as e:
+    print(f"error import xp: {e}")
+    pass
+
 from .c import c
 from .util import util
 from .conf import Conf
