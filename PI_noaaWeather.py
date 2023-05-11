@@ -27,6 +27,7 @@ GNU General Public License for more details.
 from noaaweather import xp, widget
 
 
+# XPython3 required plugin parameters
 name = "NOAA Weather"
 sig = "noaaweather.xppython3"
 desc = "NOAA GFS Weather Data in X-Plane 12"

@@ -80,13 +80,8 @@ class Dref:
         }
         pdrefs = {}
 
-        for item in datarefs:
-            pdrefs[item] = []
-            for i in range(len(datarefs[item])):
-                wdata = {}
-                for key in datarefs[item][i]:
-                    wdata[key] = datarefs[item][i][key].value
-                pdrefs[item].append(wdata)
+        for label, data in datarefs.items():
+            pdrefs[label] = {k:v.value for k, v in data.items()}
 
         return pdrefs
 
