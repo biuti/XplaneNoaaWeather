@@ -19,21 +19,21 @@ class Widget:
     # Constants
     font_width, font_height, _ = xp.getFontDimensions(xp.Font_Basic)
     line_height = font_height + 8
-    print(f"font: {font_width} x {font_height} | line = {line_height}")
     window_margin = 10
+    # xp.log(f"font: {font_width} x {font_height} | line = {line_height}")
 
     # Info Window Definition
     info_title = "X-Plane 12 NOAA GFS Weather"
     info_width = 560
     info_height = 640
     info_lines = int((info_height - 2 * window_margin) / line_height) - 1
-    info_line_chars = int((info_width - 2 * window_margin) / font_width)
+    info_line_chars = int((info_width - 2 * window_margin) / font_width) - 4
 
     # METAR Window Definition
     metar_title = "METAR Request"
     metar_width = 480
     metar_height = 240
-    metar_widget_width = metar_width - 2 * window_margin
+    metar_widget_width = int(metar_width - 2 * window_margin)
     metar_line_chars = int(metar_widget_width / font_width)
 
     # Config Window Definition
@@ -44,8 +44,8 @@ class Widget:
 
     def __init__(self):
         self.conf = Conf()
-        self.data = dref.Dref()
-        self.weather = weather.Weather(self.conf, self.data)
+        self.weather = weather.Weather(self.conf)
+        self.data = self.weather.data
 
         # Menu / About
         self.Mmenu = self.main_menu_callback
@@ -58,8 +58,11 @@ class Widget:
         self.config_window = False
 
         # Register commands
-        self.metarWindowCMD = EasyCommand(self, 'metar_query_window_toggle', self.metarQueryWindowToggle,
-                                          description="Toggle METAR query window.")
+        self.metarWindowCMD = EasyCommand(
+            self, 'metar_query_window_toggle', 
+            self.metarQueryWindowToggle,
+            description="Toggle METAR query window."
+        )
 
         # Flightloop counters
         self.flcounter = 0
@@ -68,13 +71,11 @@ class Widget:
 
         self.newAptLoaded = False
 
-    # def is_visible(self, element) -> bool:
-    #     return xp.isWidgetVisible(element)
-
     def create_main_menu(self):
+
         # create Menu
-        # self.mPluginItem = xp.appendMenuItem(xp.findPluginsMenu(), 'XP NOAA Weather', 0)
         self.main_menu = xp.createMenu('XP NOAA Weather', handler=self.main_menu_callback)
+
         # add Menu Items
         xp.appendMenuItem(self.main_menu, 'Weather Info', 1)
         xp.appendMenuItem(self.main_menu, 'Metar Query', 2)
@@ -105,7 +106,7 @@ class Widget:
             elif not xp.isWidgetVisible(self.config_window_widget):
                 xp.showWidget(self.config_window_widget)
 
-    def create_info_window(self, x: int = 100, y: int = 900):
+    def create_info_window(self, x: int = 200, y: int = 900):
         x2 = x + self.info_width
         y2 = y - self.info_height
         top = y - self.line_height - self.window_margin
@@ -137,6 +138,74 @@ class Widget:
         xp.addWidgetCallback(window, self.infoWindowHandlerCB)
 
         self.info_window = True
+
+    def create_metar_window(self, x: int = 10, y: int = 900):
+
+        x2 = x + self.metar_width
+        y2 = y - self.metar_height
+
+        # Create the Main Widget window
+        self.metar_window = True
+        self.metar_window_widget = xp.createWidget(x, y, x2, y2, 1, self.metar_title, 1, 0, xp.WidgetClass_MainWindow)
+        xp.setWidgetProperty(self.metar_window_widget, xp.Property_MainWindowType, xp.MainWindowStyle_Translucent)
+
+        # Config Sub Window, style
+        xp.setWidgetProperty(self.metar_window_widget, xp.Property_MainWindowHasCloseBoxes, 1)
+        x += 10
+        y -= self.line_height
+
+        cap = xp.createWidget(x, y, x + 40, y - self.line_height, 1, 'Airport ICAO code:', 0, 
+                              self.metar_window_widget, xp.WidgetClass_Caption)
+        xp.setWidgetProperty(cap, xp.Property_CaptionLit, 1)
+
+        y -= self.line_height
+        # Airport input
+        self.metarQueryInput = xp.createWidget(x, y, x + 120, y - self.line_height, 1, "", 0, 
+                                               self.metar_window_widget, xp.WidgetClass_TextField)
+        xp.setWidgetProperty(self.metarQueryInput, xp.Property_TextFieldType, xp.TextTranslucent)
+
+        self.metarQueryButton = xp.createWidget(x + 140, y, x + 210, y - self.line_height, 1, "Request", 0, 
+                                               self.metar_window_widget, xp.WidgetClass_Button)
+
+        y -= self.line_height * 2
+        # Help caption
+        cap = xp.createWidget(x, y, x + 300, y - self.line_height, 1,
+                             f"{self.conf.metar_source}:", 0, self.metar_window_widget, xp.WidgetClass_Caption)
+        xp.setWidgetProperty(cap, xp.Property_CaptionLit, 1)
+
+        y -= self.line_height
+        # Query output
+        self.metarQueryOutput = []
+        for i in range(2):
+            l = xp.createWidget(x , y, x + self.metar_widget_width, y - self.line_height, 0, "", 0, 
+                                self.metar_window_widget, xp.WidgetClass_TextField)
+            xp.setWidgetProperty(l, xp.Property_TextFieldType, xp.TextTranslucent)
+            self.metarQueryOutput.append(l)
+            y -= self.line_height
+
+        y -= self.line_height
+        cap = xp.createWidget(x, y, x + 300, y - self.line_height, 1, "XP12 Real Weather:", 0, 
+                              self.metar_window_widget, xp.WidgetClass_Caption)
+        xp.setWidgetProperty(cap, xp.Property_CaptionLit, 1)
+
+        y -= self.line_height
+        self.RWQueryOutput = []
+        for i in range(2):
+            l = xp.createWidget(x, y, x + self.metar_widget_width, y - self.line_height, 0, "", 0, 
+                                self.metar_window_widget, xp.WidgetClass_TextField)
+            xp.setWidgetProperty(l, xp.Property_TextFieldType, xp.TextTranslucent)
+            self.RWQueryOutput.append(l)
+            y -= self.line_height
+
+        # Register our query widget handler
+        self.metarQueryInputHandlerCB = self.metarQueryInputHandler
+        xp.addWidgetCallback(self.metarQueryInput, self.metarQueryInputHandlerCB)
+
+        # Register our widget handler
+        self.metarWindowHandlerCB = self.metarWindowHandler
+        xp.addWidgetCallback(self.metar_window_widget, self.metarWindowHandlerCB)
+
+        xp.setKeyboardFocus(self.metarQueryInput)
 
     def create_config_window(self, x: int = 200, y: int = 640):
 
@@ -242,8 +311,6 @@ class Widget:
             x, y, xc, y - self.line_height, 1, ' '.join(self.conf.ignore_metar_stations), 0, window,
             xp.WidgetClass_TextField
         )
-        # xp.setWidgetProperty(self.stationIgnoreInput, xp.Property_TextFieldType, xp.TextEntryField)
-        # xp.setWidgetProperty(self.stationIgnoreInput, xp.Property_Enabled, 1)
         y-= self.line_height * 2
 
         # Create METAR.rwx file
@@ -383,17 +450,13 @@ class Widget:
             xp.createWidget(x, y, x + 80, y - self.line_height, 1, 'Performance Tweaks', 0, window, xp.WidgetClass_Caption)
             xp.createWidget(x + 5, y - self.line_height, x + 80, y - 40, 1, 'Max Visibility (sm)', 0, window, xp.WidgetClass_Caption)
             self.maxVisInput = xp.createWidget(x + 119, y - self.line_height, x + 160, y - 40, 1,
-                                              c.convertForInput(self.conf.max_visibility, 'm2sm'), 0, window,
-                                              xp.WidgetClass_TextField)
-            # xp.setWidgetProperty(self.maxVisInput, xp.Property_TextFieldType, xp.TextEntryField)
-            # xp.setWidgetProperty(self.maxVisInput, xp.Property_Enabled, 1)
+                                               c.convertForInput(self.conf.max_visibility, 'm2sm'), 0, window,
+                                               xp.WidgetClass_TextField)
             y -= self.line_height * 2
             xp.createWidget(x + 5, y, x + 80, y - self.line_height, 1, 'Max cloud height (ft)', 0, window, xp.WidgetClass_Caption)
             self.maxCloudHeightInput = xp.createWidget(x + 119, y, x + 160, y - self.line_height, 1,
-                                                      c.convertForInput(self.conf.max_cloud_height, 'm2ft'), 0, window,
-                                                      xp.WidgetClass_TextField)
-            # xp.setWidgetProperty(self.maxCloudHeightInput, xp.Property_TextFieldType, xp.TextEntryField)
-            # xp.setWidgetProperty(self.maxCloudHeightInput, xp.Property_Enabled, 1)
+                                                       c.convertForInput(self.conf.max_cloud_height, 'm2ft'), 0, window,
+                                                       xp.WidgetClass_TextField)
 
         # elements to add at the bottom of the subwindow
         y1 = b + self.line_height * 4
@@ -440,13 +503,11 @@ class Widget:
         self.about_button = xp.createWidget(
             x1, y1, x1 + button_width, y1 - self.line_height, 1, "Official site", 0, window, xp.WidgetClass_Button
         )
-        # xp.setWidgetProperty(self.aboutVisit, xp.Property_ButtonType, xp.PushButton)
 
         x1 += button_width + 20
         self.forum_button = xp.createWidget(
             x1, y1, x1 + button_width, y1 - self.line_height, 1, "Support", 0, window, xp.WidgetClass_Button
         )
-        # xp.setWidgetProperty(self.aboutForum, xp.Property_ButtonType, xp.PushButton)
 
         # Register our widget handler
         self.configWindowHandlerCB = self.configWindowHandler
@@ -617,14 +678,11 @@ class Widget:
     def updateStatus(self):
         """Updates status window"""
 
-        sysinfo = self.weatherInfo()
+        sysinfo = self.weather.weatherInfo(self.info_line_chars)
 
-        i = 0
-        for label in sysinfo:
-            xp.setWidgetDescriptor(self.info_captions[i], label)
-            i += 1
-            if i > self.info_lines - 1:
-                break
+        for line in self.info_captions:
+            label = sysinfo.pop(0) if len(sysinfo) else '--'
+            xp.setWidgetDescriptor(line, label)
 
         text = ""
         if self.conf.settingsfile.is_file() and self.config_window:
@@ -632,335 +690,6 @@ class Widget:
             if d < 15:
                 text = f"Reloading ({15 - d} sec.) ..."
             xp.setWidgetDescriptor(self.save_caption, text)
-
-    def weatherInfo(self) -> list[str]:
-        """Return an array of strings with formatted weather data"""
-        verbose = self.conf.verbose
-        sysinfo = [f"XPNoaaWeather for XP12 {self.conf.__VERSION__} Status:"]
-
-        if not self.weather.weatherData:
-            sysinfo += ['* Data not ready. Please wait...']
-        else:
-            wdata = self.weather.weatherData
-            if 'info' in wdata:
-                sysinfo += [
-                    '   LAT: %.2f/%.2f LON: %.2f/%.2f FL: %02.f MAGNETIC DEV: %.2f' % (
-                        self.data.latdr.value, wdata['info']['lat'], self.data.londr.value, wdata['info']['lon'],
-                        c.m2ft(self.data.altdr.value) / 100, self.data.mag_deviation.value)
-                ]
-                if self.data.xpWeather.value != 1:
-                    sysinfo += [f"   XP12 Real Weather is not active (value = {self.data.xpWeather.value})"]
-                elif 'None' in wdata['info']['gfs_cycle']:
-                    sysinfo += ['   XP12 is still downloading weather info ...']
-                elif self.conf.real_weather_enabled:
-                    sysinfo += [f"   GFS Cycle: {wdata['info']['rw_gfs_cycle']}"]
-                else:
-                    sysinfo += [f"   GFS Cycle: {wdata['info']['gfs_cycle']}"]
-
-            if 'metar' in wdata and 'icao' in wdata['metar']:
-                sysinfo += [
-                    '',
-                    f"{self.conf.metar_source} METAR:"
-                ]
-                # Split metar if needed
-                metar = f"{wdata['metar']['icao']} {wdata['metar']['metar']}"
-                sysinfo += util.split_and_indent(metar, self.info_line_chars, 3)
-
-                if self.conf.metar_decode:
-                    # METAR Decoding Section
-                    sysinfo += [
-                        f"   Apt altitude: {int(c.m2ft(wdata['metar']['elevation']))}ft, "
-                        f"Apt distance: {round(wdata['metar']['distance'] / 1000, 1)}km",
-                        f"   Temp: {round(wdata['metar']['temperature'][0])}, "
-                        f"Dewpoint: {round(wdata['metar']['temperature'][1])}, "
-                        f"Visibility: {round(wdata['metar']['visibility'])}m, "
-                        f"Press: {wdata['metar']['pressure']:.2f} inhg ({c.inHg2mb(wdata['metar']['pressure']):.1f} mb)"
-                    ]
-
-                    wind = f"   Wind:  {wdata['metar']['wind'][0]} {wdata['metar']['wind'][1]}kt"
-                    if wdata['metar']['wind'][2]:
-                        wind += f", gust {wdata['metar']['wind'][2]}kt"
-                    if 'variable_wind' in wdata['metar'] and wdata['metar']['variable_wind']:
-                        wind += f" Variable: {wdata['metar']['variable_wind'][0]}-{wdata['metar']['variable_wind'][1]}"
-                    sysinfo += [wind]
-
-                    if 'precipitation' in wdata['metar'] and len(wdata['metar']['precipitation']):
-                        precip = ''
-                        for type in wdata['metar']['precipitation']:
-                            if wdata['metar']['precipitation'][type]['recent']:
-                                precip += wdata['metar']['precipitation'][type]['recent']
-                            precip += f"{wdata['metar']['precipitation'][type]['int']}{type} "
-                        sysinfo += [f"   Precipitation: {precip}"]
-
-                    if 'clouds' in wdata['metar']:
-                        if len(wdata['metar']['clouds']):
-                            clouds = '   Clouds: BASE|COVER    '
-                            for cloud in wdata['metar']['clouds']:
-                                alt, coverage, type = cloud
-                                clouds += f"{c.m2fl(alt):03}|{coverage}{type} "
-                        else:
-                            clouds = '   Clouds and Visibility OK'
-                        sysinfo += [clouds]
-
-                if 'rwmetar' in wdata and self.conf.real_weather_enabled:
-                    if not wdata['rwmetar'].get('file_time'):
-                        sysinfo += ['XP12 REAL WEATHER METAR:', '   no METAR file, still downloading...']
-                    else:
-                        sysinfo += [f"XP12 REAL WEATHER METAR ({wdata['rwmetar']['file_time']}):"]
-                        line = f"{wdata['rwmetar']['result'][0]} {wdata['rwmetar']['result'][1]}"
-                        sysinfo += util.split_and_indent(line, self.info_line_chars, 3)
-                    # check actual pressure and adjusted friction
-                    sysinfo += ['', 'XP12 REAL WEATHER LIVE PARAMETERS:']
-                    pressure = self.data.pressure.value / 100  # mb
-                    pressure_inHg = c.mb2inHg(pressure)
-                    line = f"   Pressure: {pressure:.1f}mb ({pressure_inHg:.2f}inHg)"
-                    vis_m, vis_sm = round(c.sm2m(self.data.visibility.value)), round(self.data.visibility.value, 1)
-                    line += f" | Visibility: {vis_m}m ({vis_sm}sm)"
-                    friction = self.data.runwayFriction.value
-                    # metar_friction = self.weather.friction
-                    line += f" | Runway Friction: {friction:02}"
-                    # if friction != metar_friction:
-                    #     line += f" (original {metar_friction:02})"
-                    sysinfo += [line, '']
-
-            if not self.conf.meets_wgrib2_requirements:
-                '''not a compatible OS with wgrib2'''
-                sysinfo += ['',
-                            '*** *** WGRIB2 decoder not available for your OS version *** ***',
-                            'Windows 7 or above, MacOS 10.14 or above, Linux kernel 4.0 or above.',
-                            ''
-                            ]
-            elif 'gfs' not in wdata:
-                sysinfo += ['',
-                            '*** An error has occurred ***',
-                            'No GFS data is available, check log',
-                            ''
-                            ]
-            else:
-                if not wdata['gfs']:
-                    pass
-                else:
-                    # GFS data download for testing is enabled
-                    sysinfo += [
-                        '*** *** Experimental GFS weather data download *** ***'
-                    ]
-                    gfs = wdata['gfs']
-                    if 'surface' in gfs and len(gfs['surface']):
-                        s = gfs['surface']
-                        snow_depth = 'na' if s.get('snow') is None else round(s.get('snow'), 2)
-                        acc_precip = 'na' if s.get('acc_precip') is None else round(s.get('acc_precip'), 2)
-                        sysinfo += [
-                            f"Snow depth (m): {snow_depth}  |  Accumulated precip. (kg/sqm): {acc_precip}",
-                            ''
-                        ]
-
-                if 'rw' in wdata and self.conf.real_weather_enabled:
-                    # XP12 Real Weather is enabled
-                    rw = wdata['rw']
-                    if 'winds' in rw:
-                        sysinfo += ['XP12 REAL WEATHER WIND LAYERS: FL | HDG KT | TEMP | DEV']
-                        wlayers = ''
-                        out = []
-                        for i, layer in enumerate(rw['winds'], 1):
-                            alt, hdg, speed, extra = layer
-                            wind = f"{hdg:03.0f} {speed:>3.0f}kt"
-                            temp = round(c.kel2cel(extra['temp']))
-                            dev = round(c.kel2cel(extra['dev']))
-                            wlayers += f"    F{c.m2fl(alt):03} | {wind} | {temp:> 3} | {dev:> 3}"
-                            if i % 3 == 0 or i == len(rw['winds']):
-                                out.append(wlayers)
-                                wlayers = ''
-                        sysinfo += out
-
-                    if 'tropo' in rw and rw['tropo'].values():
-                        alt, temp, dev = rw['tropo'].values()
-                        if alt and temp and dev:
-                            sysinfo += [f"TROPO LIMIT: {round(alt)}m (F{c.m2fl(alt):03}) | "
-                                        f"temp {round(c.kel2cel(temp))}C ISA Dev {round(c.kel2cel(dev))}C"]
-
-                    if 'clouds' in rw:
-                        sysinfo += ['XP12 REAL WEATHER CLOUD LAYERS  FLBASE | FLTOP | COVER']
-                        clayers = ''
-                        clouds = [el for el in rw['clouds'] if el[0] > 0]
-                        out = []
-                        if not len(clouds):
-                            sysinfo += ['    None reported']
-                        else:
-                            for i, layer in enumerate(clouds, 1):
-                                base, top, cover = layer
-                                clayers += f"    {c.m2fl(base):03} | {c.m2fl(top):03} | {cover:.0f}%"
-                                if i % 3 == 0 or i == len(clouds):
-                                    out.append(clayers)
-                                    clayers = ''
-                            sysinfo += out
-
-                    if 'turbulence' in rw:
-                        wafs = rw['turbulence']
-                        tblayers = ''
-                        out = []
-                        cycle = 'not ready yet' if 'None' in wdata['info']['rw_wafs_cycle'] else wdata['info']['rw_wafs_cycle']
-                        sysinfo += [f"XP12 REAL WEATHER TURBULENCE ({wdata['info']['rw_wafs_cycle']}):  "
-                                    f"FL | SEV (val*10, max {self.conf.max_turbulence * 10}) "]
-                        for i, layer in enumerate(wafs, 1):
-                            fl = c.m2fl(layer[0])
-                            value = round(layer[1] * 10, 2) if layer[1] < self.conf.max_turbulence else '*'
-                            tblayers += f"    F{fl:03} | {value:3.1f}"
-                            if i % 7 == 0 or i == len(wafs):
-                                out.append(tblayers)
-                                tblayers = ''
-                        sysinfo += out
-                    if self.conf.download_WAFS and 'wafs' in wdata and 'turbulence' in wdata['wafs']:
-                        wafs = wdata['wafs']['turbulence']
-                        tblayers = ''
-                        out = []
-                        sysinfo += [f"NOAA Downloaded WAFS data ({wdata['info']['wafs_cycle']}):  "
-                                    f"FL | SEV (val*10, max {self.conf.max_turbulence * 10}) "]
-                        for i, layer in enumerate(wafs, 1):
-                            fl = c.m2fl(layer[0])
-                            value = round(layer[1] * 10, 2) if layer[1] < self.conf.max_turbulence else '*   '
-                            tblayers += f"    F{fl:03} | {value:3.1f}"
-                            if i % 7 == 0 or i == len(wafs):
-                                out.append(tblayers)
-                                tblayers = ''
-                        sysinfo += out
-                    sysinfo += ['']
-
-                else:
-                    '''Normal GFS mode'''
-                    pass
-                    # if 'winds' in gfs:
-                    #     sysinfo += ['', f"GFS WIND LAYERS: {len(gfs['winds'])} FL|HDG|KT|TEMP|DEV"]
-                    #     wlayers = ''
-                    #     i = 0
-                    #     for layer in gfs['winds']:
-                    #         i += 1
-                    #         alt, hdg, speed, extra = layer
-                    #         wlayers += f"   F{c.m2fl(alt):03}|{hdg:03}|{speed:02}kt|" \
-                    #                    f"{round(c.kel2cel(extra['temp'])):02}|{round(c.kel2cel(extra['dev'])):02}"
-                    #         if i > 3:
-                    #             i = 0
-                    #             sysinfo += [wlayers]
-                    #             wlayers = ''
-
-                    # if 'clouds' in gfs:
-                    #     clouds = 'GFS CLOUDS  FLBASE|FLTOP|COVER'
-                    #     for layer in gfs['clouds']:
-                    #         base, top, cover = layer
-                    #         if base > 0:
-                    #             clouds += f"    {c.m2fl(base):03} | {c.m2fl(top):03} | {cover}%"
-                    #     sysinfo += [clouds]
-
-                    # if 'tropo' in gfs:
-                    #     alt, temp, dev = gfs['tropo'].values()
-                    #     if alt and temp and dev:
-                    #         sysinfo += [f"TROPO LIMIT: {round(alt)}m "
-                    #                     f"temp {round(c.kel2cel(temp)):02}C ISA Dev {round(c.kel2cel(dev)):02}C"]
-
-                    # if 'wafs' in wdata:
-                    #     tblayers = ''
-                    #     for layer in wdata['wafs']:
-                    #         tblayers += f"   {c.m2fl(layer[0]):03}|{round(layer[1], 2)}" \
-                    #                     f"{'*' if layer[1]>=self.conf.max_turbulence else ''}"
-
-                    #     sysinfo += [f"WAFS TURBULENCE ({len(wdata['wafs'])}): FL|SEV (max {self.conf.max_turbulence}) ",
-                    #                 tblayers]
-
-                    # sysinfo += ['']
-                    # if 'thermals' in wdata:
-                    #     t = wdata['thermals']
-
-                    #     if not t['grad']:
-                    #         s = "THERMALS: N/A"
-                    #     else:
-                    #         if t['grad'] == "TS":
-                    #             s = "THERMALS (TS mode): "
-                    #         else:
-                    #             s = f"THERMALS: grad. {round(t['grad'], 2)} ºC/100m, "
-                    #         s += f"h {round(t['alt'])}m, p {round(t['prob']*100)}%, r {round(t['rate']*0.00508)}m/s"
-                    #     sysinfo += [s]
-
-                    # if 'cloud_info' in wdata and self.conf.opt_clouds_update:
-                    #     ci = wdata['cloud_info']
-                    #     s = 'OPTIMISED FOR BEST PERFORMANCE' if ci['OVC'] and ci['above_clouds'] else 'MERGED'
-                    #     sysinfo += [f"CLOUD LAYERS MODE: {s}"]
-                    #     if verbose:
-                    #         sysinfo += [f"{ci['layers']}"]
-
-        if len(sysinfo) < self.info_lines:
-            sysinfo += ['--'] * (self.info_lines - len(sysinfo))
-
-        return sysinfo
-
-    def create_metar_window(self, x: int = 100, y: int = 600):
-
-        x2 = x + self.metar_width
-        y2 = y - self.metar_height
-
-        # Create the Main Widget window
-        self.metar_window = True
-        self.metar_window_widget = xp.createWidget(x, y, x2, y2, 1, self.metar_title, 1, 0, xp.WidgetClass_MainWindow)
-        xp.setWidgetProperty(self.metar_window_widget, xp.Property_MainWindowType, xp.MainWindowStyle_Translucent)
-
-        # Config Sub Window, style
-        xp.setWidgetProperty(self.metar_window_widget, xp.Property_MainWindowHasCloseBoxes, 1)
-        x += 10
-        y -= self.line_height
-
-        cap = xp.createWidget(x, y, x + 40, y - self.line_height, 1, 'Airport ICAO code:', 0, 
-                              self.metar_window_widget, xp.WidgetClass_Caption)
-        xp.setWidgetProperty(cap, xp.Property_CaptionLit, 1)
-
-        y -= self.line_height
-        # Airport input
-        self.metarQueryInput = xp.createWidget(x, y, x + 120, y - self.line_height, 1, "", 0, 
-                                               self.metar_window_widget, xp.WidgetClass_TextField)
-        # xp.setWidgetProperty(self.metarQueryInput, xp.Property_Enabled, 1)
-        xp.setWidgetProperty(self.metarQueryInput, xp.Property_TextFieldType, xp.TextTranslucent)
-
-        self.metarQueryButton = xp.createWidget(x + 140, y, x + 210, y - self.line_height, 1, "Request", 0, 
-                                               self.metar_window_widget, xp.WidgetClass_Button)
-        # xp.setWidgetProperty(self.metarQueryButton, xpProperty_ButtonType, xpPushButton)
-        # xp.setWidgetProperty(self.metarQueryButton, xpProperty_Enabled, 1)
-
-        y -= self.line_height * 2
-        # Help caption
-        cap = xp.createWidget(x, y, x + 300, y - self.line_height, 1,
-                             f"{self.conf.metar_source}:", 0, self.metar_window_widget, xp.WidgetClass_Caption)
-        xp.setWidgetProperty(cap, xp.Property_CaptionLit, 1)
-
-        y -= self.line_height
-        # Query output
-        self.metarQueryOutput = []
-        for i in range(2):
-            l = xp.createWidget(x , y, x + self.metar_widget_width, y - self.line_height, 0, "", 0, 
-                                self.metar_window_widget, xp.WidgetClass_TextField)
-            xp.setWidgetProperty(l, xp.Property_TextFieldType, xp.TextTranslucent)
-            self.metarQueryOutput.append(l)
-            y -= self.line_height
-
-        y -= self.line_height
-        cap = xp.createWidget(x, y, x + 300, y - self.line_height, 1, "XP12 Real Weather:", 0, 
-                              self.metar_window_widget, xp.WidgetClass_Caption)
-        xp.setWidgetProperty(cap, xp.Property_CaptionLit, 1)
-
-        y -= self.line_height
-        self.RWQueryOutput = []
-        for i in range(2):
-            l = xp.createWidget(x, y, x + self.metar_widget_width, y - self.line_height, 0, "", 0, 
-                                self.metar_window_widget, xp.WidgetClass_TextField)
-            xp.setWidgetProperty(l, xp.Property_TextFieldType, xp.TextTranslucent)
-            self.RWQueryOutput.append(l)
-            y -= self.line_height
-
-        # Register our query widget handler
-        self.metarQueryInputHandlerCB = self.metarQueryInputHandler
-        xp.addWidgetCallback(self.metarQueryInput, self.metarQueryInputHandlerCB)
-
-        # Register our widget handler
-        self.metarWindowHandlerCB = self.metarWindowHandler
-        xp.addWidgetCallback(self.metar_window_widget, self.metarWindowHandlerCB)
-
-        xp.setKeyboardFocus(self.metarQueryInput)
 
     def metarQueryInputHandler(self, inMessage, inWidget, inParam1, inParam2):
         """Override Texfield keyboard input to be more friendly"""
@@ -1035,35 +764,18 @@ class Widget:
 
         if self.metar_window:
             # Filter metar text
-            metar = util.split_and_indent(''.join(filter(lambda x: x in self.conf.printableChars, msg['metar']['metar'])), 
+            metar = util.format_text(''.join(filter(lambda x: x in self.conf.printableChars, msg['metar']['metar'])), 
                                           self.metar_line_chars)
-            rwmetar = util.split_and_indent(''.join(filter(lambda x: x in self.conf.printableChars, msg['rwmetar']['metar'])), 
+            rwmetar = util.format_text(''.join(filter(lambda x: x in self.conf.printableChars, msg['rwmetar']['metar'])), 
                                             self.metar_line_chars)
             # adding source and RW METARs
             for i, line in enumerate(self.metarQueryOutput):
                 if len(metar) > i:
                     self.file_metar_line(self.metarQueryOutput[i], f"{metar[i]}")
-                # else:
-                #     XPHideWidget(self.metarQueryOutput[i])
 
             for i, line in enumerate(self.RWQueryOutput):
                 if len(rwmetar) > i:
                     self.file_metar_line(self.RWQueryOutput[i], f"{rwmetar[i]}")
-                # else:
-                #     XPHideWidget(self.RWQueryOutput[i])
-
-            # XPSetWidgetDescriptor(self.metarQueryOutput, f"{msg['metar']['icao']} {metar[0]}")
-            # if len(metar) > 1:
-            #     XPShowWidget(self.metarQueryOutput_2)
-            #     XPSetWidgetDescriptor(self.metarQueryOutput_2, f"{metar[1]}")
-            # else:
-            #     XPHideWidget(self.metarQueryOutput_2)
-            # XPSetWidgetDescriptor(self.metarQueryXP12, f"{msg['rwmetar']['icao']} {rwmetar[0]}")
-            # if len(rwmetar) > 1:
-            #     XPShowWidget(self.metarQueryXP12_2)
-            #     XPSetWidgetDescriptor(self.metarQueryXP12_2, f"{rwmetar[1]}")
-            # else:
-            #     xp.hideWidget(self.metarQueryXP12_2)
 
     def metarQueryWindowToggle(self):
         """Metar window toggle command"""

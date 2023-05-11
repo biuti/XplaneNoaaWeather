@@ -27,7 +27,7 @@ class util:
         except Exception as e:
             print(f"can't remove {filepath.name}: {e}")
             i = 1
-            while 1:
+            while True:
                 npath = Path(f"{filepath}-{i}")
                 if not npath.exists():
                     try:
@@ -80,11 +80,9 @@ class util:
         return lines
 
     @staticmethod
-    def split_and_indent(text: str, max_len: int = 80, indent: int = 0, hanging: int = 0) -> list:
-        if len(text) + indent > max_len: 
-            return [indent * ' ' + line for line in wrap(text, max_len - indent)]
-        else:
-            return [indent * ' ' + text]
+    def format_text(text: str, max_len: int = 80, indent: int = 0, hanging: int = 0) -> list:
+
+        return wrap(text, width=max_len, initial_indent=' ' * indent, subsequent_indent=' ' * (indent + hanging))
 
     @staticmethod
     def date_in_filename(file: Path) -> int:
