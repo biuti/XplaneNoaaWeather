@@ -109,15 +109,11 @@ class PythonInterface(widget.Widget):
 
     def XPluginStart(self):
 
-        # floop
-        self.floop = self.floopCallback
-        xp.registerFlightLoopCallback(self.floop, -1, 0)
-
         return self.name, self.sig, self.desc
 
     def XPluginStop(self):
 
-        xp.unregisterFlightLoopCallback(self.floop, 0)
+        xp.destroyFlightLoop(self.loop_id)
 
         # kill widget windows and menu
         self.shutdown_widget()
@@ -131,6 +127,10 @@ class PythonInterface(widget.Widget):
         self.data.cleanup()
 
     def XPluginEnable(self):
+        # floop
+        self.floop = self.floopCallback
+        self.loop_id = xp.createFlightLoop(self.floop, phase=0)
+        xp.scheduleFlightLoop(self.loop_id, interval=-1)
         return 1
 
     def XPluginDisable(self):
