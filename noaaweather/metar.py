@@ -41,7 +41,8 @@ class Metar(WeatherSource):
                         r'(?P<exceed>[PM])?(?P<visibility>[0-9]{4})(?P<change>[UDN])?')
 
     METAR_STATIONS_URL = 'https://www.aviationweather.gov/docs/metar/stations.txt'
-    NOAA_METAR_URL = 'https://aviationweather.gov/adds/dataserver_current/current/metars.cache.csv.gz'
+    # NOAA_METAR_URL = 'https://aviationweather.gov/adds/dataserver_current/current/metars.cache.csv.gz'
+    NOAA_METAR_URL = 'https://aviationweather.gov/data/cache/metars.cache.csv.gz'
     VATSIM_METAR_URL = 'https://metar.vatsim.net/metar.php?id=all'
     IVAO_METAR_URL = 'https://api.ivao.aero/v2/airports/all/metar'
 
