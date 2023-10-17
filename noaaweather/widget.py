@@ -91,7 +91,6 @@ class Widget:
                 self.info_window = True
             elif not xp.isWidgetVisible(self.info_window_widget):
                 xp.showWidget(self.info_window_widget)
-
         elif menuItem == 2:
             # METAR query
             if not self.metar_window:
