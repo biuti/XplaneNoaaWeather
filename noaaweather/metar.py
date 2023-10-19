@@ -361,41 +361,33 @@ class Metar(WeatherSource):
 
     def run(self, elapsed: int):
 
-        # Check for new metar downloaded data
-        if self.download:
-            if not self.download.pending():
+        # Update stations table if required
+        if self.ms_download:
+            if not self.ms_download.pending():
+                self.ms_download.join()
+                stations = self.ms_download.result
+                if isinstance(stations, GribDownloaderError):
+                    print(f"Error downloading metar stations file {repr(stations)}")
+                else:
+                    print('Updating metar stations.')
+                    nstations = self.update_stations(stations)
+                self.ms_download = False
 
+        # Check for new metar downloaded data
+        elif self.download:
+            if not self.download.pending():
                 metar_file = self.download.result
                 self.download.join()
                 if isinstance(metar_file, GribDownloaderError):
-                    print(f"Error downloading METAR: {metar_file}")
+                    print(f"Error downloading METAR: {repr(metar_file)}")
                 else:
                     updated, parsed = self.update_metar(metar_file)
-
                 self.download = False
-
-        elif self.conf.download_METAR:
-            # Download new data if required
-            cycle, timestamp = self.get_current_cycle()
-            if (timestamp - self.last_timestamp) > self.conf.metar_updaterate * 60:
-                self.last_timestamp = timestamp
-                self.download_cycle(cycle, timestamp)
-
-        # Update stations table if required
-        if self.ms_download and not self.ms_download.pending():
-            stations = self.ms_download.result
-
-            if isinstance(stations, GribDownloaderError):
-                print(f"Error downloading metar stations file {stations.message}")
-
             else:
-                print('Updating metar stations.')
-                nstations = self.update_stations(self.ms_download.result)
-                print(f"{nstations} metar stations updated.")
-            self.ms_download = False
+                print(f" **** {datetime.now().strftime('%H:%M:%S')} waiting {self.conf.metar_source} METAR download ... ")
 
         # Update METAR.rwx
-        if self.conf.update_rwx_file and not self.conf.metar_use_xp12 and self.next_metarRWX < time.time():
+        elif self.conf.update_rwx_file and not self.conf.metar_use_xp12 and self.next_metarRWX < time.time():
             if self.update_metar_rwx_file():
                 self.next_metarRWX = time.time() + self.conf.metar_updaterate * 60
                 print(f"Updated METAR.rwx file using {self.conf.metar_source}.")
@@ -403,6 +395,13 @@ class Metar(WeatherSource):
                 print(f"There was an issue trying to update METAR.rwx file using {self.conf.metar_source}. Retrying in 30 seconds")
                 # Retry in 30 sec
                 self.next_metarRWX = time.time() + 30
+
+        elif self.conf.download_METAR:
+            # Download new data if required
+            cycle, timestamp = self.get_current_cycle()
+            if (timestamp - self.last_timestamp) > self.conf.metar_updaterate * 60:
+                self.last_timestamp = timestamp
+                self.download_cycle(cycle, timestamp)
 
     def download_cycle(self, cycle, timestamp):
         self.downloading = True
