@@ -40,7 +40,10 @@ class Metar(WeatherSource):
     RE_RVR = re.compile(r'R(?P<runway>(?P<heading>[0-9]{2})(?P<rw_position>[LCR])?)/'
                         r'(?P<exceed>[PM])?(?P<visibility>[0-9]{4})(?P<change>[UDN])?')
 
-    METAR_STATIONS_URL = 'https://www.aviationweather.gov/docs/metar/stations.txt'
+    # METAR_STATIONS_URL = 'https://www.aviationweather.gov/docs/metar/stations.txt'
+    # Hotfix for stations.txt until a new updates source is found
+    # this seems to be a static copy
+    METAR_STATIONS_URL = 'https://weather.rap.ucar.edu/surface/stations.txt'
     # NOAA_METAR_URL = 'https://aviationweather.gov/adds/dataserver_current/current/metars.cache.csv.gz'
     NOAA_METAR_URL = 'https://aviationweather.gov/data/cache/metars.cache.csv.gz'
     VATSIM_METAR_URL = 'https://metar.vatsim.net/metar.php?id=all'
@@ -383,8 +386,6 @@ class Metar(WeatherSource):
                 else:
                     updated, parsed = self.update_metar(metar_file)
                 self.download = False
-            else:
-                print(f" **** {datetime.now().strftime('%H:%M:%S')} waiting {self.conf.metar_source} METAR download ... ")
 
         # Update METAR.rwx
         elif self.conf.update_rwx_file and not self.conf.metar_use_xp12 and self.next_metarRWX < time.time():
