@@ -41,10 +41,11 @@ class Metar(WeatherSource):
     RE_RVR = re.compile(r'R(?P<runway>(?P<heading>[0-9]{2})(?P<rw_position>[LCR])?)/'
                         r'(?P<exceed>[PM])?(?P<visibility>[0-9]{4})(?P<change>[UDN])?')
 
-    METAR_STATIONS_URL = 'https://www.aviationweather.gov/docs/metar/stations.txt'
-    NOAA_METAR_URL = 'https://aviationweather.gov/adds/dataserver_current/current/metars.cache.csv.gz'
+    # Hotfix for stations.txt until a new updates source is found
+    # this seems to be a static copy
+    METAR_STATIONS_URL = 'https://weather.rap.ucar.edu/surface/stations.txt'
+    NOAA_METAR_URL = 'https://aviationweather.gov/data/cache/metars.cache.csv.gz'
     VATSIM_METAR_URL = 'https://metar.vatsim.net/metar.php?id=all'
-    # IVAO_METAR_URL = 'https://wx.ivao.aero/metar.php'
     IVAO_METAR_URL = 'https://api.ivao.aero/v2/airports/all/metar'
 
     STATION_UPDATE_RATE = 30  # In days
