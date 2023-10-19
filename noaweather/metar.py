@@ -406,32 +406,10 @@ class Metar(WeatherSource):
         if not self.th_db:
             self.th_db = self.db_connect(self.database)
 
-        # Check for new metar downloaded data
-        if self.download:
-            if not self.download.pending():
-
-                metar_file = self.download.result
-                self.download.join()
-                if isinstance(metar_file, GribDownloaderError):
-                    print("Error downloading METAR: %s" % str(metar_file))
-                else:
-                    # print('Successfully downloaded: %s' % metar_file.split(os.path.sep)[-1])
-                    updated, parsed = self.update_metar(self.th_db, metar_file)
-                    # print("METAR updated/parsed: %d/%d" % (updated, parsed))
-
-                self.download = False
-
-        elif self.conf.download:
-            # Download new data if required
-            cycle, timestamp = self.get_current_cycle()
-            if (timestamp - self.last_timestamp) > self.conf.metar_updaterate * 60:
-                self.last_timestamp = timestamp
-                self.download_cycle(cycle, timestamp)
-
         # Update stations table if required
         if self.ms_download and not self.ms_download.pending():
             stations = self.ms_download.result
-
+            self.ms_download.join()
             if isinstance(stations, GribDownloaderError):
                 print("Error downloading metar stations file %s" % stations.message)
 
@@ -441,14 +419,34 @@ class Metar(WeatherSource):
                 print('%d metar stations updated.' % nstations)
             self.ms_download = False
 
+        # Check for new metar downloaded data
+        elif self.download:
+            if not self.download.pending():
+                metar_file = self.download.result
+                self.download.join()
+                if isinstance(metar_file, GribDownloaderError):
+                    print("Error downloading METAR: %s" % str(metar_file))
+                else:
+                    # print('Successfully downloaded: %s' % metar_file.split(os.path.sep)[-1])
+                    updated, parsed = self.update_metar(self.th_db, metar_file)
+                    # print("METAR updated/parsed: %d/%d" % (updated, parsed))
+                self.download = False
+
         # Update METAR.rwx
-        if self.conf.updateMetarRWX and self.conf.syspath and self.next_metarRWX < time.time():
+        elif self.conf.updateMetarRWX and self.conf.syspath and self.next_metarRWX < time.time():
             if self.update_metar_rwx_file(self.th_db):
                 self.next_metarRWX = time.time() + 300
                 print('Updated METAR.rwx file.')
             else:
                 # Retry in 10 sec
                 self.next_metarRWX = time.time() + 10
+
+        elif self.conf.download:
+            # Download new data if required
+            cycle, timestamp = self.get_current_cycle()
+            if (timestamp - self.last_timestamp) > self.conf.metar_updaterate * 60:
+                self.last_timestamp = timestamp
+                self.download_cycle(cycle, timestamp)
 
     def download_cycle(self, cycle, timestamp):
         self.downloading = True
