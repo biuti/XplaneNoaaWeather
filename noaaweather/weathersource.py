@@ -400,8 +400,8 @@ class GribDownloader(object):
                 raise RuntimeError(f"Bad GRIB file index format: Missing columns. Expected 7,  Found {len(cols)} columns: {cols}")
             try:
                 cols[1] = int(cols[1])
-            except ValueError:
-                raise RuntimeError(f"Bad GRIB file index format: Bad integer, found: {cols[1]}")
+            except ValueError as e:
+                raise RuntimeError(f"Bad GRIB file index format: Bad integer, found: {cols[1]}") from e
 
             index.append(cols)
 
@@ -437,8 +437,8 @@ class GribDownloader(object):
                 idx_file.seek(0)
                 try:
                     cls.download_part(f"{url}.idx", idx_file, **kwargs)
-                except URLError as err:
-                    raise GribDownloaderError(f"Unable to download index file for: {url} - Error: {repr(err)}")
+                except URLError as e:
+                    raise GribDownloaderError(f"Unable to download index file for: {url} - Error: {repr(e)}") from e
 
                 idx_file.seek(0)
 
@@ -456,8 +456,8 @@ class GribDownloader(object):
                 print(f"downloading ...")
                 try:
                     cls.download_part(str(url), grib_file, start=chunk[0], end=chunk[1], **kwargs)
-                except URLError as err:
-                    raise GribDownloaderError(f"Unable to open url: {url} \n\t{repr(err)}")
+                except URLError as e:
+                    raise GribDownloaderError(f"Unable to open url: {url} \n\t{repr(e)}") from e
 
         print(f"download ended")
         wgrib2 = kwargs.pop('decompress', False)
@@ -468,8 +468,8 @@ class GribDownloader(object):
                 file_path.rename(tmp_file)
                 cls.decompress_grib(tmp_file, file_path, wgrib2, spinfo)
                 util.remove(tmp_file)
-            except OSError as err:
-                raise GribDownloaderError(f"Unable to decompress: {file_path.name} \n\t{repr(err)}")
+            except OSError as e:
+                raise GribDownloaderError(f"Unable to decompress: {file_path.name} \n\t{repr(e)}") from e
 
         return file_path
 

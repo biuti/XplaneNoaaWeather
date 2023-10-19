@@ -101,7 +101,7 @@ class Conf:
             # Enforce execution rights
             try:
                 self.wgrib2bin.chmod(0o775)
-            except:
+            except Exception:
                 pass
 
         self.meets_wgrib2_requirements = wgbin is not False
@@ -233,7 +233,7 @@ class Conf:
             try:
                 conf = cPickle.load(f)
                 f.close()
-            except:
+            except Exception:
                 # Corrupted settings, remove file
                 print(f"{filepath.name}: Corrupted file, deleting ...")
                 filepath.unlink()
