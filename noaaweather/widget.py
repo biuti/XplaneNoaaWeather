@@ -708,7 +708,7 @@ class Widget:
                 elif key == 27:
                     # ESC
                     xp.loseKeyboardFocus(self.metarQueryInput)
-                elif 65 <= key <= 90 or 97 <= key <= 122 and len(text) < 4:
+                elif 48 <= key <= 57 or 65 <= key <= 90 or 97 <= key <= 122 and len(text) < 4:
                     text += chr(key).upper()
                     xp.setWidgetDescriptor(self.metarQueryInput, text)
                     cursor += 1
