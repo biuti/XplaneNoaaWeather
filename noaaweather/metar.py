@@ -41,9 +41,10 @@ class Metar(WeatherSource):
                         r'(?P<exceed>[PM])?(?P<visibility>[0-9]{4})(?P<change>[UDN])?')
 
     # METAR_STATIONS_URL = 'https://www.aviationweather.gov/docs/metar/stations.txt'
+    METAR_STATIONS_URL = ' https://aviationweather-cprk.ncep.noaa.gov/docs/metar/stations.txt'
     # Hotfix for stations.txt until a new updates source is found
     # this seems to be a static copy
-    METAR_STATIONS_URL = 'https://weather.rap.ucar.edu/surface/stations.txt'
+    METAR_STATIONS_BACKUP_URL = 'https://weather.rap.ucar.edu/surface/stations.txt'
     # NOAA_METAR_URL = 'https://aviationweather.gov/adds/dataserver_current/current/metars.cache.csv.gz'
     NOAA_METAR_URL = 'https://aviationweather.gov/data/cache/metars.cache.csv.gz'
     VATSIM_METAR_URL = 'https://metar.vatsim.net/metar.php?id=all'
@@ -67,16 +68,19 @@ class Metar(WeatherSource):
 
         # Metar stations update
         if (time.time() - conf.ms_update) > self.STATION_UPDATE_RATE * 86400:
-            self.ms_download = AsyncTask(
-                GribDownloader.download, 
-                self.METAR_STATIONS_URL, 
-                'stations.txt',
-                binary=True, 
-                cancel_event=self.die
-            )
-            self.ms_download.start()
-
+            self.download_stations()
         self.last_timestamp = 0
+
+    def download_stations(self, url: str = METAR_STATIONS_URL):
+        self.ms_download = AsyncTask(
+            GribDownloader.download, 
+            url, 
+            'stations.txt',
+            binary=True, 
+            cancel_event=self.die
+        )
+        self.ms_download.start()
+        self.ms_url = url
 
     def update_stations(self, path: Path, batch: int = 100):
         """Updates db's airport information from the METAR stations file"""
@@ -371,10 +375,16 @@ class Metar(WeatherSource):
                 stations = self.ms_download.result
                 if isinstance(stations, GribDownloaderError):
                     print(f"Error downloading metar stations file {repr(stations)}")
+                    if self.ms_url == self.METAR_STATIONS_URL:
+                        print(f"Trying backup static url")
+                        self.download_stations(url=self.METAR_STATIONS_BACKUP_URL)
                 else:
                     print('Updating metar stations.')
                     nstations = self.update_stations(stations)
+                    print(f"**** {datetime.now().strftime('%H:%M:%S')} {nstations} metar stations updated.")
                 self.ms_download = False
+            else:
+                print(f" **** {datetime.now().strftime('%H:%M:%S')} waiting stations download ... ")
 
         # Check for new metar downloaded data
         elif self.download:
@@ -391,7 +401,7 @@ class Metar(WeatherSource):
         elif self.conf.update_rwx_file and not self.conf.metar_use_xp12 and self.next_metarRWX < time.time():
             if self.update_metar_rwx_file():
                 self.next_metarRWX = time.time() + self.conf.metar_updaterate * 60
-                print(f"Updated METAR.rwx file using {self.conf.metar_source}.")
+                print(f" **** {datetime.now().strftime('%H:%M:%S')} Updated METAR.rwx file using {self.conf.metar_source}.")
             else:
                 print(f"There was an issue trying to update METAR.rwx file using {self.conf.metar_source}. Retrying in 30 seconds")
                 # Retry in 30 sec
