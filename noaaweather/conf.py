@@ -162,13 +162,17 @@ class Conf:
         self.set_surface_layer = False
         self.turbulence_probability = 1
 
+        # added GFS Data in real Weather
+        self.set_snow = True
+        self.set_patches = True
+
         self.download_METAR = True
 
         # Waiting API SDK to implement automatic mode switch
         self.real_weather_enabled = True
 
         # Avoid downloading GFS and WAFS data until it will have some use in XP12
-        self.download_GFS = False
+        self.download_GFS = True
         self.download_WAFS = False
 
         # From this AGL level METAR values are interpolated to GFS ones.
@@ -265,7 +269,8 @@ class Conf:
             'set_tropo': self.set_tropo,
             'set_thermals': self.set_thermals,
             'set_surface_layer': self.set_surface_layer,
-            # 'set_snow': self.set_snow,
+            'set_snow': self.set_snow,
+            'set_patches': self.set_patches,
             'opt_clouds_update': self.opt_clouds_update,
             'metar_source': self.metar_source,
             'download_GFS': self.download_GFS,

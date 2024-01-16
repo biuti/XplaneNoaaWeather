@@ -64,6 +64,9 @@ class Dref:
         self.precipitation = EasyDref('sim/weather/region/rain_percent', 'float')
         self.runwayFriction = EasyDref('sim/weather/region/runway_friction', 'float')
 
+        self.snow_cover = EasyDref('sim/private/controls/wxr/snow_now', 'float', writable=True)
+        # self.rain_force_factor = EasyDref('sim/private/controls/rain/force_factor', 'float', writable=True)
+
         self.thermals_rate = EasyDref('sim/weather/region/thermal_rate_ms', 'float')  # seems ft/m 0 - 1000
 
         self.mag_deviation = EasyDref('sim/flightmodel/position/magnetic_variation', 'float')
@@ -71,6 +74,16 @@ class Dref:
         self.acf_vy = EasyDref('sim/flightmodel/position/local_vy', 'float')
 
         # print(self.dump())
+
+    def check_snow_dref(self):
+        if not self.snow_cover or not self.snow_cover.value:
+            self.snow_cover = EasyDref('sim/private/controls/wxr/snow_now', 'float', writable=True)
+        try:
+            # print(f"snow_cover value: {self.snow_cover.value}")
+            return True
+        except SystemError as e:
+            print(f"ERROR: {e}")
+            return False
 
     def dump(self) -> dict:
         # Dump winds datarefs

@@ -108,7 +108,7 @@ class EasyDref:
         else:
             self.DataRef = xp.findDataRef(dataref)
             if not self.DataRef:
-                print(f"Can't find {dataref} DataRef")
+                xp.log(f"Can't find {dataref} DataRef")
 
     def initArrayDref(self, first, last, type):
         if self.register:

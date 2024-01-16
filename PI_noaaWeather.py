@@ -81,22 +81,27 @@ class PythonInterface(widget.Widget):
         self.weather.alt = self.data.altdr.value
 
         wdata = self.weather.weatherData
-
-        ''' Return if there's no weather data'''
+        # Return if there's no weather data
         if wdata is False:
             return -1
 
-        if self.conf.real_weather_enabled and self.weather.newData:
-            # Real Weather active
-            # check Dref values, RW overwrites them. Probably needed for any change to Real Weather data
-            # looking at actual weather, does not seem to have any impact tho.
-            # if not self.data.metar_runwayFriction.value or self.weather.runwayFriction.value != self.data.metar_runwayFriction.value:
-            #     self.data.metar_runwayFriction.value = self.weather.runwayFriction.value
-            # if self.weather.runwayFriction.value > 6:
-            #     # set runway friction to Puddly, to avoid extreme and unrealistic slippery conditions.
-            #     self.weather.friction = self.weather.runwayFriction.value
-            #     self.weather.runwayFriction.value = 6 if self.weather.friction < 10 else 9
-            pass
+        if self.conf.real_weather_enabled and self.conf.download_GFS:
+            if self.conf.set_snow and self.data.check_snow_dref():
+                # ATM we need to overwrite dref value every cycle
+                self.weather.setSnow()
+                pass
+            if self.weather.newData:
+                # Real Weather active
+                # check Dref values, RW overwrites them. Probably needed for any change to Real Weather data
+                # looking at actual weather, does not seem to have any impact tho.
+                # if not self.data.metar_runwayFriction.value or self.weather.runwayFriction.value != self.data.metar_runwayFriction.value:
+                #     self.data.metar_runwayFriction.value = self.weather.runwayFriction.value
+                # if self.weather.runwayFriction.value > 6:
+                #     # set runway friction to Puddly, to avoid extreme and unrealistic slippery conditions.
+                #     self.weather.friction = self.weather.runwayFriction.value
+                #     self.weather.runwayFriction.value = 6 if self.weather.friction < 10 else 9
+                # xp.log(f"New GFS data downloaded: {self.weather.data}")
+                pass
 
         ''' Data set on new weather Data '''
         if not self.conf.real_weather_enabled and self.weather.newData:

@@ -340,13 +340,28 @@ class Widget:
         # XPSetWidgetProperty(self.WAFSCheck, xp.Property_ButtonState, self.conf.download_WAFS)
         # y -= self.line_height * 2
 
-        # # Accumulated snow
-        # xp.createWidget(x, y, x + 100, y - self.line_height, 1, 'Snow Depth', 0, window, xp.WidgetClass_Caption)
-        # self.snowCheck = xp.createWidget(x + 120, y, x + 140, y - self.line_height, 1, '', 0, window, xpWidgetClass_Button)
-        # XPSetWidgetProperty(self.snowCheck, xp.Property_ButtonState, xp.RadioButton)
-        # XPSetWidgetProperty(self.snowCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
-        # XPSetWidgetProperty(self.snowCheck, xp.Property_ButtonState, self.conf.set_snow)
-        # y -= self.line_height * 2
+        # Download GFS Data
+        xp.createWidget(x, y, x + 100, y - self.line_height, 1, 'GFS data download:', 0, window, xp.WidgetClass_Caption)
+        self.GFSCheck = xp.createWidget(xc, y, xc + self.line_height, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button)
+        xp.setWidgetProperty(self.GFSCheck, xp.Property_ButtonState, xp.RadioButton)
+        xp.setWidgetProperty(self.GFSCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
+        xp.setWidgetProperty(self.GFSCheck, xp.Property_ButtonState, self.conf.download_GFS)
+        y -= self.line_height
+
+        # Accumulated snow | water
+        xp.createWidget(x + 50, y, x + 150, y - self.line_height, 1, 'Accumulated Snow:', 0, window, xp.WidgetClass_Caption)
+        self.snowCheck = xp.createWidget(xc, y, xc + self.line_height, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button)
+        xp.setWidgetProperty(self.snowCheck, xp.Property_ButtonState, xp.RadioButton)
+        xp.setWidgetProperty(self.snowCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
+        xp.setWidgetProperty(self.snowCheck, xp.Property_ButtonState, self.conf.set_snow)
+        y -= self.line_height
+
+        xp.createWidget(x + 50, y, x + 150, y - self.line_height, 1, 'Accumulated Water:', 0, window, xp.WidgetClass_Caption)
+        self.rainCheck = xp.createWidget(xc, y, xc + self.line_height, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button)
+        xp.setWidgetProperty(self.rainCheck, xp.Property_ButtonState, xp.RadioButton)
+        xp.setWidgetProperty(self.rainCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
+        xp.setWidgetProperty(self.rainCheck, xp.Property_ButtonState, self.conf.set_patches)
+        y -= self.line_height
 
         if not self.conf.real_weather_enabled:
             # Winds enable
@@ -564,8 +579,10 @@ class Widget:
                 self.conf.enabled = xp.getWidgetProperty(self.enable_check, xp.Property_ButtonState, None)
                 self.conf.metar_decode = xp.getWidgetProperty(self.decode_check, xp.Property_ButtonState)
                 if self.conf.real_weather_enabled:
-                    # nothing to do now
+                    self.conf.download_GFS = xp.getWidgetProperty(self.GFSCheck, xp.Property_ButtonState, None)
                     # self.conf.download_WAFS = xp.getWidgetProperty(self.WAFSCheck, xp.Property_ButtonState, None)
+                    self.conf.set_snow = XPGetWidgetProperty(self.snowCheck, xp.Property_ButtonState, None)
+                    self.conf.set_patches = XPGetWidgetProperty(self.rainCheck, xp.Property_ButtonState, None)
                     pass
                 else:
                     self.conf.set_wind = xp.getWidgetProperty(self.windsCheck, xp.Property_ButtonState, None)
@@ -590,8 +607,6 @@ class Widget:
 
                     buff = xp.getWidgetDescriptor(self.maxVisInput)
                     self.conf.max_visibility = c.convertFromInput(buff, 'sm2m')
-
-                # self.conf.set_snow = XPGetWidgetProperty(self.snowCheck, xp.Property_ButtonState, None)
 
                 # Metar station ignore
                 buff = xp.getWidgetDescriptor(self.ignore_list_input)

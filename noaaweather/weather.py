@@ -88,10 +88,7 @@ class Weather:
     def startWeatherServer(self):
         DETACHED_PROCESS = 0x00000008
         args = [xp.pythonExecutable, Path(self.conf.respath, 'weatherServer.py'), self.conf.syspath]
-        xp.log(f"we are at xp.pythonExecutable ...")
-
         kwargs = {'close_fds': True}
-
         try:
             if self.conf.spinfo:
                 kwargs.update({'startupinfo': self.conf.spinfo, 'creationflags': DETACHED_PROCESS})
@@ -108,19 +105,33 @@ class Weather:
     def get_XP12_METAR(self, icao: str) -> str:
         return xp.getMETARForAirport('icao')
 
-    # def setSnow(self):
-    #     """Set snow cover"""
-    #     # Not used at the moment, probably needs a different API if we want to implement
-    #     print(f"weatherdata['gfs']: {self.weatherData['gfs']}")
-    #     if 'snow' in self.weatherData['gfs']:
-    #         snow = self.weatherData['gfs']['snow']
-    #         if 0 < snow <= 5:
-    #             print(f"activating snow ...")
-    #             self.setDrefIfDiff(self.hack_snow, snow, 0.05)
-    #             self.setDrefIfDiff(self.hack_control, 1)
-    #         else:
-    #             print(f"deactivating control ...")
-    #             self.setDrefIfDiff(self.hack_control, 0)
+    def setSnow(self):
+        """ Set snow cover
+            Dref value goes from 1.25 to 0.01
+            no snow:    1.25
+            light:      0.31
+            medium:     0.21
+            heavy:      0.07
+
+            GFS SNOD is in meters
+            SNOD    Dref conversion:
+            0       1.25
+            0.1     ~0.3
+            0.25    ~0.2
+            0.5     ~0.1
+            1       ~0.05
+        """
+        if 'snow' in self.weatherData['gfs']['surface']:
+            snow = self.weatherData['gfs']['surface']['snow']
+            val = 1.25
+            if snow > 0:
+                val = max(1.25 - (1.185 * snow**0.142), 0.01)
+                # print(f"GFS snow value: {snow} | injecting in snow_cover value {val}")
+                try:
+                    if val < self.data.snow_cover.value:
+                        self.data.snow_cover.value = val
+                except SystemError as e:
+                    xp.log(f"ERROR: {e}")
 
     def weatherInfo(self, chars: int = 80) -> list[str]:
         """Return an array of strings with formatted weather data"""
