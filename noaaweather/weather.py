@@ -253,7 +253,7 @@ class Weather:
                         acc_precip = 'na' if (s.get('acc_precip') is None or s.get('acc_precip') < 0) else round(s.get('acc_precip'), 2)
                         surface_temp = s.get('temp')
                         sysinfo += [
-                            f"temp: {surface_temp} | Snow depth (m): {snow_depth}  |  Accumulated precip. (kg/sqm): {acc_precip}",
+                            f"surface temp: {round(c.kel2cel(surface_temp), 1)} | Snow depth (m): {snow_depth}  |  Accumulated precip. (kg/sqm): {acc_precip}",
                             ''
                         ]
 
