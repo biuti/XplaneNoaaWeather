@@ -377,6 +377,12 @@ class c:
                 return string.lower()
 
     @staticmethod
+    def is_exponential(f: float) -> bool:
+        if isinstance(f,float) and 'e' in str(f).lower():
+            return True
+        return False
+
+    @staticmethod
     def limit(value, max=None, min=None):
         if max is not False and max is not None and value > max:
             return max

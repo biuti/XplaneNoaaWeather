@@ -124,7 +124,7 @@ class Weather:
         if 'snow' in self.weatherData['gfs']['surface']:
             snow = self.weatherData['gfs']['surface']['snow']
             val = 1.25
-            if snow > 0:
+            if snow > 0 and not c.is_exponential(snow):
                 val = max(1.25 - (1.185 * snow**0.142), 0.01)
                 # print(f"GFS snow value: {snow} | injecting in snow_cover value {val}")
                 try:
