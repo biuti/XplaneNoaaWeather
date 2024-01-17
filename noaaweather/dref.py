@@ -64,7 +64,10 @@ class Dref:
         self.precipitation = EasyDref('sim/weather/region/rain_percent', 'float')
         self.runwayFriction = EasyDref('sim/weather/region/runway_friction', 'float')
 
-        self.snow_cover = EasyDref('sim/private/controls/wxr/snow_now', 'float', writable=True)
+        # snow coverage
+        self.snow_cover = EasyDref('sim/private/controls/wxr/snow_now', 'float', writable=True)  # 1.25 to 0.01
+        self.frozen_water_a = EasyDref('sim/private/controls/snow/luma_a', 'float', writable=True)  # default 0
+        self.frozen_water_b = EasyDref('sim/private/controls/snow/luma_b', 'float', writable=True)  # default 0
         # self.rain_force_factor = EasyDref('sim/private/controls/rain/force_factor', 'float', writable=True)
 
         self.thermals_rate = EasyDref('sim/weather/region/thermal_rate_ms', 'float')  # seems ft/m 0 - 1000
@@ -77,13 +80,15 @@ class Dref:
 
     def check_snow_dref(self):
         if not self.snow_cover or not self.snow_cover.value:
-            self.snow_cover = EasyDref('sim/private/controls/wxr/snow_now', 'float', writable=True)
-        try:
-            # print(f"snow_cover value: {self.snow_cover.value}")
-            return True
-        except SystemError as e:
-            print(f"ERROR: {e}")
-            return False
+            try:
+                # print(f"snow_cover value: {self.snow_cover.value}")
+                self.snow_cover = EasyDref('sim/private/controls/wxr/snow_now', 'float', writable=True)
+                self.frozen_water_a = EasyDref('sim/private/controls/snow/luma_a', 'float', writable=True)
+                self.frozen_water_b = EasyDref('sim/private/controls/snow/luma_b', 'float', writable=True)
+            except SystemError as e:
+                print(f"ERROR inizializing snow drefs: {e}")
+                return False
+        return True
 
     def dump(self) -> dict:
         # Dump winds datarefs

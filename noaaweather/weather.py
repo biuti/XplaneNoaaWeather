@@ -130,6 +130,8 @@ class Weather:
                 try:
                     if val < self.data.snow_cover.value:
                         self.data.snow_cover.value = val
+                        self.data.frozen_water_a.value = snow * 10
+                        self.data.frozen_water_b.value = snow * 100
                 except SystemError as e:
                     xp.log(f"ERROR: {e}")
 
