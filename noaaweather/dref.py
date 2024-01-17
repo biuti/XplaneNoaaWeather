@@ -64,10 +64,10 @@ class Dref:
         self.precipitation = EasyDref('sim/weather/region/rain_percent', 'float')
         self.runwayFriction = EasyDref('sim/weather/region/runway_friction', 'float')
 
-        # snow coverage
-        self.snow_cover = EasyDref('sim/private/controls/wxr/snow_now', 'float', writable=True)  # 1.25 to 0.01
-        self.frozen_water_a = EasyDref('sim/private/controls/snow/luma_a', 'float', writable=True)  # default 0
-        self.frozen_water_b = EasyDref('sim/private/controls/snow/luma_b', 'float', writable=True)  # default 0
+        # snow coverage, this are private dref for some reason cannot be initialized at start
+        self.snow_cover = None # 1.25 to 0.01
+        self.frozen_water_a = None  # default 0
+        self.frozen_water_b = None   # default 0
         # self.rain_force_factor = EasyDref('sim/private/controls/rain/force_factor', 'float', writable=True)
 
         self.thermals_rate = EasyDref('sim/weather/region/thermal_rate_ms', 'float')  # seems ft/m 0 - 1000
