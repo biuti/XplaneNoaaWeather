@@ -249,10 +249,11 @@ class Weather:
                     gfs = wdata['gfs']
                     if 'surface' in gfs and len(gfs['surface']):
                         s = gfs['surface']
-                        snow_depth = 'na' if s.get('snow') is None else round(s.get('snow'), 2)
-                        acc_precip = 'na' if s.get('acc_precip') is None else round(s.get('acc_precip'), 2)
+                        snow_depth = 'na' if (s.get('snow') is None or s.get('snow') < 0) else round(s.get('snow'), 2)
+                        acc_precip = 'na' if (s.get('acc_precip') is None or s.get('acc_precip') < 0) else round(s.get('acc_precip'), 2)
+                        surface_temp = s.get('temp')
                         sysinfo += [
-                            f"Snow depth (m): {snow_depth}  |  Accumulated precip. (kg/sqm): {acc_precip}",
+                            f"temp: {surface_temp} | Snow depth (m): {snow_depth}  |  Accumulated precip. (kg/sqm): {acc_precip}",
                             ''
                         ]
 
