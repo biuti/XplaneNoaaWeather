@@ -31,16 +31,22 @@ class GFS(GribWeatherSource):
 
     @classmethod
     def get_download_url(cls, datecycle: str, cycle: int, forecast: int) -> str:
-        """Returns the GRIB download url add .idx or .grib to the end"""
-        filename = f"gfs.t{cycle:02}z.pgrb2full.0p50.f0{forecast:02}"
-        url = f"{cls.base_url}{datecycle}/{cycle:02}/atmos/{filename}"
-
-        return url
+        """ Returns the GRIB download url add .idx or .grib to the end
+            If Real Weather is enabled, it will use more precise 0.25 grid GFS data instead of 0.50
+            The file is about 10mb, still testing"""
+        if cls.conf.real_weather_enabled:
+            filename = f"gfs.t{cycle:02}z.pgrb2.0p25.f0{forecast:02}"
+        else:
+            filename = f"gfs.t{cycle:02}z.pgrb2full.0p50.f0{forecast:02}"
+        return f"{cls.base_url}{datecycle}/{cycle:02}/atmos/{filename}"
 
     @classmethod
     def get_cache_filename(cls, datecycle: str, cycle: int, forecast: int) -> str:
         """Returns the proper filename for the cache"""
-        return f"{datecycle}_gfs.t{cycle:02}z.pgrb2full.0p50.f0{forecast:02}"
+        if cls.conf.real_weather_enabled:
+            return f"{datecycle}_gfs.t{cycle:02}z.pgrb2.0p25.f0{forecast:02}"
+        else:
+            return f"{datecycle}_gfs.t{cycle:02}z.pgrb2full.0p50.f0{forecast:02}"
 
     def parse_grib_data(self, filepath, lat: float, lon: float) -> dict:
         """Executes wgrib2 and parses its output"""

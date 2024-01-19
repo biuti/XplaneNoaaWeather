@@ -244,7 +244,7 @@ class Weather:
                 else:
                     # GFS data download for testing is enabled
                     sysinfo += [
-                        '*** *** Experimental GFS weather data download *** ***'
+                        '*** *** Experimental GFS 0.25 degrees weather data download *** ***'
                     ]
                     gfs = wdata['gfs']
                     if 'surface' in gfs and len(gfs['surface']):
