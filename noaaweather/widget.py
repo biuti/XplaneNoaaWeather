@@ -87,7 +87,7 @@ class Widget:
         if menuItem == 1:
             # Weather Info
             if not self.info_window:
-                self.create_info_window(221, 640)
+                self.create_info_window()
                 self.info_window = True
             elif not xp.isWidgetVisible(self.info_window_widget):
                 xp.showWidget(self.info_window_widget)
@@ -105,7 +105,8 @@ class Widget:
             elif not xp.isWidgetVisible(self.config_window_widget):
                 xp.showWidget(self.config_window_widget)
 
-    def create_info_window(self, x: int = 200, y: int = 900):
+    def create_info_window(self):
+        x, y = self.conf.info_window_position
         x2 = x + self.info_width
         y2 = y - self.info_height
         top = y - self.line_height - self.window_margin
@@ -138,8 +139,8 @@ class Widget:
 
         self.info_window = True
 
-    def create_metar_window(self, x: int = 10, y: int = 900):
-
+    def create_metar_window(self):
+        x, y = self.conf.metar_window_position
         x2 = x + self.metar_width
         y2 = y - self.metar_height
 
@@ -206,8 +207,8 @@ class Widget:
 
         xp.setKeyboardFocus(self.metarQueryInput)
 
-    def create_config_window(self, x: int = 200, y: int = 640):
-
+    def create_config_window(self):
+        x, y = self.conf.config_window_position
         x2 = x + self.config_width
         y2 = y - self.config_height
 
@@ -540,8 +541,7 @@ class Widget:
         # About window events
         if inMessage == xp.Message_CloseButtonPushed:
             if self.config_window:
-                xp.destroyWidget(self.config_window_widget, 1)
-                self.config_window = False
+                xp.hideWidget(self.config_window_widget)
             return 1
 
         if inMessage == xp.Msg_ButtonStateChanged and inParam1 in self.metar_source_check:
@@ -687,6 +687,15 @@ class Widget:
             xp.setWidgetDescriptor(self.maxCloudHeightInput, c.convertForInput(self.conf.max_cloud_height, 'm2ft'))
 
         self.updateStatus()
+
+    def save_windows_position(self):
+        """ Gets position of the windows and saves it in conf"""
+        if self.info_window:
+            self.conf.info_window_position = xp.getWidgetGeometry(self.info_window_widget)[:2]
+        if self.metar_window:
+            self.conf.metar_window_position = xp.getWidgetGeometry(self.metar_window_widget)[:2]
+        if self.config_window:
+            self.conf.config_window_position = xp.getWidgetGeometry(self.config_window_widget)[:2]
 
     def updateStatus(self):
         """Updates status window"""

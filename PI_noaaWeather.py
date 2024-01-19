@@ -118,7 +118,11 @@ class PythonInterface(widget.Widget):
 
     def XPluginStop(self):
 
+        # kill flightloop
         xp.destroyFlightLoop(self.loop_id)
+
+        # save windows position
+        self.save_windows_position()
 
         # kill widget windows and menu
         self.shutdown_widget()

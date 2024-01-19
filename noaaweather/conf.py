@@ -226,6 +226,11 @@ class Conf:
         self.update_rwx_file = False  # Not needed by AviTab latest versions
         self.metar_use_xp12 = False
 
+        # windows position
+        self.info_window_position = [220, 640]
+        self.metar_window_position = [10, 900]
+        self.config_window_position = [200, 640]
+
     def saveSettings(self, filepath: Path, settings: dict):
         f = open(filepath, 'wb')
         cPickle.dump(settings, f)
@@ -284,7 +289,10 @@ class Conf:
             'ignore_metar_stations': self.ignore_metar_stations,
             'metar_ignore_auto': self.metar_ignore_auto,
             'update_rwx_file': self.update_rwx_file,
-            'metar_use_xp12': self.metar_use_xp12
+            'metar_use_xp12': self.metar_use_xp12,
+            'info_window_position': self.info_window_position,
+            'metar_window_position': self.metar_window_position,
+            'config_window_position': self.config_window_position
         }
         self.saveSettings(self.settingsfile, conf)
 
