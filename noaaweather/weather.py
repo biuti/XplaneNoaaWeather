@@ -132,6 +132,18 @@ class Weather:
                         c.snowDatarefTransition(self.data.snow_cover, val, elapsed=elapsed, speed=0.01)
                         self.data.frozen_water_a.value = snow * 10
                         self.data.frozen_water_b.value = snow * 100
+                        # adding tarmac patches
+                        w = max(0.368*val**2 - 1.218*val + 0.943, 0)
+                        self.data.tarmac_snow_width.value = w
+                        self.data.tarmac_snow_noise.value = max(w**2, 0.15)
+                        # adding standing water, as probably the tarmac is treated with addictives
+                        self.data.puddles.value = 0.4*val + 0.53
+                        # adding ice based on temperature and snow (total wild guess)
+                        temp = c.kel2cel(self.weatherData['gfs']['surface']['temp'])
+                        if temp > 2:
+                            self.data.iced_tarmac.value = 2
+                        else:
+                            self.data.iced_tarmac.value = 0.82*val + 0.61 + max(temp*0.05, -0.2)
                 except SystemError as e:
                     xp.log(f"ERROR injecting snow_cover: {e}")
 

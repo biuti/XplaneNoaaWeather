@@ -68,6 +68,10 @@ class Dref:
         self.snow_cover = None # 1.25 to 0.01
         self.frozen_water_a = None  # default 0
         self.frozen_water_b = None   # default 0
+        self.tarmac_snow_width = None  # 0 no snow on tarmac | 1 full
+        self.tarmac_snow_noise = None  # 0 uniform snow cover on tarmac | 1 very defined patches
+        self.puddles = None  # 1.25 to 0.01
+        self.iced_tarmac = None  # 2 to 0.01
         # self.rain_force_factor = EasyDref('sim/private/controls/rain/force_factor', 'float', writable=True)
 
         self.thermals_rate = EasyDref('sim/weather/region/thermal_rate_ms', 'float')  # seems ft/m 0 - 1000
@@ -81,10 +85,13 @@ class Dref:
     def check_snow_dref(self):
         if not self.snow_cover or not self.snow_cover.value:
             try:
-                # print(f"snow_cover value: {self.snow_cover.value}")
                 self.snow_cover = EasyDref('sim/private/controls/wxr/snow_now', 'float', writable=True)
                 self.frozen_water_a = EasyDref('sim/private/controls/snow/luma_a', 'float', writable=True)
                 self.frozen_water_b = EasyDref('sim/private/controls/snow/luma_b', 'float', writable=True)
+                self.tarmac_snow_width = EasyDref('sim/private/controls/twxr/snow_area_width', 'float', writable=True)
+                self.tarmac_snow_noise = EasyDref('sim/private/controls/twxr/snow/noise_depth', 'float', writable=True)
+                self.puddles = EasyDref('sim/private/controls/wxr/puddles_now', 'float', writable=True)
+                self.iced_tarmac = EasyDref('sim/private/controls/wxr/ice_now', 'float', writable=True)
             except SystemError as e:
                 print(f"ERROR inizializing snow drefs: {e}")
                 return False
