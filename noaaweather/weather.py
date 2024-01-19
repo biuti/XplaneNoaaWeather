@@ -105,7 +105,7 @@ class Weather:
     def get_XP12_METAR(self, icao: str) -> str:
         return xp.getMETARForAirport('icao')
 
-    def setSnow(self):
+    def setSnow(self, elapsed):
         """ Set snow cover
             Dref value goes from 1.25 to 0.01
             no snow:    1.25
@@ -129,11 +129,11 @@ class Weather:
                 # print(f"GFS snow value: {snow} | injecting in snow_cover value {val}")
                 try:
                     if val < self.data.snow_cover.value:
-                        self.data.snow_cover.value = val
+                        c.snowDatarefTransition(self.data.snow_cover, val, elapsed=elapsed, speed=0.01)
                         self.data.frozen_water_a.value = snow * 10
                         self.data.frozen_water_b.value = snow * 100
                 except SystemError as e:
-                    xp.log(f"ERROR: {e}")
+                    xp.log(f"ERROR injecting snow_cover: {e}")
 
     def weatherInfo(self, chars: int = 80) -> list[str]:
         """Return an array of strings with formatted weather data"""

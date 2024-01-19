@@ -88,7 +88,7 @@ class PythonInterface(widget.Widget):
         if self.conf.real_weather_enabled and self.conf.download_GFS:
             if self.conf.set_snow and self.data.check_snow_dref():
                 # ATM we need to overwrite dref value every cycle
-                self.weather.setSnow()
+                self.weather.setSnow(elapsed=elapsedMe)
                 pass
             if self.weather.newData:
                 # Real Weather active

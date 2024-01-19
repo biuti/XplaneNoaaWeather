@@ -273,6 +273,21 @@ class c:
         dataref.value = new
 
     @classmethod
+    def snowDatarefTransition(cls, dataref, new: float, elapsed, speed: float):
+        """Timed dataref transition"""
+        snow_id = str(dataref.DataRef)
+        if snow_id not in cls.transrefs:
+            cls.transrefs[snow_id] = dataref.value
+
+        current = cls.transrefs[snow_id]
+        s = -1 if current > new else 1
+        if abs(current - new) > speed * elapsed + speed:
+            new = current + s * speed * elapsed
+
+        cls.transrefs[snow_id] = new
+        dataref.value = new
+
+    @classmethod
     def transition(cls, new, id, elapsed, speed=0.25):
         """Time based transition """
         if not id in cls.transrefs:
