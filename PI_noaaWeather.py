@@ -48,7 +48,10 @@ class PythonInterface(widget.Widget):
         """Flight Loop Callback"""
 
         # Update status window
-        if self.info_window and xp.isWidgetVisible(self.info_window_widget):
+        if (
+            (self.info_window and xp.isWidgetVisible(self.info_window_widget))
+            or (self.config_window and xp.isWidgetVisible(self.config_window_widget))
+        ):
             self.updateStatus()
 
         # Handle server misc requests
