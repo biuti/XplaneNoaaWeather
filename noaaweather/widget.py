@@ -65,6 +65,12 @@ class Widget:
             description="Toggle METAR query window."
         )
 
+        self.infoWindowCMD = EasyCommand(
+            self, 'info_window_toggle', 
+            self.infoWindowToggle,
+            description="Toggle weather info window."
+        )
+
         # Flightloop counters
         self.flcounter = 0
         self.fltime = 1
@@ -812,6 +818,16 @@ class Widget:
                 xp.setKeyboardFocus(self.metarQueryInput)
         else:
             self.create_metar_window()
+
+    def infoWindowToggle(self):
+        """Info window toggle command"""
+        if self.info_window:
+            if xp.isWidgetVisible(self.info_window_widget):
+                xp.hideWidget(self.info_window_widget)
+            else:
+                xp.showWidget(self.info_window_widget)
+        else:
+            self.create_info_window()
 
     def shutdown_widget(self):
         # Destroy windows
