@@ -119,23 +119,25 @@ class Weather:
             0.1     ~0.3
             0.25    ~0.2
             0.5     ~0.1
-            1       ~0.05
+            1+      ~0.05
         """
         if 'snow' in self.weatherData['gfs']['surface']:
             snow = self.weatherData['gfs']['surface']['snow']
-            val = 1.25
             if snow > 0 and not c.is_exponential(snow):
-                val = max(1.25 - (1.185 * snow**0.142), 0.01)
-                # print(f"GFS snow value: {snow} | injecting in snow_cover value {val}")
+                val = max(3.8 - 3.7 * snow**0.04, 0.05)
+                print(f"GFS snow value: {snow} | injecting in snow_cover value {val}")
                 try:
                     if val < self.data.snow_cover.value:
-                        c.snowDatarefTransition(self.data.snow_cover, val, elapsed=elapsed, speed=0.01)
-                        self.data.frozen_water_a.value = snow * 10
-                        self.data.frozen_water_b.value = snow * 100
+                        speed = 0.25 if self.data.on_ground else 0.01
+                        c.snowDatarefTransition(self.data.snow_cover, val, elapsed=elapsed, speed=speed)
+                        v = max(0, 0.16 - 0.32*val)
+                        self.setDrefIfDiff(self.data.frozen_water_a, v/2)
+                        self.setDrefIfDiff(self.data.frozen_water_b, v)
                         # adding tarmac patches
-                        w = max(0.368*val**2 - 1.218*val + 0.943, 0)
-                        self.data.tarmac_snow_width.value = w
-                        self.data.tarmac_snow_noise.value = max(w**2, 0.15)
+                        w = min(0.6, 1.96*val + 0.1)
+                        self.setDrefIfDiff(self.data.tarmac_snow_width, w)
+                        self.setDrefIfDiff(self.data.tarmac_snow_noise, w/3)
+                        self.setDrefIfDiff(self.data.tarmac_snow_scale, min(500, val*1500))
                         # adding standing water, as probably the tarmac is treated with addictives
                         self.data.puddles.value = 0.4*val + 0.53
                         # adding ice based on temperature and snow (total wild guess)
@@ -146,6 +148,26 @@ class Weather:
                             self.data.iced_tarmac.value = 0.82*val + 0.61 + max(temp*0.05, -0.2)
                 except SystemError as e:
                     xp.log(f"ERROR injecting snow_cover: {e}")
+            else:
+                # default values
+                self.data.set_snow_defaults()
+
+    def setDrefIfDiff(self, dref, value, max_diff=False):
+        """ Set a Dataref if the current value differs
+            Returns True if value was updated """
+
+        if max_diff is not False:
+            if abs(dref.value - value) > max_diff:
+                dref.value = value
+                return True
+        else:
+            if dref.value != value:
+                dref.value = value
+                return True
+        return False
+
+    def reset_weather(self):
+        c.transitionClearReferences()
 
     def weatherInfo(self, chars: int = 80) -> list[str]:
         """Return an array of strings with formatted weather data"""

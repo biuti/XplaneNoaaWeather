@@ -22,11 +22,13 @@ class EasyDref:
     datarefs = []
     plugin = False
 
-    def __init__(self, dataref, type="float", register=False, writable=False):
+    def __init__(self, dataref, type="float", register=False, writable=False, default_value=False):
         # Clear dataref
         dataref = dataref.strip()
+
         self.is_array, dref = False, False
         self.register = register
+        self.default_value = default_value
 
         if ('"' in dataref):
             dref = dataref.split('"')[1]
@@ -220,6 +222,10 @@ class EasyDref:
             self.set(value)
             return True
         return False
+
+    def set_default(self):
+        if self.default_value and self.value != self.default_value:
+            self.set(self.default_value)
 
     @classmethod
     def cleanup(cls):

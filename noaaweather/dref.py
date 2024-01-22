@@ -30,6 +30,8 @@ class Dref:
         self.londr = EasyDref('sim/flightmodel/position/longitude', 'double')
         self.altdr = EasyDref('sim/flightmodel/position/elevation', 'double')
 
+        self.wheels_on_ground = EasyDref('sim/flightmodel2/gear/on_ground[0:10]', 'int')
+
         # wind dataref are array[13] in XP12
         self.winds = {
             'alt': EasyDref('sim/weather/region/wind_altitude_msl_m[0:12]', 'float', writable=True),
@@ -66,18 +68,18 @@ class Dref:
 
         # snow coverage, this are private dref for some reason cannot be initialized at start
         self.snow_cover = None # 1.25 to 0.01
-        self.frozen_water_a = None  # default 0
-        self.frozen_water_b = None   # default 0
-        self.tarmac_snow_width = None  # 0 no snow on tarmac | 1 full
-        self.tarmac_snow_noise = None  # 0 uniform snow cover on tarmac | 1 very defined patches
         self.puddles = None  # 1.25 to 0.01
         self.iced_tarmac = None  # 2 to 0.01
+
+        self.frozen_water_a = None  # default 0
+        self.frozen_water_b = None   # default 0
+        self.tarmac_snow_width = None  # default 0.25 | 0 no snow on tarmac | 1 full | values should go 0.6 | 0.4 | 0.15
+        self.tarmac_snow_scale = None  # default 500 | values should go 500 | 300 | 100
+        self.tarmac_snow_noise = None  # default 0.04 | 0 uniform snow cover on tarmac | 1 very defined patches | values should go 0.2 | 0.1 | 0.05
         # self.rain_force_factor = EasyDref('sim/private/controls/rain/force_factor', 'float', writable=True)
 
         self.thermals_rate = EasyDref('sim/weather/region/thermal_rate_ms', 'float')  # seems ft/m 0 - 1000
-
         self.mag_deviation = EasyDref('sim/flightmodel/position/magnetic_variation', 'float')
-
         self.acf_vy = EasyDref('sim/flightmodel/position/local_vy', 'float')
 
         # print(self.dump())
@@ -86,19 +88,35 @@ class Dref:
     def real_weather_enabled(self) -> bool:
         return True if not self.xp_weather_source else self.xp_weather_source.value == 1
 
+    @property
+    def on_ground(self) -> bool:
+        return any(self.wheels_on_ground.value)
+
+    def check_snow_dref(self) -> bool:
         if not self.snow_cover or not self.snow_cover.value:
             try:
                 self.snow_cover = EasyDref('sim/private/controls/wxr/snow_now', 'float', writable=True)
-                self.frozen_water_a = EasyDref('sim/private/controls/snow/luma_a', 'float', writable=True)
-                self.frozen_water_b = EasyDref('sim/private/controls/snow/luma_b', 'float', writable=True)
-                self.tarmac_snow_width = EasyDref('sim/private/controls/twxr/snow_area_width', 'float', writable=True)
-                self.tarmac_snow_noise = EasyDref('sim/private/controls/twxr/snow/noise_depth', 'float', writable=True)
+                self.frozen_water_a = EasyDref('sim/private/controls/snow/luma_a', 'float', writable=True, default_value=0)
+                self.frozen_water_b = EasyDref('sim/private/controls/snow/luma_b', 'float', writable=True, default_value=0)
+                self.tarmac_snow_width = EasyDref('sim/private/controls/twxr/snow_area_width', 'float', writable=True, default_value=0.25)
+                self.tarmac_snow_scale = EasyDref('sim/private/controls/twxr/snow_area_scale', 'float', writable=True, default_value=500)
+                self.tarmac_snow_noise = EasyDref('sim/private/controls/twxr/snow/noise_depth', 'float', writable=True, default_value=0.04)
                 self.puddles = EasyDref('sim/private/controls/wxr/puddles_now', 'float', writable=True)
                 self.iced_tarmac = EasyDref('sim/private/controls/wxr/ice_now', 'float', writable=True)
             except SystemError as e:
-                print(f"ERROR inizializing snow drefs: {e}")
+                print(f"ERROR initializing snow drefs: {e}")
                 return False
         return True
+
+    def set_snow_defaults(self):
+        try:
+            self.tarmac_snow_width.set_default()
+            self.tarmac_snow_scale.set_default()
+            self.tarmac_snow_noise.set_default()
+            self.frozen_water_a.set_default()
+            self.frozen_water_b.set_default()
+        except SystemError as e:
+            print(f"ERROR resetting snow drefs to default values: {e}")
 
     def dump(self) -> dict:
         # Dump winds datarefs

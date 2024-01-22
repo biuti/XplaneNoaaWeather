@@ -89,10 +89,13 @@ class PythonInterface(widget.Widget):
             return -1
 
         if self.conf.use_real_weather_data and self.conf.download_GFS:
+            if self.newAptLoaded:
+                xp.log(f" *** NEW APT LOADED ***")
+                self.weather.reset_weather()
+                self.newAptLoaded = False
             if self.conf.set_snow and self.data.check_snow_dref():
                 # ATM we need to overwrite dref value every cycle
                 self.weather.setSnow(elapsed=elapsedMe)
-                pass
             if self.weather.newData:
                 # Real Weather active
                 # check Dref values, RW overwrites them. Probably needed for any change to Real Weather data
@@ -104,6 +107,7 @@ class PythonInterface(widget.Widget):
                 #     self.weather.friction = self.weather.runwayFriction.value
                 #     self.weather.runwayFriction.value = 6 if self.weather.friction < 10 else 9
                 # xp.log(f"New GFS data downloaded: {self.weather.data}")
+                # Clear transitions on airport load
                 pass
 
         ''' Data set on new weather Data '''
