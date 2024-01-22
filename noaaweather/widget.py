@@ -369,7 +369,7 @@ class Widget:
         xp.setWidgetProperty(self.rainCheck, xp.Property_ButtonState, self.conf.set_patches)
         y -= self.line_height
 
-        if not self.conf.real_weather_enabled:
+        if not self.conf.use_real_weather_data:
             # Winds enable
             xp.createWidget(x + 5, y, x + 20, y - self.line_height, 1, 'Wind levels', 0, window, xp.WidgetClass_Caption)
             self.windsCheck = xp.createWidget(
@@ -583,7 +583,7 @@ class Widget:
                 # Save configuration
                 self.conf.enabled = xp.getWidgetProperty(self.enable_check, xp.Property_ButtonState, None)
                 self.conf.metar_decode = xp.getWidgetProperty(self.decode_check, xp.Property_ButtonState)
-                if self.conf.real_weather_enabled:
+                if self.conf.use_real_weather_data:
                     self.conf.download_GFS = xp.getWidgetProperty(self.GFSCheck, xp.Property_ButtonState, None)
                     # self.conf.download_WAFS = xp.getWidgetProperty(self.WAFSCheck, xp.Property_ButtonState, None)
                     self.conf.set_snow = xp.getWidgetProperty(self.snowCheck, xp.Property_ButtonState, None)
@@ -678,7 +678,7 @@ class Widget:
         xp.setWidgetProperty(self.rwxCheck, xp.Property_ButtonState, self.conf.update_rwx_file)
         xp.setWidgetProperty(self.xp12MetarCheck, xp.Property_ButtonState, self.conf.metar_use_xp12)
 
-        if self.conf.real_weather_enabled:
+        if self.conf.use_real_weather_data:
             # xp.setWidgetProperty(self.WAFSCheck, xp.Property_ButtonState, self.conf.download_WAFS)
             xp.setWidgetProperty(self.snowCheck, xp.Property_ButtonState, self.conf.set_snow)
             xp.setWidgetProperty(self.rainCheck, xp.Property_ButtonState, self.conf.set_patches)

@@ -88,7 +88,7 @@ class PythonInterface(widget.Widget):
         if wdata is False:
             return -1
 
-        if self.conf.real_weather_enabled and self.conf.download_GFS:
+        if self.conf.use_real_weather_data and self.conf.download_GFS:
             if self.conf.set_snow and self.data.check_snow_dref():
                 # ATM we need to overwrite dref value every cycle
                 self.weather.setSnow(elapsed=elapsedMe)
@@ -107,7 +107,7 @@ class PythonInterface(widget.Widget):
                 pass
 
         ''' Data set on new weather Data '''
-        if not self.conf.real_weather_enabled and self.weather.newData:
+        if not self.conf.use_real_weather_data and self.weather.newData:
             pass
             # Update Dataref data
             # self.data.updateData(wdata)

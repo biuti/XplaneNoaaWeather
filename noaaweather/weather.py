@@ -162,11 +162,11 @@ class Weather:
                         self.data.latdr.value, wdata['info']['lat'], self.data.londr.value, wdata['info']['lon'],
                         c.m2ft(self.data.altdr.value) / 100, self.data.mag_deviation.value)
                 ]
-                if self.data.xpWeather.value != 1:
-                    sysinfo += [f"   XP12 Real Weather is not active (value = {self.data.xpWeather.value})"]
+                if not self.data.real_weather_enabled:
+                    sysinfo += [f"   XP12 Real Weather is not active (value = {self.data.xp_weather_source.value})"]
                 elif 'None' in wdata['info']['gfs_cycle']:
                     sysinfo += ['   XP12 is still downloading weather info ...']
-                elif self.conf.real_weather_enabled:
+                elif self.conf.use_real_weather_data:
                     sysinfo += [f"   GFS Cycle: {wdata['info']['rw_gfs_cycle']}"]
                 else:
                     sysinfo += [f"   GFS Cycle: {wdata['info']['gfs_cycle']}"]
@@ -216,7 +216,7 @@ class Weather:
                             clouds = '   Clouds and Visibility OK'
                         sysinfo += [clouds]
 
-                if 'rwmetar' in wdata and self.conf.real_weather_enabled:
+                if 'rwmetar' in wdata and self.conf.use_real_weather_data:
                     if not wdata['rwmetar'].get('file_time'):
                         sysinfo += ['XP12 REAL WEATHER METAR:', '   no METAR file, still downloading...']
                     else:
@@ -269,7 +269,7 @@ class Weather:
                             ''
                         ]
 
-                if 'rw' in wdata and self.conf.real_weather_enabled:
+                if 'rw' in wdata and self.conf.use_real_weather_data:
                     # XP12 Real Weather is enabled
                     rw = wdata['rw']
                     if 'winds' in rw:

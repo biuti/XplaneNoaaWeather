@@ -108,11 +108,11 @@ class Conf:
 
     @property
     def gfs_variable_list(self) -> dict:
-        return self.gfs_levels_real_weather() if self.real_weather_enabled else self.gfs_levels
+        return self.gfs_levels_real_weather() if self.use_real_weather_data else self.gfs_levels
 
     @property
     def wafs_variable_list(self) -> dict:
-        return self.wafs_levels_real_weather() if self.real_weather_enabled else self.gfs_levels
+        return self.wafs_levels_real_weather() if self.use_real_weather_data else self.gfs_levels
 
     def setDefaults(self):
         """Default settings"""
@@ -168,8 +168,8 @@ class Conf:
 
         self.download_METAR = True
 
-        # Waiting API SDK to implement automatic mode switch
-        self.real_weather_enabled = True
+        # Waiting for weather API SDK the plugin mainly monitors Real Weather
+        self.use_real_weather_data = True
 
         # Avoid downloading GFS and WAFS data until it will have some use in XP12
         self.download_GFS = True
@@ -325,7 +325,7 @@ class Conf:
         else:
             self.gfs_levels = self.gfs_levels_defaults()
             self.save_gfs_levels(self.gfs_levels)
-        print(f"XP12 Real Weather Mode: {self.real_weather_enabled}")
+        print(f"XP12 Real Weather Mode: {self.use_real_weather_data}")
 
     @staticmethod
     def gfs_levels_defaults() -> list:

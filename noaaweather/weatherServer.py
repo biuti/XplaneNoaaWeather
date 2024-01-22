@@ -91,7 +91,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
         }
 
         # Parse gfs and wafs
-        if conf.meets_wgrib2_requirements and conf.real_weather_enabled:
+        if conf.meets_wgrib2_requirements and conf.use_real_weather_data:
             rw.get_real_weather_forecast()
             if all(el.is_file() for el in rw.grib_files):
                 response['rw'] = rw.parse_grib_data(lat, lon)

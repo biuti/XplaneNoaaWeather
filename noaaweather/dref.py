@@ -54,7 +54,7 @@ class Dref:
         self.xpTime = EasyDref('sim/time/local_time_sec', 'float')  # sim time (sec from midnight)
 
         # What system is currently controlling the weather. 0 = Preset, 1 = Real Weather, 2 = Controlpad, 3 = Plugin.
-        self.xpWeather = EasyDref('sim/weather/region/weather_source', 'int')
+        self.xp_weather_source = EasyDref('sim/weather/region/weather_source', 'int')
 
         self.msltemp = EasyDref('sim/weather/region/sealevel_temperature_c', 'float')
         self.temp = EasyDref('sim/weather/aircraft/temperature_ambient_deg_c', 'float')
@@ -82,7 +82,10 @@ class Dref:
 
         # print(self.dump())
 
-    def check_snow_dref(self):
+    @property
+    def real_weather_enabled(self) -> bool:
+        return True if not self.xp_weather_source else self.xp_weather_source.value == 1
+
         if not self.snow_cover or not self.snow_cover.value:
             try:
                 self.snow_cover = EasyDref('sim/private/controls/wxr/snow_now', 'float', writable=True)
