@@ -124,28 +124,32 @@ class Weather:
         if 'snow' in self.weatherData['gfs']['surface']:
             snow = self.weatherData['gfs']['surface']['snow']
             if snow > 0 and not c.is_exponential(snow):
-                val = max(3.8 - 3.7 * snow**0.04, 0.05)
-                print(f"GFS snow value: {snow} | injecting in snow_cover value {val}")
+                lat = abs(self.data.latdr.value)
+                temp = c.kel2cel(self.weatherData['gfs']['surface']['temp'])
+                # calculating a factor based on latitude and temperature
+                factor = max(-20, lat - 55 - max(0, 0.2 * temp))
+                val = max(3.8 * (1 - 0.005 * factor - snow**0.04), 0.05)
                 try:
-                    if val < self.data.snow_cover.value:
+                    rw_val = self.data.snow_cover.value
+                    if val < rw_val:
                         speed = 0.25 if self.data.on_ground else 0.01
                         c.snowDatarefTransition(self.data.snow_cover, val, elapsed=elapsed, speed=speed)
-                        v = max(0, 0.16 - 0.32*val)
-                        self.setDrefIfDiff(self.data.frozen_water_a, v/2)
-                        self.setDrefIfDiff(self.data.frozen_water_b, v)
-                        # adding tarmac patches
-                        w = min(0.6, 1.96*val + 0.1)
-                        self.setDrefIfDiff(self.data.tarmac_snow_width, w)
-                        self.setDrefIfDiff(self.data.tarmac_snow_noise, w/3)
-                        self.setDrefIfDiff(self.data.tarmac_snow_scale, min(500, val*1500))
-                        # adding standing water, as probably the tarmac is treated with addictives
-                        self.data.puddles.value = 0.4*val + 0.53
-                        # adding ice based on temperature and snow (total wild guess)
-                        temp = c.kel2cel(self.weatherData['gfs']['surface']['temp'])
-                        if temp > 2:
-                            self.data.iced_tarmac.value = 2
-                        else:
-                            self.data.iced_tarmac.value = 0.82*val + 0.61 + max(temp*0.05, -0.2)
+                    else:
+                        val = self.data.snow_cover.value
+                    v = min(5 * max(0, factor)**1.5 * val, 1000)
+                    self.setDrefIfDiff(self.data.frozen_water_b, v)
+                    # adding tarmac patches
+                    w = min(0.6, 1.96*val + 0.1)
+                    self.setDrefIfDiff(self.data.tarmac_snow_width, w)
+                    self.setDrefIfDiff(self.data.tarmac_snow_noise, w/3)
+                    self.setDrefIfDiff(self.data.tarmac_snow_scale, min(500, val*1500))
+                    # adding standing water, as probably the tarmac is treated with addictives
+                    self.data.puddles.value = 0.4*val + 0.53
+                    # adding ice based on temperature and snow (total wild guess)
+                    if temp > 4:
+                        self.data.iced_tarmac.value = 2
+                    else:
+                        self.data.iced_tarmac.value = 0.82*val + 0.61 + max(temp*0.05, -0.2)
                 except SystemError as e:
                     xp.log(f"ERROR injecting snow_cover: {e}")
             else:
