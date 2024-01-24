@@ -82,6 +82,10 @@ class c:
         return False if n is False else n * 0.0006213711922373339
 
     @staticmethod
+    def m2nm(n):
+        return False if n is False else n * 0.0005399568
+
+    @staticmethod
     def m2kn(n):
         return False if n is False else n * 1852
 
@@ -109,8 +113,8 @@ class c:
 
     @staticmethod
     def greatCircleDistance(latlong_a, latlong_b) -> float:
-        """Return the great circle distance of 2 coordinatee pairs"""
-        EARTH_RADIUS = 6378137
+        """Return the great circle distance of 2 coordinates pairs, in meters"""
+        EARTH_RADIUS = 6378137  # meters
 
         lat1, lon1 = latlong_a
         lat2, lon2 = latlong_b

@@ -74,8 +74,7 @@ class Dref:
         self.puddles = None  # 1.25 to 0.01
         self.iced_tarmac = None  # 2 to 0.01
 
-        # self.frozen_water_a = None  # default 0
-        self.frozen_water_b = None   # default 0
+        self.frozen_water = None   # default 0
         self.tarmac_snow_width = None  # default 0.25 | 0 no snow on tarmac | 1 full | values should go 0.6 | 0.4 | 0.15
         self.tarmac_snow_scale = None  # default 500 | values should go 500 | 300 | 100
         self.tarmac_snow_noise = None  # default 0.04 | 0 uniform snow cover on tarmac | 1 very defined patches | values should go 0.2 | 0.1 | 0.05
@@ -99,8 +98,7 @@ class Dref:
         if not self.snow_cover or not self.snow_cover.value:
             try:
                 self.snow_cover = EasyDref('sim/private/controls/wxr/snow_now', 'float', writable=True)
-                # self.frozen_water_a = EasyDref('sim/private/controls/snow/luma_a', 'float', writable=True, default_value=0)
-                self.frozen_water_b = EasyDref('sim/private/controls/snow/luma_b', 'float', writable=True, default_value=0)
+                self.frozen_water = EasyDref('sim/private/controls/snow/luma_b', 'float', writable=True, default_value=0)
                 self.tarmac_snow_width = EasyDref('sim/private/controls/twxr/snow_area_width', 'float', writable=True, default_value=0.25)
                 self.tarmac_snow_scale = EasyDref('sim/private/controls/twxr/snow_area_scale', 'float', writable=True, default_value=500)
                 self.tarmac_snow_noise = EasyDref('sim/private/controls/twxr/snow/noise_depth', 'float', writable=True, default_value=0.04)
@@ -116,8 +114,7 @@ class Dref:
             self.tarmac_snow_width.set_default()
             self.tarmac_snow_scale.set_default()
             self.tarmac_snow_noise.set_default()
-            # self.frozen_water_a.set_default()
-            self.frozen_water_b.set_default()
+            self.frozen_water.set_default()
         except SystemError as e:
             print(f"ERROR resetting snow drefs to default values: {e}")
 

@@ -44,6 +44,7 @@ class Weather:
         self.weatherClientThread = False
 
         self.windAlts = -1
+        self.latest_snow = False
 
         # Response queue for user queries
         self.queryResponses = []
@@ -121,43 +122,74 @@ class Weather:
             0.5     ~0.1
             1+      ~0.05
         """
-        if 'snow' in self.weatherData['gfs']['surface'] and self.data.check_snow_dref():
-            snow = self.weatherData['gfs']['surface']['snow']
-            if snow > 0 and not c.is_exponential(snow):
-                lat = abs(self.data.latdr.value)
-                temp = c.kel2cel(self.weatherData['gfs']['surface']['temp'])
+        data = self.weatherData['gfs']['surface']
+        if 'snow' in data and self.data.check_snow_dref():
+            snow = data['snow']
+            lat = self.data.latdr.value
+            lon = self.data.londr.value
+            temp = c.kel2cel(data['temp'])
+            transitions_speed = 0.25 if self.data.on_ground else 0.01
+
+            # over water, or where is not received, GFS data have a value of 9.999e+20
+            # if there is already a snow value, it will keep that one in a radius of 300nm, 
+            # until a new valid value is acquired, otherwise will stop injecting a value in the dref
+            if c.is_exponential(snow):
+                snow = 0
+                if self.latest_snow and self.latest_snow['depth'] > 0:
+                    old_lat, old_lon, old_snow = self.latest_snow.values()
+                    dist = c.m2nm(c.greatCircleDistance((lat, lon), (old_lat, old_lon)))
+                    if dist < 300:
+                        snow = old_snow
+            elif snow == 0:
+                self.latest_snow = False
+            elif snow > 0:
+                self.latest_snow = {
+                    'lat': lat,
+                    'lon': lon,
+                    'depth': snow
+                }
+
+            if snow > 0:
                 # calculating a factor based on latitude and temperature
-                factor = max(-20, lat - 55 - max(0, 0.2 * temp))
+                factor = max(-20, abs(lat) - 55 - max(0, 0.2 * temp))
                 val = max(3.8 * (1 - 0.005 * factor - snow**0.04), 0.05)
-                try:
-                    rw_val = self.data.snow_cover.value
-                    if val < rw_val:
-                        speed = 0.25 if self.data.on_ground else 0.01
-                        c.snowDatarefTransition(self.data.snow_cover, val, elapsed=elapsed, speed=speed)
-                    else:
-                        val = self.data.snow_cover.value
-                    v = min(5 * max(0, factor)**1.5 * val, 1000)
-                    self.setDrefIfDiff(self.data.frozen_water_b, v)
-                    # adding tarmac patches
-                    par = 0.15 - 0.005*factor
-                    self.setDrefIfDiff(self.data.tarmac_snow_noise, par)
-                    self.setDrefIfDiff(self.data.tarmac_snow_scale, par*2000)
-                    self.setDrefIfDiff(self.data.tarmac_snow_width, par*3)
-                    # adding ice based on temperature and snow (total wild guess)
-                    # from 2 to 0.01, inversely proportional to factor
-                    par = 0.00025*factor**2 - 0.045*factor + 1
-                    if temp > 4:
-                        self.data.iced_tarmac.value = 2
-                    else:
-                        self.data.iced_tarmac.value = par
-                    # adding standing water, as probably the tarmac is treated with addictives
-                    # from 1.25 to 0.01, inversely proportional to factor, proportional to val
-                    self.data.puddles.value = min(1.25, 1.15 - 0.5*par)
-                except SystemError as e:
-                    xp.log(f"ERROR injecting snow_cover: {e}")
+                rw_val = self.data.snow_cover.value
+                if val < rw_val:
+                    try:
+                        c.snowDatarefTransition(self.data.snow_cover, val, elapsed=elapsed, speed=transitions_speed)
+                    except SystemError as e:
+                        xp.log(f"ERROR injecting snow_cover: {e}")
+                else:
+                    val = self.data.snow_cover.value
+
+                # calculating all other drefs
+                frozen_water = min(5 * max(0, factor)**1.5 * val, 1000)
+                noise = 0.15 - 0.005*factor
+                scale = noise*2000
+                width = noise*3
+
+                # adding ice based on temperature and snow (total wild guess)
+                # from 2 to 0.01, inversely proportional to factor
+                ice = 2 if temp > 4 else 0.00025*factor**2 - 0.045*factor + 1
+                self.data.iced_tarmac.value = ice
+
+                # adding standing water, as probably the tarmac is treated with addictives
+                # from 1.25 to 0.01, inversely proportional to factor, proportional to val
+                puddles = min(1.25, 1.15 - 0.5*ice)
+                self.data.puddles.value = puddles
+
             else:
                 # default values
-                self.data.set_snow_defaults()
+                frozen_water = self.data.frozen_water.default_value
+                noise = self.data.tarmac_snow_noise.default_value
+                scale = self.data.tarmac_snow_scale.default_value
+                width = self.data.tarmac_snow_width.default_value
+
+            # inject values
+            c.datarefTransition(self.data.frozen_water, frozen_water, elapsed=elapsed, speed=transitions_speed)
+            self.setDrefIfDiff(self.data.tarmac_snow_noise, noise)
+            self.setDrefIfDiff(self.data.tarmac_snow_scale, scale)
+            self.setDrefIfDiff(self.data.tarmac_snow_width, width)
 
     def setDrefIfDiff(self, dref, value, max_diff=False):
         """ Set a Dataref if the current value differs
