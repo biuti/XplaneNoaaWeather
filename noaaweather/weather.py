@@ -121,7 +121,7 @@ class Weather:
             0.5     ~0.1
             1+      ~0.05
         """
-        if 'snow' in self.weatherData['gfs']['surface']:
+        if 'snow' in self.weatherData['gfs']['surface'] and self.data.check_snow_dref():
             snow = self.weatherData['gfs']['surface']['snow']
             if snow > 0 and not c.is_exponential(snow):
                 lat = abs(self.data.latdr.value)
@@ -139,17 +139,20 @@ class Weather:
                     v = min(5 * max(0, factor)**1.5 * val, 1000)
                     self.setDrefIfDiff(self.data.frozen_water_b, v)
                     # adding tarmac patches
-                    w = min(0.6, 1.96*val + 0.1)
-                    self.setDrefIfDiff(self.data.tarmac_snow_width, w)
-                    self.setDrefIfDiff(self.data.tarmac_snow_noise, w/3)
-                    self.setDrefIfDiff(self.data.tarmac_snow_scale, min(500, val*1500))
-                    # adding standing water, as probably the tarmac is treated with addictives
-                    self.data.puddles.value = 0.4*val + 0.53
+                    par = 0.15 - 0.005*factor
+                    self.setDrefIfDiff(self.data.tarmac_snow_noise, par)
+                    self.setDrefIfDiff(self.data.tarmac_snow_scale, par*2000)
+                    self.setDrefIfDiff(self.data.tarmac_snow_width, par*3)
                     # adding ice based on temperature and snow (total wild guess)
+                    # from 2 to 0.01, inversely proportional to factor
+                    par = 0.00025*factor**2 - 0.045*factor + 1
                     if temp > 4:
                         self.data.iced_tarmac.value = 2
                     else:
-                        self.data.iced_tarmac.value = 0.82*val + 0.61 + max(temp*0.05, -0.2)
+                        self.data.iced_tarmac.value = par
+                    # adding standing water, as probably the tarmac is treated with addictives
+                    # from 1.25 to 0.01, inversely proportional to factor, proportional to val
+                    self.data.puddles.value = min(1.25, 1.15 - 0.5*par)
                 except SystemError as e:
                     xp.log(f"ERROR injecting snow_cover: {e}")
             else:

@@ -93,7 +93,7 @@ class PythonInterface(widget.Widget):
                 xp.log(f" *** NEW APT LOADED ***")
                 self.weather.reset_weather()
                 self.newAptLoaded = False
-            if self.conf.set_snow and self.data.check_snow_dref():
+            if self.conf.set_snow:
                 # ATM we need to overwrite dref value every cycle
                 self.weather.setSnow(elapsed=elapsedMe)
             if self.weather.newData:
