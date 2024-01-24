@@ -251,14 +251,19 @@ class Weather:
                         sysinfo += util.format_text(line, chars, 3)
                     # check actual pressure and adjusted friction
                     sysinfo += ['', 'XP12 REAL WEATHER LIVE PARAMETERS:']
+                    wind_d = round(self.data.wind_dir.value)
+                    wind_s = round(c.ms2knots(self.data.wind_spd.value))
+                    line = f"   Wind {wind_d} at {wind_s}"
+                    vis_m, vis_sm = round(c.sm2m(self.data.visibility.value)), round(self.data.visibility.value, 1)
+                    line += f" | Vis: {vis_m}m ({vis_sm}sm)"
+                    temp = round(self.data.sfctemp.value, 1)
+                    line += f" | Temp {temp}C"
                     pressure = self.data.pressure.value / 100  # mb
                     pressure_inHg = c.mb2inHg(pressure)
-                    line = f"   Pressure: {pressure:.1f}mb ({pressure_inHg:.2f}inHg)"
-                    vis_m, vis_sm = round(c.sm2m(self.data.visibility.value)), round(self.data.visibility.value, 1)
-                    line += f" | Visibility: {vis_m}m ({vis_sm}sm)"
+                    line += f" | Press: {pressure:.1f}mb ({pressure_inHg:.2f}inHg)"
+                    sysinfo += [line]
                     friction = self.data.runwayFriction.get()
-                    # metar_friction = self.friction
-                    line += f" | Runway Friction: {friction:02}"
+                    line = f"   Runway Friction: {friction:02}"
                     # if friction != metar_friction:
                     #     line += f" (original {metar_friction:02})"
                     sysinfo += [line, '']
@@ -287,11 +292,11 @@ class Weather:
                     gfs = wdata['gfs']
                     if 'surface' in gfs and len(gfs['surface']):
                         s = gfs['surface']
+                        surface_temp = s.get('temp')
                         snow_depth = 'na' if (s.get('snow') is None or s.get('snow') < 0) else round(s.get('snow'), 2)
                         acc_precip = 'na' if (s.get('acc_precip') is None or s.get('acc_precip') < 0) else round(s.get('acc_precip'), 2)
-                        surface_temp = s.get('temp')
                         sysinfo += [
-                            f"surface temp: {round(c.kel2cel(surface_temp), 1)} | Snow depth (m): {snow_depth}  |  Accumulated precip. (kg/sqm): {acc_precip}",
+                            f"   sfc temp: {round(c.kel2cel(surface_temp), 1)}C | snow depth (m): {snow_depth}  |  accumulated precip. (kg/sqm): {acc_precip}",
                             ''
                         ]
 
