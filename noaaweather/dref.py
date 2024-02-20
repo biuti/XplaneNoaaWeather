@@ -59,7 +59,6 @@ class Dref:
         self.xp_weather_source = EasyDref('sim/weather/region/weather_source', 'int')
 
         self.msltemp = EasyDref('sim/weather/region/sealevel_temperature_c', 'float')
-        self.sfctemp = EasyDref('sim/weather/temperature_ambient_c', 'float')
         self.temp = EasyDref('sim/weather/aircraft/temperature_ambient_deg_c', 'float')
         self.visibility = EasyDref('sim/weather/aircraft/visibility_reported_sm', 'float')
         self.pressure = EasyDref('sim/weather/region/sealevel_pressure_pas', 'float')  # Pascal, it was inHg in XP11

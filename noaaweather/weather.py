@@ -291,7 +291,7 @@ class Weather:
                     line = f"   Wind {wind_d} at {wind_s}"
                     vis_m, vis_sm = round(c.sm2m(self.data.visibility.value)), round(self.data.visibility.value, 1)
                     line += f" | Vis: {vis_m}m ({vis_sm}sm)"
-                    temp = round(self.data.sfctemp.value, 1)
+                    temp = round(self.data.temp.value, 1)
                     line += f" | Temp {temp}C"
                     pressure = self.data.pressure.value / 100  # mb
                     pressure_inHg = c.mb2inHg(pressure)
