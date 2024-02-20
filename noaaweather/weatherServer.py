@@ -134,7 +134,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
 
     def handle(self):
         response = False
-        data = self.request[0].decode('utf-8').strip("\n\c\t ")
+        data = self.request[0].decode('utf-8').strip("\n\r\t")
 
         if len(data) > 1:
             if data[0] == '?':
@@ -212,7 +212,6 @@ if __name__ == "__main__":
 
     if not debug:
         logfile = LogFile(Path(conf.respath, 'weatherServerLog.txt'), 'w')
-
         sys.stderr = logfile
         sys.stdout = logfile
 
