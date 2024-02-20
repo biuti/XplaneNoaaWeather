@@ -90,6 +90,18 @@ class c:
         return False if n is False else n * 1852
 
     @staticmethod
+    def dm2dd(degrees: str, minutes: str, direction: str) -> float:
+        dd = float(degrees) + float(minutes)/60
+        if direction == 'W' or direction == 'S':
+            dd *= -1
+        return dd
+
+    @staticmethod
+    def parse_dm(string: str) -> tuple[float, float]:
+        parts = string.split()
+        return c.dm2dd(parts[0], parts[1][:-1], parts[1][-1]), c.dm2dd(parts[2], parts[3][:-1], parts[3][-1])
+
+    @staticmethod
     def oat2msltemp(oat, alt, tropo_temp=-56.5, tropo_alt=11000) -> float:
         """Converts oat temperature to mean sea level.
         oat in C, alt in meters
