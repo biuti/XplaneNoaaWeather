@@ -40,11 +40,9 @@ class Metar(WeatherSource):
     RE_RVR = re.compile(r'R(?P<runway>(?P<heading>[0-9]{2})(?P<rw_position>[LCR])?)/'
                         r'(?P<exceed>[PM])?(?P<visibility>[0-9]{4})(?P<change>[UDN])?')
 
-    # METAR_STATIONS_URL = 'https://www.aviationweather.gov/docs/metar/stations.txt'
-    # Hotfix for stations.txt until a new updates source is found
-    # this seems to be a static copy
-    METAR_STATIONS_URL = 'https://weather.rap.ucar.edu/surface/stations.txt'
-    # NOAA_METAR_URL = 'https://aviationweather.gov/adds/dataserver_current/current/metars.cache.csv.gz'
+    METAR_STATIONS_GZIP = 'https://aviationweather.gov/data/cache/stations.cache.json.gz'
+    # this seems to be a static copy to use as a backup source
+    METAR_STATIONS_BACKUP_URL = 'https://weather.rap.ucar.edu/surface/stations.txt'
     NOAA_METAR_URL = 'https://aviationweather.gov/data/cache/metars.cache.csv.gz'
     VATSIM_METAR_URL = 'https://metar.vatsim.net/metar.php?id=all'
     IVAO_METAR_URL = 'https://api.ivao.aero/v2/airports/all/metar'
@@ -67,16 +65,19 @@ class Metar(WeatherSource):
 
         # Metar stations update
         if (time.time() - conf.ms_update) > self.STATION_UPDATE_RATE * 86400:
-            self.ms_download = AsyncTask(
-                GribDownloader.download, 
-                self.METAR_STATIONS_URL, 
-                'stations.txt',
-                binary=True, 
-                cancel_event=self.die
-            )
-            self.ms_download.start()
-
+            self.download_stations()
         self.last_timestamp = 0
+
+    def download_stations(self, url: str = METAR_STATIONS_GZIP, filename: str = 'stations.json'):
+        self.ms_download = AsyncTask(
+            GribDownloader.download, 
+            url, 
+            filename,
+            binary=True, 
+            cancel_event=self.die
+        )
+        self.ms_download.start()
+        self.ms_url = url
 
     def update_stations(self, path: Path, batch: int = 100):
         """Updates db's airport information from the METAR stations file"""
@@ -91,20 +92,29 @@ class Metar(WeatherSource):
 
         with open(path, encoding='utf-8', errors='replace') as f:
             try:
-                lines = f.readlines()
-                for i, line in enumerate(lines, 1):
-                    if line[0] != '!' and len(line) > 80 and line[20] != ' ' and line[51] != '9':
-                        icao = line[20:24]
-                        lat = (float(line[39:41]) + round(float(line[42:44]) / 60, 4)) * (-1 if line[44] == 'S' else 1)
-                        lon = (float(line[47:50]) + round(float(line[51:53]) / 60, 4)) * (-1 if line[53] == 'W' else 1)
-                        elevation = int(line[55:59])
-                        inserts.append((icao.strip('"'), lat, lon, elevation))
-                    if len(inserts) > batch or i >= len(lines):
-                        nparsed += len(inserts)
-                        nupdated += self.db.writemany(query, inserts)
-                        inserts = []
-            except (ValueError, IndexError) as e:
-                print(f"Error parsing METAR station File: {e}")
+                stations = json.loads(f.read())
+                string = 'json'
+            except json.decoder.JSONDecodeError:
+                # we probably have the backup static text file
+                stations = f.readlines()
+                string = 'txt'
+
+        for i, el in enumerate(stations, 1):
+            if string == 'json':
+                icao = el['icaoId']
+                if icao not in (None, '') and len(icao) < 5 and not icao[0].isdigit():
+                    lat, lon, elevation = el['lat'], el['lon'], el['elev']
+                    inserts.append((icao, lat, lon, elevation))
+            else:
+                if el[0] != '!' and len(el) > 80 and el[20] != ' ' and el[51] != '9':
+                    icao = el[20:24]
+                    lat, lon = c.parse_dm(el[39:54])
+                    elevation = int(el[55:59])
+                    inserts.append((icao.strip('"'), lat, lon, elevation))
+            if len(inserts) > batch or i >= len(stations):
+                nparsed += len(inserts)
+                nupdated += self.db.writemany(query, inserts)
+                inserts = []
 
         self.conf.ms_update = time.time()
         return nparsed
@@ -370,11 +380,17 @@ class Metar(WeatherSource):
                 self.ms_download.join()
                 stations = self.ms_download.result
                 if isinstance(stations, GribDownloaderError):
-                    print(f"Error downloading metar stations file {repr(stations)}")
+                    print(f"Error downloading metar stations file: {repr(stations)}")
+                    if self.ms_url == self.METAR_STATIONS_GZIP:
+                        print(f"Trying backup static url")
+                        self.download_stations(url=self.METAR_STATIONS_BACKUP_URL, filename='stations.txt')
                 else:
                     print('Updating metar stations.')
                     nstations = self.update_stations(stations)
+                    print(f"**** {datetime.now().strftime('%H:%M:%S')} {nstations} metar stations updated.")
                 self.ms_download = False
+            else:
+                print(f" **** {datetime.now().strftime('%H:%M:%S')} waiting stations download ... ")
 
         # Check for new metar downloaded data
         elif self.download:
@@ -391,7 +407,7 @@ class Metar(WeatherSource):
         elif self.conf.update_rwx_file and not self.conf.metar_use_xp12 and self.next_metarRWX < time.time():
             if self.update_metar_rwx_file():
                 self.next_metarRWX = time.time() + self.conf.metar_updaterate * 60
-                print(f"Updated METAR.rwx file using {self.conf.metar_source}.")
+                print(f" **** {datetime.now().strftime('%H:%M:%S')} Updated METAR.rwx file using {self.conf.metar_source}.")
             else:
                 print(f"There was an issue trying to update METAR.rwx file using {self.conf.metar_source}. Retrying in 30 seconds")
                 # Retry in 30 sec

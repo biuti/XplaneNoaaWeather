@@ -44,6 +44,7 @@ class Weather:
         self.weatherClientThread = False
 
         self.windAlts = -1
+        self.latest_snow = False
 
         # Response queue for user queries
         self.queryResponses = []
@@ -88,10 +89,7 @@ class Weather:
     def startWeatherServer(self):
         DETACHED_PROCESS = 0x00000008
         args = [xp.pythonExecutable, Path(self.conf.respath, 'weatherServer.py'), self.conf.syspath]
-        xp.log(f"we are at xp.pythonExecutable ...")
-
         kwargs = {'close_fds': True}
-
         try:
             if self.conf.spinfo:
                 kwargs.update({'startupinfo': self.conf.spinfo, 'creationflags': DETACHED_PROCESS})
@@ -108,19 +106,110 @@ class Weather:
     def get_XP12_METAR(self, icao: str) -> str:
         return xp.getMETARForAirport('icao')
 
-    # def setSnow(self):
-    #     """Set snow cover"""
-    #     # Not used at the moment, probably needs a different API if we want to implement
-    #     print(f"weatherdata['gfs']: {self.weatherData['gfs']}")
-    #     if 'snow' in self.weatherData['gfs']:
-    #         snow = self.weatherData['gfs']['snow']
-    #         if 0 < snow <= 5:
-    #             print(f"activating snow ...")
-    #             self.setDrefIfDiff(self.hack_snow, snow, 0.05)
-    #             self.setDrefIfDiff(self.hack_control, 1)
-    #         else:
-    #             print(f"deactivating control ...")
-    #             self.setDrefIfDiff(self.hack_control, 0)
+    def setSnow(self, elapsed):
+        """ Set snow cover
+            Dref value goes from 1.25 to 0.01
+            no snow:    1.25
+            light:      0.31
+            medium:     0.21
+            heavy:      0.07
+
+            GFS SNOD is in meters
+            SNOD    Dref conversion:
+            0       1.25
+            0.1     ~0.3
+            0.25    ~0.2
+            0.5     ~0.1
+            1+      ~0.05
+        """
+        if not (self.weatherData['gfs'].get('surface') and self.data.check_snow_dref()):
+            # we don't have snow data
+            return
+
+        data = self.weatherData['gfs']['surface']
+        snow = data['snow']
+        lat = self.data.latdr.value
+        lon = self.data.londr.value
+        temp = c.kel2cel(data['temp'])
+        transitions_speed = 0.25 if self.data.on_ground else 0.01
+
+        # over water, or where is not received, GFS data have a value of 9.999e+20
+        # if there is already a snow value, it will keep that one in a radius of 300nm, 
+        # until a new valid value is acquired, otherwise will stop injecting a value in the dref
+        if c.is_exponential(snow):
+            snow = 0
+            if self.latest_snow and self.latest_snow['depth'] > 0:
+                old_lat, old_lon, old_snow = self.latest_snow.values()
+                dist = c.m2nm(c.greatCircleDistance((lat, lon), (old_lat, old_lon)))
+                if dist < 300:
+                    snow = old_snow
+        elif snow == 0:
+            self.latest_snow = False
+        elif snow > 0:
+            self.latest_snow = {
+                'lat': lat,
+                'lon': lon,
+                'depth': snow
+            }
+
+        if snow > 0:
+            # calculating a factor based on latitude and temperature
+            factor = max(-20, abs(lat) - 55 - max(0, 0.2 * temp))
+            val = max(3.8 * (1 - 0.005 * factor - snow**0.04), 0.05)
+            rw_val = self.data.snow_cover.value
+            if val < rw_val:
+                try:
+                    c.snowDatarefTransition(self.data.snow_cover, val, elapsed=elapsed, speed=transitions_speed)
+                except SystemError as e:
+                    xp.log(f"ERROR injecting snow_cover: {e}")
+            else:
+                val = self.data.snow_cover.value
+
+            # calculating all other drefs
+            frozen_water = min(5 * max(0, factor)**1.5 * val, 1000)
+            noise = 0.15 - 0.005*factor
+            scale = noise*2000
+            width = noise*3
+
+            # adding ice based on temperature and snow (total wild guess)
+            # from 2 to 0.01, inversely proportional to factor
+            ice = 2 if temp > 4 else 0.00025*factor**2 - 0.045*factor + 1
+            self.data.iced_tarmac.value = ice
+
+            # adding standing water, as probably the tarmac is treated with addictives
+            # from 1.25 to 0.01, inversely proportional to factor, proportional to val
+            puddles = min(1.25, 1.15 - 0.5*ice)
+            self.data.puddles.value = puddles
+
+        else:
+            # default values
+            frozen_water = self.data.frozen_water.default_value
+            noise = self.data.tarmac_snow_noise.default_value
+            scale = self.data.tarmac_snow_scale.default_value
+            width = self.data.tarmac_snow_width.default_value
+
+        # inject values
+        c.datarefTransition(self.data.frozen_water, frozen_water, elapsed=elapsed, speed=transitions_speed)
+        self.setDrefIfDiff(self.data.tarmac_snow_noise, noise)
+        self.setDrefIfDiff(self.data.tarmac_snow_scale, scale)
+        self.setDrefIfDiff(self.data.tarmac_snow_width, width)
+
+    def setDrefIfDiff(self, dref, value, max_diff=False):
+        """ Set a Dataref if the current value differs
+            Returns True if value was updated """
+
+        if max_diff is not False:
+            if abs(dref.value - value) > max_diff:
+                dref.value = value
+                return True
+        else:
+            if dref.value != value:
+                dref.value = value
+                return True
+        return False
+
+    def reset_weather(self):
+        c.transitionClearReferences()
 
     def weatherInfo(self, chars: int = 80) -> list[str]:
         """Return an array of strings with formatted weather data"""
@@ -137,11 +226,11 @@ class Weather:
                         self.data.latdr.value, wdata['info']['lat'], self.data.londr.value, wdata['info']['lon'],
                         c.m2ft(self.data.altdr.value) / 100, self.data.mag_deviation.value)
                 ]
-                if self.data.xpWeather.value != 1:
-                    sysinfo += [f"   XP12 Real Weather is not active (value = {self.data.xpWeather.value})"]
+                if not self.data.real_weather_enabled:
+                    sysinfo += [f"   XP12 Real Weather is not active (value = {self.data.xp_weather_source.value})"]
                 elif 'None' in wdata['info']['gfs_cycle']:
                     sysinfo += ['   XP12 is still downloading weather info ...']
-                elif self.conf.real_weather_enabled:
+                elif self.conf.use_real_weather_data:
                     sysinfo += [f"   GFS Cycle: {wdata['info']['rw_gfs_cycle']}"]
                 else:
                     sysinfo += [f"   GFS Cycle: {wdata['info']['gfs_cycle']}"]
@@ -191,7 +280,7 @@ class Weather:
                             clouds = '   Clouds and Visibility OK'
                         sysinfo += [clouds]
 
-                if 'rwmetar' in wdata and self.conf.real_weather_enabled:
+                if 'rwmetar' in wdata and self.conf.use_real_weather_data:
                     if not wdata['rwmetar'].get('file_time'):
                         sysinfo += ['XP12 REAL WEATHER METAR:', '   no METAR file, still downloading...']
                     else:
@@ -200,14 +289,19 @@ class Weather:
                         sysinfo += util.format_text(line, chars, 3)
                     # check actual pressure and adjusted friction
                     sysinfo += ['', 'XP12 REAL WEATHER LIVE PARAMETERS:']
+                    wind_d = round(self.data.wind_dir.value)
+                    wind_s = round(c.ms2knots(self.data.wind_spd.value))
+                    line = f"   Wind {wind_d} at {wind_s}"
+                    vis_m, vis_sm = round(c.sm2m(self.data.visibility.value)), round(self.data.visibility.value, 1)
+                    line += f" | Vis: {vis_m}m ({vis_sm}sm)"
+                    temp = round(self.data.temp.value, 1)
+                    line += f" | Temp {temp}C"
                     pressure = self.data.pressure.value / 100  # mb
                     pressure_inHg = c.mb2inHg(pressure)
-                    line = f"   Pressure: {pressure:.1f}mb ({pressure_inHg:.2f}inHg)"
-                    vis_m, vis_sm = round(c.sm2m(self.data.visibility.value)), round(self.data.visibility.value, 1)
-                    line += f" | Visibility: {vis_m}m ({vis_sm}sm)"
+                    line += f" | Press. at sea lvl: {pressure:.1f}mb ({pressure_inHg:.2f}inHg)"
+                    sysinfo += [line]
                     friction = self.data.runwayFriction.get()
-                    # metar_friction = self.friction
-                    line += f" | Runway Friction: {friction:02}"
+                    line = f"   Runway Friction: {friction:02}"
                     # if friction != metar_friction:
                     #     line += f" (original {metar_friction:02})"
                     sysinfo += [line, '']
@@ -231,19 +325,25 @@ class Weather:
                 else:
                     # GFS data download for testing is enabled
                     sysinfo += [
-                        '*** *** Experimental GFS weather data download *** ***'
+                        '*** *** Experimental GFS 0.25 degrees weather data download *** ***'
                     ]
                     gfs = wdata['gfs']
                     if 'surface' in gfs and len(gfs['surface']):
                         s = gfs['surface']
-                        snow_depth = 'na' if s.get('snow') is None else round(s.get('snow'), 2)
-                        acc_precip = 'na' if s.get('acc_precip') is None else round(s.get('acc_precip'), 2)
+                        surface_temp = s.get('temp')
+                        snow_depth = 'na' if (s.get('snow') is None or s.get('snow') < 0) else round(s.get('snow'), 2)
+                        acc_precip = 'na' if (s.get('acc_precip') is None or s.get('acc_precip') < 0) else round(s.get('acc_precip'), 2)
                         sysinfo += [
-                            f"Snow depth (m): {snow_depth}  |  Accumulated precip. (kg/sqm): {acc_precip}",
+                            f"   sfc temp: {round(c.kel2cel(surface_temp), 1)}C | snow depth (m): {snow_depth}  |  accumulated precip. (kg/sqm): {acc_precip}",
                             ''
                         ]
+                    else:
+                        # probably there was an error downloading data from NOAA server
+                        sysinfo += [
+                            'No precipitation data available. Check log files'
+                        ]
 
-                if 'rw' in wdata and self.conf.real_weather_enabled:
+                if 'rw' in wdata and self.conf.use_real_weather_data:
                     # XP12 Real Weather is enabled
                     rw = wdata['rw']
                     if 'winds' in rw:

@@ -54,6 +54,7 @@ class Widget:
         self.create_main_menu()
 
         self.info_window = False
+        self.info_captions = []
         self.metar_window = False
         self.config_window = False
 
@@ -62,6 +63,12 @@ class Widget:
             self, 'metar_query_window_toggle', 
             self.metarQueryWindowToggle,
             description="Toggle METAR query window."
+        )
+
+        self.infoWindowCMD = EasyCommand(
+            self, 'info_window_toggle', 
+            self.infoWindowToggle,
+            description="Toggle weather info window."
         )
 
         # Flightloop counters
@@ -87,8 +94,7 @@ class Widget:
         if menuItem == 1:
             # Weather Info
             if not self.info_window:
-                self.create_info_window(221, 640)
-                self.info_window = True
+                self.create_info_window()
             elif not xp.isWidgetVisible(self.info_window_widget):
                 xp.showWidget(self.info_window_widget)
         elif menuItem == 2:
@@ -105,7 +111,8 @@ class Widget:
             elif not xp.isWidgetVisible(self.config_window_widget):
                 xp.showWidget(self.config_window_widget)
 
-    def create_info_window(self, x: int = 200, y: int = 900):
+    def create_info_window(self):
+        x, y = self.conf.info_window_position
         x2 = x + self.info_width
         y2 = y - self.info_height
         top = y - self.line_height - self.window_margin
@@ -122,7 +129,6 @@ class Widget:
         xp.setWidgetProperty(window, xp.Property_MainWindowHasCloseBoxes, 1)
 
         # Create status captions
-        self.info_captions = []
         while len(self.info_captions) < self.info_lines:
             cap = xp.createWidget(x, y, x + 40, y - self.line_height, 1, '--', 0, window, xp.WidgetClass_Caption)
             xp.setWidgetProperty(cap, xp.Property_CaptionLit, 1)
@@ -138,13 +144,12 @@ class Widget:
 
         self.info_window = True
 
-    def create_metar_window(self, x: int = 10, y: int = 900):
-
+    def create_metar_window(self):
+        x, y = self.conf.metar_window_position
         x2 = x + self.metar_width
         y2 = y - self.metar_height
 
         # Create the Main Widget window
-        self.metar_window = True
         self.metar_window_widget = xp.createWidget(x, y, x2, y2, 1, self.metar_title, 1, 0, xp.WidgetClass_MainWindow)
         xp.setWidgetProperty(self.metar_window_widget, xp.Property_MainWindowType, xp.MainWindowStyle_Translucent)
 
@@ -205,9 +210,10 @@ class Widget:
         xp.addWidgetCallback(self.metar_window_widget, self.metarWindowHandlerCB)
 
         xp.setKeyboardFocus(self.metarQueryInput)
+        self.metar_window = True
 
-    def create_config_window(self, x: int = 200, y: int = 640):
-
+    def create_config_window(self):
+        x, y = self.conf.config_window_position
         x2 = x + self.config_width
         y2 = y - self.config_height
 
@@ -340,15 +346,30 @@ class Widget:
         # XPSetWidgetProperty(self.WAFSCheck, xp.Property_ButtonState, self.conf.download_WAFS)
         # y -= self.line_height * 2
 
-        # # Accumulated snow
-        # xp.createWidget(x, y, x + 100, y - self.line_height, 1, 'Snow Depth', 0, window, xp.WidgetClass_Caption)
-        # self.snowCheck = xp.createWidget(x + 120, y, x + 140, y - self.line_height, 1, '', 0, window, xpWidgetClass_Button)
-        # XPSetWidgetProperty(self.snowCheck, xp.Property_ButtonState, xp.RadioButton)
-        # XPSetWidgetProperty(self.snowCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
-        # XPSetWidgetProperty(self.snowCheck, xp.Property_ButtonState, self.conf.set_snow)
-        # y -= self.line_height * 2
+        # Download GFS Data
+        xp.createWidget(x, y, x + 100, y - self.line_height, 1, 'GFS data download:', 0, window, xp.WidgetClass_Caption)
+        self.GFSCheck = xp.createWidget(xc, y, xc + self.line_height, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button)
+        xp.setWidgetProperty(self.GFSCheck, xp.Property_ButtonState, xp.RadioButton)
+        xp.setWidgetProperty(self.GFSCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
+        xp.setWidgetProperty(self.GFSCheck, xp.Property_ButtonState, self.conf.download_GFS)
+        y -= self.line_height
 
-        if not self.conf.real_weather_enabled:
+        # Accumulated snow | water
+        xp.createWidget(x + 50, y, x + 150, y - self.line_height, 1, 'Accumulated Snow:', 0, window, xp.WidgetClass_Caption)
+        self.snowCheck = xp.createWidget(xc, y, xc + self.line_height, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button)
+        xp.setWidgetProperty(self.snowCheck, xp.Property_ButtonState, xp.RadioButton)
+        xp.setWidgetProperty(self.snowCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
+        xp.setWidgetProperty(self.snowCheck, xp.Property_ButtonState, self.conf.set_snow)
+        y -= self.line_height
+
+        xp.createWidget(x + 50, y, x + 150, y - self.line_height, 1, 'Accumulated Water:', 0, window, xp.WidgetClass_Caption)
+        self.rainCheck = xp.createWidget(xc, y, xc + self.line_height, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button)
+        xp.setWidgetProperty(self.rainCheck, xp.Property_ButtonState, xp.RadioButton)
+        xp.setWidgetProperty(self.rainCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
+        xp.setWidgetProperty(self.rainCheck, xp.Property_ButtonState, self.conf.set_patches)
+        y -= self.line_height
+
+        if not self.conf.use_real_weather_data:
             # Winds enable
             xp.createWidget(x + 5, y, x + 20, y - self.line_height, 1, 'Wind levels', 0, window, xp.WidgetClass_Caption)
             self.windsCheck = xp.createWidget(
@@ -525,8 +546,7 @@ class Widget:
         # About window events
         if inMessage == xp.Message_CloseButtonPushed:
             if self.config_window:
-                xp.destroyWidget(self.config_window_widget, 1)
-                self.config_window = False
+                xp.hideWidget(self.config_window_widget)
             return 1
 
         if inMessage == xp.Msg_ButtonStateChanged and inParam1 in self.metar_source_check:
@@ -563,10 +583,12 @@ class Widget:
                 # Save configuration
                 self.conf.enabled = xp.getWidgetProperty(self.enable_check, xp.Property_ButtonState, None)
                 self.conf.metar_decode = xp.getWidgetProperty(self.decode_check, xp.Property_ButtonState)
-                if self.conf.real_weather_enabled:
-                    # nothing to do now
+                if self.conf.use_real_weather_data:
+                    self.conf.download_GFS = xp.getWidgetProperty(self.GFSCheck, xp.Property_ButtonState, None)
                     # self.conf.download_WAFS = xp.getWidgetProperty(self.WAFSCheck, xp.Property_ButtonState, None)
-                    pass
+                    self.conf.set_snow = xp.getWidgetProperty(self.snowCheck, xp.Property_ButtonState, None)
+                    self.conf.set_patches = xp.getWidgetProperty(self.rainCheck, xp.Property_ButtonState, None)
+                    # pass
                 else:
                     self.conf.set_wind = xp.getWidgetProperty(self.windsCheck, xp.Property_ButtonState, None)
                     self.conf.set_clouds = xp.getWidgetProperty(self.cloudsCheck, xp.Property_ButtonState, None)
@@ -590,8 +612,6 @@ class Widget:
 
                     buff = xp.getWidgetDescriptor(self.maxVisInput)
                     self.conf.max_visibility = c.convertFromInput(buff, 'sm2m')
-
-                # self.conf.set_snow = XPGetWidgetProperty(self.snowCheck, xp.Property_ButtonState, None)
 
                 # Metar station ignore
                 buff = xp.getWidgetDescriptor(self.ignore_list_input)
@@ -624,6 +644,10 @@ class Widget:
 
                 # If metar source has changed tell server to reinit metar database
                 if self.conf.metar_source != prev_metar_source:
+                    if self.metar_window:
+                        # update metar source label
+                        xp.destroyWidget(self.metar_window_widget, 1)
+                        self.metar_window = False
                     self.weather.weatherClientSend('!resetMetar')
 
                 # If metar source for METAR.rwx file has changed tell server to reinit rwmetar database
@@ -654,10 +678,10 @@ class Widget:
         xp.setWidgetProperty(self.rwxCheck, xp.Property_ButtonState, self.conf.update_rwx_file)
         xp.setWidgetProperty(self.xp12MetarCheck, xp.Property_ButtonState, self.conf.metar_use_xp12)
 
-        if self.conf.real_weather_enabled:
-            # nothing to do now
+        if self.conf.use_real_weather_data:
             # xp.setWidgetProperty(self.WAFSCheck, xp.Property_ButtonState, self.conf.download_WAFS)
-            pass
+            xp.setWidgetProperty(self.snowCheck, xp.Property_ButtonState, self.conf.set_snow)
+            xp.setWidgetProperty(self.rainCheck, xp.Property_ButtonState, self.conf.set_patches)
 
         else:
             xp.setWidgetProperty(self.windsCheck, xp.Property_ButtonState, self.conf.set_wind)
@@ -672,6 +696,15 @@ class Widget:
             xp.setWidgetDescriptor(self.maxCloudHeightInput, c.convertForInput(self.conf.max_cloud_height, 'm2ft'))
 
         self.updateStatus()
+
+    def save_windows_position(self):
+        """ Gets position of the windows and saves it in conf"""
+        if self.info_window:
+            self.conf.info_window_position = xp.getWidgetGeometry(self.info_window_widget)[:2]
+        if self.metar_window:
+            self.conf.metar_window_position = xp.getWidgetGeometry(self.metar_window_widget)[:2]
+        if self.config_window:
+            self.conf.config_window_position = xp.getWidgetGeometry(self.config_window_widget)[:2]
 
     def updateStatus(self):
         """Updates status window"""
@@ -708,7 +741,7 @@ class Widget:
                 elif key == 27:
                     # ESC
                     xp.loseKeyboardFocus(self.metarQueryInput)
-                elif 65 <= key <= 90 or 97 <= key <= 122 and len(text) < 4:
+                elif 48 <= key <= 57 or 65 <= key <= 90 or 97 <= key <= 122 and len(text) < 4:
                     text += chr(key).upper()
                     xp.setWidgetDescriptor(self.metarQueryInput, text)
                     cursor += 1
@@ -782,11 +815,21 @@ class Widget:
                 xp.hideWidget(self.metar_window_widget)
             else:
                 xp.showWidget(self.metar_window_widget)
+                xp.setKeyboardFocus(self.metarQueryInput)
         else:
             self.create_metar_window()
 
-    def shutdown_widget(self):
+    def infoWindowToggle(self):
+        """Info window toggle command"""
+        if self.info_window:
+            if xp.isWidgetVisible(self.info_window_widget):
+                xp.hideWidget(self.info_window_widget)
+            else:
+                xp.showWidget(self.info_window_widget)
+        else:
+            self.create_info_window()
 
+    def shutdown_widget(self):
         # Destroy windows
         if self.info_window:
             xp.destroyWidget(self.info_window_widget, 1)

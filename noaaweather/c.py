@@ -82,8 +82,24 @@ class c:
         return False if n is False else n * 0.0006213711922373339
 
     @staticmethod
+    def m2nm(n):
+        return False if n is False else n * 0.0005399568
+
+    @staticmethod
     def m2kn(n):
         return False if n is False else n * 1852
+
+    @staticmethod
+    def dm2dd(degrees: str, minutes: str, direction: str) -> float:
+        dd = float(degrees) + float(minutes)/60
+        if direction == 'W' or direction == 'S':
+            dd *= -1
+        return dd
+
+    @staticmethod
+    def parse_dm(string: str) -> tuple[float, float]:
+        parts = string.split()
+        return c.dm2dd(parts[0], parts[1][:-1], parts[1][-1]), c.dm2dd(parts[2], parts[3][:-1], parts[3][-1])
 
     @staticmethod
     def oat2msltemp(oat, alt, tropo_temp=-56.5, tropo_alt=11000) -> float:
@@ -109,8 +125,8 @@ class c:
 
     @staticmethod
     def greatCircleDistance(latlong_a, latlong_b) -> float:
-        """Return the great circle distance of 2 coordinatee pairs"""
-        EARTH_RADIUS = 6378137
+        """Return the great circle distance of 2 coordinates pairs, in meters"""
+        EARTH_RADIUS = 6378137  # meters
 
         lat1, lon1 = latlong_a
         lat2, lon2 = latlong_b
@@ -273,6 +289,21 @@ class c:
         dataref.value = new
 
     @classmethod
+    def snowDatarefTransition(cls, dataref, new: float, elapsed, speed: float):
+        """Timed dataref transition"""
+        snow_id = str(dataref.DataRef)
+        if snow_id not in cls.transrefs:
+            cls.transrefs[snow_id] = dataref.value
+
+        current = cls.transrefs[snow_id]
+        s = -1 if current > new else 1
+        if abs(current - new) > speed * elapsed + speed:
+            new = current + s * speed * elapsed
+
+        cls.transrefs[snow_id] = new
+        dataref.value = new
+
+    @classmethod
     def transition(cls, new, id, elapsed, speed=0.25):
         """Time based transition """
         if not id in cls.transrefs:
@@ -375,6 +406,12 @@ class c:
                 return float(el[0])
             except ValueError:
                 return string.lower()
+
+    @staticmethod
+    def is_exponential(f: float) -> bool:
+        if isinstance(f,float) and 'e' in str(f).lower():
+            return True
+        return False
 
     @staticmethod
     def limit(value, max=None, min=None):

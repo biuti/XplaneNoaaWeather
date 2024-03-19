@@ -25,7 +25,7 @@ class Conf:
     syspath, dirsep = '', os.sep
     printableChars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ '
 
-    __VERSION__ = '12.0.7.1'
+    __VERSION__ = '12.0.9'
 
     GFS_JSON_HELP = '''Here you can edit which wind levels will be downloaded from NOAA without hacking the code.
                     Keep the list short to optimize the download size and parsing times.
@@ -108,11 +108,11 @@ class Conf:
 
     @property
     def gfs_variable_list(self) -> dict:
-        return self.gfs_levels_real_weather() if self.real_weather_enabled else self.gfs_levels
+        return self.gfs_levels_real_weather() if self.use_real_weather_data else self.gfs_levels
 
     @property
     def wafs_variable_list(self) -> dict:
-        return self.wafs_levels_real_weather() if self.real_weather_enabled else self.gfs_levels
+        return self.wafs_levels_real_weather() if self.use_real_weather_data else self.gfs_levels
 
     def setDefaults(self):
         """Default settings"""
@@ -162,13 +162,17 @@ class Conf:
         self.set_surface_layer = False
         self.turbulence_probability = 1
 
+        # added GFS Data in real Weather
+        self.set_snow = True
+        self.set_patches = True
+
         self.download_METAR = True
 
-        # Waiting API SDK to implement automatic mode switch
-        self.real_weather_enabled = True
+        # Waiting for weather API SDK the plugin mainly monitors Real Weather
+        self.use_real_weather_data = True
 
         # Avoid downloading GFS and WAFS data until it will have some use in XP12
-        self.download_GFS = False
+        self.download_GFS = True
         self.download_WAFS = False
 
         # From this AGL level METAR values are interpolated to GFS ones.
@@ -222,6 +226,11 @@ class Conf:
         self.update_rwx_file = False  # Not needed by AviTab latest versions
         self.metar_use_xp12 = False
 
+        # windows position
+        self.info_window_position = [220, 640]
+        self.metar_window_position = [10, 900]
+        self.config_window_position = [200, 640]
+
     def saveSettings(self, filepath: Path, settings: dict):
         f = open(filepath, 'wb')
         cPickle.dump(settings, f)
@@ -265,7 +274,8 @@ class Conf:
             'set_tropo': self.set_tropo,
             'set_thermals': self.set_thermals,
             'set_surface_layer': self.set_surface_layer,
-            # 'set_snow': self.set_snow,
+            'set_snow': self.set_snow,
+            'set_patches': self.set_patches,
             'opt_clouds_update': self.opt_clouds_update,
             'metar_source': self.metar_source,
             'download_GFS': self.download_GFS,
@@ -279,7 +289,10 @@ class Conf:
             'ignore_metar_stations': self.ignore_metar_stations,
             'metar_ignore_auto': self.metar_ignore_auto,
             'update_rwx_file': self.update_rwx_file,
-            'metar_use_xp12': self.metar_use_xp12
+            'metar_use_xp12': self.metar_use_xp12,
+            'info_window_position': self.info_window_position,
+            'metar_window_position': self.metar_window_position,
+            'config_window_position': self.config_window_position
         }
         self.saveSettings(self.settingsfile, conf)
 
@@ -312,7 +325,7 @@ class Conf:
         else:
             self.gfs_levels = self.gfs_levels_defaults()
             self.save_gfs_levels(self.gfs_levels)
-        print(f"XP12 Real Weather Mode: {self.real_weather_enabled}")
+        print(f"XP12 Real Weather Mode: {self.use_real_weather_data}")
 
     @staticmethod
     def gfs_levels_defaults() -> list:
