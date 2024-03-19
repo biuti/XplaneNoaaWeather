@@ -298,7 +298,7 @@ class Weather:
                     line += f" | Temp {temp}C"
                     pressure = self.data.pressure.value / 100  # mb
                     pressure_inHg = c.mb2inHg(pressure)
-                    line += f" | Press: {pressure:.1f}mb ({pressure_inHg:.2f}inHg)"
+                    line += f" | Press. at sea lvl: {pressure:.1f}mb ({pressure_inHg:.2f}inHg)"
                     sysinfo += [line]
                     friction = self.data.runwayFriction.get()
                     line = f"   Runway Friction: {friction:02}"
@@ -336,6 +336,11 @@ class Weather:
                         sysinfo += [
                             f"   sfc temp: {round(c.kel2cel(surface_temp), 1)}C | snow depth (m): {snow_depth}  |  accumulated precip. (kg/sqm): {acc_precip}",
                             ''
+                        ]
+                    else:
+                        # probably there was an error downloading data from NOAA server
+                        sysinfo += [
+                            'No precipitation data available. Check log files'
                         ]
 
                 if 'rw' in wdata and self.conf.use_real_weather_data:
