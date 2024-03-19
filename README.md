@@ -12,10 +12,13 @@ https://github.com/pbuckner/XplaneNoaaWeather
 ## Features
 At this stage the plugin in its X-Plane 12 version is almost only monitoring what XP Real Weather engine is doing.
 
-As it already takes data from GFS Grib files, probably there will be no need to download them anylonger.
+As XP12.09 still has not the capability to depict correctly snow cover, GFS information are downloaded from NOAA server and the plugin will add snow cover according to them
 
-As soon as a final version of X-Plane 12 will be released, I will consider if some of the XP11 version features will still be needed.
+Concerning all other data, as Real Weather already takes data from GFS Grib files, probably there will be no need to download them anylonger.
 
+X-Plane 12 is continuously updated, so I will consider if some of the XP11 version features will still be needed.
+
+- Adds snow cover using GFS data information
 - Writes missing METAR.rwx file for compatibility with XP11
 - Ability to populate METAR.rwx file using XP12 Real Weather as data source
 
@@ -29,19 +32,22 @@ As soon as a final version of X-Plane 12 will be released, I will consider if so
 > [!WARNING]
 > Be aware that using XP12 Real Weather as data source when flying online could give you outdated information.
 This means that ATC information, ATIS, runway in use and generally weather for any pilot not using XP12 could be different from what you expect looking at your data.
-Lately (XP12.05r1) Real Weather METAR is a lot improved compared to previous versions and almost always up-to-date. 
+Lately (XP12.05r1 and above) Real Weather METAR is a lot improved compared to previous versions and almost always up-to-date. 
 Anyway, be respectful of other users, you are the one using wrong data.
 
 ## Requirements
 - MacOS 10.14, Windows 7 and Linux kernel 4.0 and above
-- X-Plane 12.05b2 and above (not tested with previous versions) 
+- X-Plane 12.0.9 and above (not tested with previous versions) 
 - pbuckner's XPPython3 plugin:
 https://xppython3.readthedocs.io/en/latest/index.html
 - Python 3.10 and above:
 http://www.python.org/getit/
 
+> [!NOTE]
+> **Latest XPPython3 plugin version (4.3.0 and above) will contain all python needed libraries, so it won't be necessasry to install Python on the machine anymore. Read carefully XPPython3 plugin documentation**
+
 > [!IMPORTANT]
-> You need to download correct XPPython3 version according to your Python3 installed version!
+> **You need to download correct XPPython3 version according to your Python3 installed version!
 Read instructions.**
 
 **Wgrib2**: 
