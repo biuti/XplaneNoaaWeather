@@ -5,6 +5,7 @@
 __pycache__
 *.pkl
 stations.txt
+stations.json
 noaaweather/__pycache__
 noaaweather/gfs_levels_config.json
 noaaweather/cache/
