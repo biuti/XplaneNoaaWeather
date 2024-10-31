@@ -90,10 +90,8 @@ class WAFS(GribWeatherSource):
 
         cat = {}
         for line in it:
-            # print(line)
             sline = line.split(':')
             if not any(el in sline[4] for el in self.levels):
-                # print(f"{sline[4]} not in levels")
                 continue
 
             if sline[3] == 'EDPARM':
@@ -124,7 +122,6 @@ class WAFS(GribWeatherSource):
             '''tweaking turbulence intensity using a factor'''
             turbulence.append([key, value])
         turbulence.sort()
-        # print(f"wafs turb: {turbulence}")
         return {'turbulence': turbulence}
 
     @classmethod
@@ -135,6 +132,5 @@ class WAFS(GribWeatherSource):
 
     @classmethod
     def get_cache_filename(cls, datecycle: str, cycle: int, forecast: int) -> str:
-        # filename = "%s_gfs.t%sz.wafs_0p25_unblended.f%02d.grib2" % (datecycle, datecycle[-2:], forecast)
         filename = f"{datecycle}_gfs.t{datecycle[-2:]}z.wafs_0p25_unblended.f{forecast:02}.grib2"
         return filename

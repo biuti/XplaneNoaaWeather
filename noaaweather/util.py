@@ -74,8 +74,10 @@ class util:
         """ Get list of METARs from XP12 real Weather metar file,
             ordered by ICAO, time desc"""
 
-        lines = [x for x in (set(open(metar_file, encoding='utf-8', errors='replace')))
-                 if x[0].isalpha() and len(x) > 11 and x[11] == 'Z']
+        lines = [
+            x for x in (set(open(metar_file, encoding='utf-8', errors='replace')))
+            if x[0].isalpha() and len(x) > 11 and x[11] == 'Z'
+        ]
         lines.sort(key=lambda x: (x[0:4], -int(x[5:10])))
         return lines
 

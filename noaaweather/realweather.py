@@ -83,9 +83,6 @@ class RealWeather(GribWeatherSource):
 
     @property
     def grib_files(self) -> list:
-        # print(f"time: {self.zulu_time} | base = {self.base}")
-        # from . import xp
-        # print(f"test xp: {xp.getMETARForAirport('LIME')}")
         return [] if self.base is None else [path for path in self.conf.wpath.resolve().glob(f"*{self.base}*.grib")]
 
     @property
@@ -95,7 +92,6 @@ class RealWeather(GribWeatherSource):
         metar_files = [p for p in self.conf.wpath.iterdir() if p.is_file() and 'METAR' in p.stem.upper()]
         if metar_files:
             '''get latest file'''
-            # return max([f for f in metar_files], key=lambda item: item.stat().st_ctime)
             return max(metar_files, key=lambda x: util.date_in_filename(x))
         else:
             return None
