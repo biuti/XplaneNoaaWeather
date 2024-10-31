@@ -44,7 +44,7 @@ class Weather:
         self.weatherClientThread = False
 
         self.windAlts = -1
-        self.latest_snow = False
+        self.nearest_snow = False
 
         # Response queue for user queries
         self.queryResponses = []
@@ -137,16 +137,36 @@ class Weather:
         # if there is already a snow value, it will keep that one in a radius of 300nm, 
         # until a new valid value is acquired, otherwise will stop injecting a value in the dref
         if c.is_exponential(snow):
+            # we are probably over water or very close to water
             snow = 0
-            if self.latest_snow and self.latest_snow['depth'] > 0:
-                old_lat, old_lon, old_snow = self.latest_snow.values()
-                dist = c.m2nm(c.greatCircleDistance((lat, lon), (old_lat, old_lon)))
-                if dist < 300:
-                    snow = old_snow
+            if data.get('prediction'):
+                # a suitable value is found nearby or along the track
+                if not self.nearest_snow:
+                    # save new nearest snow value
+                    self.nearest_snow = data['prediction']
+                else:
+                    # check if we have a better prediction
+                    nlat, nlon, nsnow = self.nearest_snow.values()
+                    plat, plon, _ = data['prediction'].values()
+                    if (nlat, nlon) != (plat, plon):
+                        ndist = c.greatCircleDistance((lat, lon), (nlat, nlon))
+                        pdist = c.greatCircleDistance((lat, lon), (plat, plon))
+                        if pdist < ndist:
+                            self.nearest_snow = data['prediction']
+
+            if self.nearest_snow:
+                # we can use latest recorded snow value if near enough
+                nlat, nlon, nsnow = self.nearest_snow.values()
+                dist = c.m2nm(c.greatCircleDistance((lat, lon), (nlat, nlon)))  # in nm
+                if dist < 70:
+                    snow = nsnow
+                else:
+                    # delete old nearest value
+                    self.nearest_snow = False
         elif snow == 0:
-            self.latest_snow = False
+            self.nearest_snow = False
         elif snow > 0:
-            self.latest_snow = {
+            self.nearest_snow = {
                 'lat': lat,
                 'lon': lon,
                 'depth': snow
@@ -158,11 +178,13 @@ class Weather:
             val = max(3.8 * (1 - 0.005 * factor - snow**0.04), 0.05)
             rw_val = self.data.snow_cover.value
             if val < rw_val:
+                # injecting snow_cover value
                 try:
                     c.snowDatarefTransition(self.data.snow_cover, val, elapsed=elapsed, speed=transitions_speed)
                 except SystemError as e:
                     xp.log(f"ERROR injecting snow_cover: {e}")
             else:
+                # no need to inject a different value
                 val = self.data.snow_cover.value
 
             # calculating all other drefs
@@ -209,6 +231,9 @@ class Weather:
         return False
 
     def reset_weather(self):
+        if self.nearest_snow:
+            # reset nearest snow value
+            self.nearest_snow = False
         c.transitionClearReferences()
 
     def weatherInfo(self, chars: int = 80) -> list[str]:
@@ -221,9 +246,10 @@ class Weather:
         else:
             wdata = self.weatherData
             if 'info' in wdata:
+                lat, lon = self.data.latdr.value, self.data.londr.value
                 sysinfo += [
                     '   LAT: %.2f/%.2f LON: %.2f/%.2f FL: %02.f MAGNETIC DEV: %.2f' % (
-                        self.data.latdr.value, wdata['info']['lat'], self.data.londr.value, wdata['info']['lon'],
+                        lat, wdata['info']['lat'], lon, wdata['info']['lon'],
                         c.m2ft(self.data.altdr.value) / 100, self.data.mag_deviation.value)
                 ]
                 if not self.data.real_weather_enabled:
@@ -325,16 +351,24 @@ class Weather:
                 else:
                     # GFS data download for testing is enabled
                     sysinfo += [
-                        '*** *** Experimental GFS 0.25 degrees weather data download *** ***'
+                        '*** *** GFS 0.25 degrees weather data download *** ***'
                     ]
                     gfs = wdata['gfs']
                     if 'surface' in gfs and len(gfs['surface']):
                         s = gfs['surface']
-                        surface_temp = s.get('temp')
-                        snow_depth = 'na' if (s.get('snow') is None or s.get('snow') < 0) else round(s.get('snow'), 2)
+                        surface_temp = round(c.kel2cel(s.get('temp')), 1)
+                        snow = s.get('snow')
+                        d = 0
+                        if c.is_exponential(snow):
+                            if self.nearest_snow:
+                                nlat, nlon, snow = self.nearest_snow.values()
+                                d = round(c.m2nm(c.greatCircleDistance((lat, lon), (nlat, nlon))), 1)  # in nm
+                            else:
+                                snow = None
+                        snow_depth = f"{'na' if snow is None or snow < 0 else round(snow, 2)}{'' if not d else f' ({d} nm)'}"
                         acc_precip = 'na' if (s.get('acc_precip') is None or s.get('acc_precip') < 0) else round(s.get('acc_precip'), 2)
                         sysinfo += [
-                            f"   sfc temp: {round(c.kel2cel(surface_temp), 1)}C | snow depth (m): {snow_depth}  |  accumulated precip. (kg/sqm): {acc_precip}",
+                            f"   sfc temp (C): {surface_temp} | snow depth (m): {snow_depth} | accumulated precip. (kg/sqm): {acc_precip}",
                             ''
                         ]
                     else:

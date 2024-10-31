@@ -20,12 +20,11 @@ class Widget:
     font_width, font_height, _ = xp.getFontDimensions(xp.Font_Basic)
     line_height = font_height + 8
     window_margin = 10
-    # xp.log(f"font: {font_width} x {font_height} | line = {line_height}")
 
     # Info Window Definition
     info_title = "X-Plane 12 NOAA GFS Weather"
     info_width = 560
-    info_height = 640
+    info_height = 680
     info_lines = int((info_height - 2 * window_margin) / line_height) - 1
     info_line_chars = int((info_width - 2 * window_margin) / font_width) - 4
 
@@ -705,6 +704,7 @@ class Widget:
             self.conf.metar_window_position = xp.getWidgetGeometry(self.metar_window_widget)[:2]
         if self.config_window:
             self.conf.config_window_position = xp.getWidgetGeometry(self.config_window_widget)[:2]
+        xp.log(f"saved positions: {self.conf.info_window_position}, {self.conf.metar_window_position}, {self.conf.config_window_position}")
 
     def updateStatus(self):
         """Updates status window"""

@@ -9,12 +9,15 @@ as published by the Free Software Foundation; either version 2
 of the License, or any later version.
 """
 
-from math import hypot, atan2, degrees, exp, log, radians, sin, cos, sqrt, pi, isclose
+from math import hypot, atan2, degrees, exp, log, radians, sin, cos, asin, sqrt, pi, isclose
 from random import random
 
+# const
+EARTH_RADIUS = 6378137  # meters
 
 class c:
     """Unit conversion  and misc tools"""
+
     # transition references
     transrefs = {}
     randRefs = {}
@@ -126,7 +129,6 @@ class c:
     @staticmethod
     def greatCircleDistance(latlong_a, latlong_b) -> float:
         """Return the great circle distance of 2 coordinates pairs, in meters"""
-        EARTH_RADIUS = 6378137  # meters
 
         lat1, lon1 = latlong_a
         lat2, lon2 = latlong_b
@@ -139,6 +141,20 @@ class c:
         c = 2 * atan2(sqrt(a), sqrt(1 - a))
         d = EARTH_RADIUS * c
         return d
+
+    @staticmethod
+    def great_circle_destination(lon1: float, lat1: float, bearing: float, dist: float = 50000) -> tuple[float, float]:
+        """ Formula:	
+            φ2 = asin( sin φ1 ⋅ cos δ + cos φ1 ⋅ sin δ ⋅ cos θ )
+            λ2 = λ1 + atan2( sin θ ⋅ sin δ ⋅ cos φ1, cos δ − sin φ1 ⋅ sin φ2 )
+            where:	φ is latitude, λ is longitude, θ is the bearing (clockwise from north), δ is the angular distance d/R; d being the distance travelled, R the earth’s radius"""
+
+        d = dist/EARTH_RADIUS
+        b = radians(bearing)
+        latr, lonr = radians(lat1), radians(lon1)
+        lat2 = asin(sin(latr) * cos(d) + cos(latr) * sin(d) * cos(b))
+        lon2 = lonr + atan2(sin(b) * sin(d) * cos(latr), cos(d) - sin(latr) * sin(lat2))
+        return degrees(lon2), degrees(lat2)
 
     @staticmethod
     def interpolate(t1, t2, alt1, alt2, alt) -> float:

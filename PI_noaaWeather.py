@@ -74,8 +74,10 @@ class PythonInterface(widget.Widget):
             # Request data on postion change, every 0.1 degree or 60 seconds
             if (lat, lon) != (self.weather.last_lat, self.weather.last_lon) or (self.fltime - self.lastParse) > 60:
                 self.weather.last_lat, self.weather.last_lon = lat, lon
+                hdg = round(self.data.track)
+                gs = round(self.data.groundspeed)
 
-                self.weather.weatherClientSend(f"?{round(lat, 2)}|{round(lon, 2)}\n")
+                self.weather.weatherClientSend(f"?{round(lat, 2)}|{round(lon, 2)}|{hdg}|{gs}\n")
 
                 self.flcounter = 0
                 self.lastParse = self.fltime

@@ -29,6 +29,8 @@ class Dref:
         self.latdr = EasyDref('sim/flightmodel/position/latitude', 'double')
         self.londr = EasyDref('sim/flightmodel/position/longitude', 'double')
         self.altdr = EasyDref('sim/flightmodel/position/elevation', 'double')
+        self.gsdr = EasyDref('sim/flightmodel/position/groundspeed', 'float')  # m/s
+        self.dirdr = EasyDref('sim/flightmodel/position/hpath', 'float')
 
         self.wheels_on_ground = EasyDref('sim/flightmodel2/gear/on_ground[0:10]', 'int')
 
@@ -92,6 +94,14 @@ class Dref:
     @property
     def on_ground(self) -> bool:
         return any(self.wheels_on_ground.value)
+
+    @property
+    def groundspeed(self) -> bool:
+        return self.gsdr.value
+
+    @property
+    def track(self) -> bool:
+        return self.dirdr.value
 
     def check_snow_dref(self) -> bool:
         if not self.snow_cover or not self.snow_cover.value:

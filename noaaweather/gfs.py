@@ -160,3 +160,49 @@ class GFS(GribWeatherSource):
         }
 
         return data
+
+    def check_snow_values(self, filepath, lat, lon, hdg, gfs):
+        snow = gfs['surface'].get('snow')
+        if not c.is_exponential(snow):
+            return
+
+        # we have no info about snow, probably over or near water
+        # look for valid values around origin
+        # GFS precision is 0.25 degree (27.75 km grid) so we use a distance of 28 Km
+        prediction = False
+        d = 28000  # 28 Km, 1 GFS grid
+        v = 0      # North
+        while True:
+            new_lon, new_lat = c.great_circle_destination(lon, lat, v, d)
+            data = self.parse_grib_data(filepath, new_lat, new_lon)
+            val = data['surface'].get('snow')
+            if val is not None and not c.is_exponential(val):
+                prediction = {
+                    'lat': new_lat,
+                    'lon': new_lon,
+                    'depth': val
+                }
+                gfs['surface']['prediction'] = prediction
+                return
+            v += 45
+            if v > 330:
+                break 
+
+        # look for valid values ahead along present track
+        d = 28000  # 28 Km, 1 GFS grid
+        while True:
+            new_lon, new_lat = c.great_circle_destination(lon, lat, hdg, d)
+            data = self.parse_grib_data(filepath, new_lat, new_lon)
+            val = data['surface'].get('snow')
+            if val is not None and not c.is_exponential(val):
+                prediction = {
+                    'lat': new_lat,
+                    'lon': new_lon,
+                    'depth': val
+                }
+                gfs['surface']['prediction'] = prediction
+                print(f"check_snow_values: prediction: {prediction}")
+                return
+            d += 28000
+            if d > 60000:
+                break
