@@ -12,7 +12,7 @@ https://github.com/pbuckner/XplaneNoaaWeather
 ## Features
 At this stage the plugin in its X-Plane 12 version is almost only monitoring what XP Real Weather engine is doing.
 
-As XP12.09 still has not the capability to depict correctly snow cover, GFS information are downloaded from NOAA server and the plugin will add snow cover according to them
+As XP12.1 still has not the capability to depict correctly snow cover, GFS information are downloaded from NOAA server and the plugin will add snow cover according to them
 
 Concerning all other data, as Real Weather already takes data from GFS Grib files, probably there will be no need to download them anylonger.
 
@@ -37,17 +37,17 @@ Anyway, be respectful of other users, you are the one using wrong data.
 
 ## Requirements
 - MacOS 10.14, Windows 7 and Linux kernel 4.0 and above
-- X-Plane 12.0.9 and above (not tested with previous versions) 
+- X-Plane 12.1.2 and above (not tested with previous versions) 
 - pbuckner's XPPython3 plugin:
 https://xppython3.readthedocs.io/en/latest/index.html
-- Python 3.10 and above:
+- (*) Python 3.12 and above:
 http://www.python.org/getit/
 
 > [!NOTE]
-> **Latest XPPython3 plugin version (4.3.0 and above) will contain all python needed libraries, so it won't be necessasry to install Python on the machine anymore. Read carefully XPPython3 plugin documentation**
+> **(*) Latest XPPython3 [plugin version (4.3.0 and above)](https://xppython3.readthedocs.io/en/beta/usage/installation_plugin.html) will contain all python needed libraries, so it won't be necessary to install Python on the machine anymore. Read carefully XPPython3 plugin documentation**
 
 > [!IMPORTANT]
-> **You need to download correct XPPython3 version according to your Python3 installed version!
+> **If you are using a previous version than 4.3.0 (you really shouldn't), you need to download correct XPPython3 version according to your Python3 installed version!
 Read instructions.**
 
 **Wgrib2**: 
