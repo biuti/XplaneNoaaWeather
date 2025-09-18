@@ -138,9 +138,20 @@ class Metar(WeatherSource):
         query = '''UPDATE {} SET timestamp = ?, metar = ? WHERE icao = ? AND timestamp < ?'''.format(self.table)
 
         for i, line in enumerate(lines, 1):
-            if line[0].isalpha() and len(line) > 11 and line[11] == 'Z':
+            # 20250915 NOAA changed line formats to:
+            # "SPECI YMML 181527Z AUTO 01023G33KT 9999 // NCD 13/04 Q1015",YMML,2025-09-18T15:27:00.000Z,-37.6660,144.8320,13,4,10,23,33,6+,29.97,,,TRUE,,,,,,,,,,,,,,,,VFR,,,,,,,,,,,,SPECI,115
+            # "METAR KFCH 181640Z AUTO 00000KT 10SM CLR 24/11 A2980 RMK A01",KFCH,2025-09-18T15:26:11.000Z,36.7338,-119.8204,24,11,0,,,10+,29.80,,,TRUE,TRUE,,,,,,,,,,,,,,,VFR,,,,,,,,,,,,METAR,85
+            # IVAO (ones decoded the json):
+            # KSFO 181656Z 00000KT 10SM CLR 19/11 A2992 RMK AO2 SLP134 T01940106 10194 201
+            # VATSIM:
+            # KEVU 181635Z AUTO 13007KT 10SM CLR 22/21 A3002 RMK AO2 T02280212
+
+            if line[0] == '"' and line[18] == 'Z':
+                line = line.split('"')[1][6:]
+            elif line[0].isalpha() and line[11] == 'Z':
+                line = line.split(',')[0]
+            if len(line) > 11:
                 icao, mtime, metar = line[0:4], line[5:11], re.sub(r'[^\x00-\x7F]+', ' ', line[5:-1])
-                metar = metar.split(',')[0]
 
                 if mtime[-1] == 'Z':
                     mtime = '0' + mtime[:-1]
