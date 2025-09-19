@@ -163,7 +163,7 @@ class Metar(WeatherSource):
                 line = line.split(',')[0]
             if len(line) > 11:
                 i += 1
-                icao, mtime, metar = line[0:4], line[5:11], re.sub(r'[^\x00-\x7F]+', ' ', line[5:-1])
+                icao, mtime, metar = line[0:4], line[5:11], re.sub(r'[^\x00-\x7F]+', ' ', line[5:]).strip()
 
                 if mtime[-1] == 'Z':
                     mtime = '0' + mtime[:-1]
