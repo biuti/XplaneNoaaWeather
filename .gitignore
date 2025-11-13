@@ -16,3 +16,5 @@ noaaweather/bin/makefiles/
 /*test.*
 /*test*
 *metars*
+weatherServerLog.*
+*.org*
