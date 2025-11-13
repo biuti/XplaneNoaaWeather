@@ -37,19 +37,16 @@ Anyway, be respectful of other users, you are the one using wrong data.
 
 ## Requirements
 - MacOS 10.14, Windows 7 and Linux kernel 4.0 and above
-- X-Plane 12.3 and above (not tested with previous versions) 
-- pbuckner's XPPython3 plugin:
-https://xppython3.readthedocs.io/en/latest/index.html (tested using version 4.6.0 beta)
-- (*) Python 3.12 and above:
-http://www.python.org/getit/
+(tested using macOS 12.7.6)
+- X-Plane **12.3 and above** (not tested with previous versions) 
+- pbuckner's [XPPython3 plugin **4.6.0 or above**](https://xppython3.readthedocs.io/en/latest/index.html) (tested using version 4.6.1)
 
 > [!NOTE]
-> **(*) Latest XPPython3 [plugin version (4.3.0 and above)](https://xppython3.readthedocs.io/en/beta/usage/installation_plugin.html) will contain all python needed libraries, so it won't be necessary to install Python on the machine anymore. Read carefully XPPython3 plugin documentation**
+> **(*) Latest XPPython3 [plugin version (4.3.0 and above)](https://xppython3.readthedocs.io/en/latest/index.html) will contain all python needed libraries, so it won't be necessary to install Python on the machine anymore. Read carefully XPPython3 plugin documentation**
 
 > [!IMPORTANT]
-> **If you are using a previous version than 4.3.0 (you really shouldn't), you need to download correct XPPython3 version according to your Python3 installed version!\
-I tested the plugin using python 3.12 and 3.13.\
-Read instructions.**
+> **Starting from version 12.3, NOAAWeather requires XPPython3 version 4.6.0 or above!\
+If you wish to keep using previous versions (you really shouldn't), use NOAAWeather 12.1**
 
 **Wgrib2**: 
 the plugin has been built in MacOS Big Sur, Windows 11 and Ubuntu 20.04 LTS.
