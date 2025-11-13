@@ -1,7 +1,7 @@
 """
 X-plane NOAA GFS weather plugin.
 Copyright (C) 2011-2020 Joan Perez i Cauhe
-Copyright (C) 2021-2024 Antonio Golfari
+Copyright (C) 2021-2026 Antonio Golfari
 ---
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -51,7 +51,7 @@ class Metar(WeatherSource):
 
     table = 'source'
 
-    def __init__(self, conf):
+    def __init__(self, conf) -> None:
 
         self.db = Database(conf.dbfile)
 
@@ -68,7 +68,7 @@ class Metar(WeatherSource):
             self.download_stations()
         self.last_timestamp = 0
 
-    def download_stations(self, url: str = METAR_STATIONS_GZIP, filename: str = 'stations.json'):
+    def download_stations(self, url: str = METAR_STATIONS_GZIP, filename: str = 'stations.json') -> None:
         self.ms_download = AsyncTask(
             GribDownloader.download, 
             url, 
@@ -79,7 +79,7 @@ class Metar(WeatherSource):
         self.ms_download.start()
         self.ms_url = url
 
-    def update_stations(self, path: Path, batch: int = 100):
+    def update_stations(self, path: Path, batch: int = 100) -> int:
         """Updates db's airport information from the METAR stations file"""
 
         nparsed = 0
@@ -179,7 +179,7 @@ class Metar(WeatherSource):
         return nupdated, nparsed
 
     @staticmethod
-    def clear_reports(file: Path):
+    def clear_reports(file: Path) -> None:
         """Clears all metar reports from the db"""
 
         db = Database(file)
@@ -215,7 +215,7 @@ class Metar(WeatherSource):
         return self.db.get(self.table, icao)
 
     @staticmethod
-    def get_current_cycle():
+    def get_current_cycle() -> tuple[str, int]:
         """Returns the current METAR cycle"""
         now = datetime.utcnow()
         # Cycle is updated until the hour has arrived (ex: 01 cycle updates until 1am)
@@ -226,7 +226,7 @@ class Metar(WeatherSource):
         return f"{current_cycle.hour:02}", timestamp
 
     @classmethod
-    def parse_metar(cls, icao, metar, airport_msl=0):
+    def parse_metar(cls, icao: str, metar: str, airport_msl: float=0) -> dict:
         """Returns a parsed METAR"""
 
         weather = {
@@ -378,12 +378,12 @@ class Metar(WeatherSource):
 
         return weather
 
-    def update_metar_rwx_file(self):
+    def update_metar_rwx_file(self) -> int:
         """Dumps all metar data to the METAR.rwx file"""
 
         return self.db.to_file(Path(self.conf.syspath, 'METAR.rwx'), self.table)
 
-    def run(self, elapsed: int):
+    def run(self, elapsed: int) -> None:
 
         # Update stations table if required
         if self.ms_download:
@@ -431,9 +431,8 @@ class Metar(WeatherSource):
                 self.last_timestamp = timestamp
                 self.download_cycle(cycle, timestamp)
 
-    def download_cycle(self, cycle, timestamp):
+    def download_cycle(self, cycle: str, timestamp: int) -> None:
         self.downloading = True
-        self.cache_path.mkdir(parents=True, exist_ok=True)
 
         prefix = self.conf.metar_source
         headers = {}
@@ -464,7 +463,7 @@ class Metar(WeatherSource):
         )
         self.download.start()
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         super().shutdown()
         self.db.commit()
         self.db.close()

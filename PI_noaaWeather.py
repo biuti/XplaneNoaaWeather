@@ -11,7 +11,7 @@ Github project page:
 https://github.com/biuti/XplaneNoaaWeather
 
 Copyright (C) 2011-2020 Joan Perez i Cauhe
-Copyright (C) 2021-2024 Antonio Golfari
+Copyright (C) 2021-2026 Antonio Golfari
 ---
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -37,14 +37,14 @@ class PythonInterface(widget.Widget):
     Xplane plugin
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
 
         super().__init__()
         self.name = f"{name} - {self.conf.__VERSION__}"
         self.sig = "noaaweather.xppython3"
         self.desc = "NOAA GFS Weather Data in X-Plane"
 
-    def floopCallback(self, elapsedMe, elapsedSim, counter, refcon):
+    def floopCallback(self, elapsedMe, elapsedSim, counter, refcon) -> int:
         """Flight Loop Callback"""
 
         # Update status window
@@ -121,43 +121,34 @@ class PythonInterface(widget.Widget):
         self.weather.newData = False
         return -1
 
-    def XPluginStart(self):
-
+    def XPluginStart(self) -> tuple[str, str, str]:
         return self.name, self.sig, self.desc
 
-    def XPluginStop(self):
-
-        # kill flightloop
-        xp.destroyFlightLoop(self.loop_id)
-
-        # save windows position
-        self.save_windows_position()
-
-        # kill widget windows and menu
-        self.shutdown_widget()
-
-        # kill weather server/client
-        self.weather.shutdown()
-
-        self.conf.pluginSave()
-
-        # Unregister datarefs
-        self.data.cleanup()
-
-    def XPluginEnable(self):
+    def XPluginEnable(self) -> int:
         # floop
         self.floop = self.floopCallback
-        self.loop_id = xp.createFlightLoop(self.floop, phase=0)
+        self.loop_id = xp.createFlightLoop(self.floop, phase=1)
         xp.scheduleFlightLoop(self.loop_id, interval=-1)
         return 1
 
-    def XPluginDisable(self):
+    def XPluginDisable(self) -> None:
         pass
 
-    def XPluginReceiveMessage(self, inFromWho, inMessage, inParam):
+    def XPluginReceiveMessage(self, inFromWho, inMessage, inParam) -> None:
         if (inParam is None or inParam == xp.PLUGIN_XPLANE) and inMessage == xp.MSG_AIRPORT_LOADED:
             self.weather.startWeatherClient()
             self.newAptLoaded = True
         elif inMessage == (0x8000000 | 8090) and inParam == 1:
             # inSimUpdater wants to shutdown
             self.XPluginStop()
+
+    def XPluginStop(self) -> None:
+        # kill flightloop
+        xp.destroyFlightLoop(self.loop_id)
+        # save windows position
+        self.save_windows_position()
+        # kill widget windows and menu
+        self.shutdown_widget()
+        # kill weather server/client
+        self.weather.shutdown()
+        self.conf.pluginSave()

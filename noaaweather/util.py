@@ -1,7 +1,7 @@
 """
 X-plane NOAA GFS weather plugin.
 Copyright (C) 2011-2020 Joan Perez i Cauhe
-Copyright (C) 2021-2024 Antonio Golfari
+Copyright (C) 2021-2026 Antonio Golfari
 ---
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -20,7 +20,7 @@ from textwrap import wrap
 class util:
 
     @staticmethod
-    def remove(filepath: Path):
+    def remove(filepath: Path) -> None:
         """Remove a file or try to rename-it if it fails"""
         try:
             filepath.unlink(missing_ok=True)
@@ -42,7 +42,7 @@ class util:
                 i += 1
 
     @staticmethod
-    def rename(opath: Path, dpath: Path):
+    def rename(opath: Path, dpath: Path) -> None:
         if dpath.exists():
             util.remove(dpath)
         try:
@@ -53,7 +53,7 @@ class util:
             util.remove(opath)
 
     @staticmethod
-    def copy(opath: Path, dpath: Path):
+    def copy(opath: Path, dpath: Path) -> None:
         if dpath.exists():
             util.remove(dpath)
         try:
@@ -62,7 +62,7 @@ class util:
             print(f"Can't copy {opath.name} to {dpath.name}: {e}")
 
     @staticmethod
-    def date_info():
+    def date_info() -> tuple[str, str, str]:
         today_prefix = datetime.utcnow().strftime('%Y%m')
         yesterday_prefix = (datetime.utcnow() + timedelta(days=-1)).strftime('%Y%m')
 

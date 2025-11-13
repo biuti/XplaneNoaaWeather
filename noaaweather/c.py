@@ -1,7 +1,7 @@
 """
 X-plane NOAA GFS weather plugin.
 Copyright (C) 2011-2020 Joan Perez i Cauhe
-Copyright (C) 2021-2024 Antonio Golfari
+Copyright (C) 2021-2026 Antonio Golfari
 ---
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -11,6 +11,7 @@ of the License, or any later version.
 
 from math import hypot, atan2, degrees, exp, log, radians, sin, cos, asin, sqrt, pi, isclose
 from random import random
+from typing import Optional
 
 # const
 EARTH_RADIUS = 6378137  # meters
@@ -23,15 +24,15 @@ class c:
     randRefs = {}
 
     @staticmethod
-    def ms2knots(val):
+    def ms2knots(val: float) -> float:
         return val * 1.94384
 
     @staticmethod
-    def kel2cel(val):
+    def kel2cel(val: float) -> float:
         return val - 273.15
 
     @staticmethod
-    def c2p(x, y):
+    def c2p(x: float, y: float) -> tuple[float, float]:
         # Cartesian 2 polar conversion
         r = hypot(x, y)
         a = degrees(atan2(x, y))
@@ -44,15 +45,15 @@ class c:
         return a, r
 
     @staticmethod
-    def mb2inHg(mb):
+    def mb2inHg(mb: float) -> float:
         return mb / 33.8639
 
     @staticmethod
-    def inHg2mb(inches):
+    def inHg2mb(inches) -> float:
         return inches * 33.8639
 
     @staticmethod
-    def mb2alt(mb) -> float:
+    def mb2alt(mb: float) -> float:
         return (1 - (mb / 1013.25) ** 0.190284) * 44307  # meters
 
     @staticmethod
@@ -60,36 +61,36 @@ class c:
         return (1 - (mb / 1013.25) ** 0.190284) * 145366.45
 
     @staticmethod
-    def mb2fl(mb) -> int:
+    def mb2fl(mb: float) -> int:
         return int((1 - (mb / 1013.25) ** 0.190284) * 1453.6645)
 
 
     @staticmethod
-    def m2ft(n):
+    def m2ft(n: float|bool) -> float:
         return False if n is False else n * 3.280839895013123
 
     @staticmethod
-    def m2fl(n) -> int:
+    def m2fl(n: float|bool) -> int:
         return False if n is False else int(n * 0.03280839895013123)
 
     @staticmethod
-    def f2m(n):
+    def f2m(n: float|bool) -> bool | float:
         return False if n is False else n * 0.3048
 
     @staticmethod
-    def sm2m(n):
+    def sm2m(n: float|bool) -> bool | float:
         return False if n is False else n * 1609.344
 
     @staticmethod
-    def m2sm(n):
+    def m2sm(n: float|bool) -> bool | float:
         return False if n is False else n * 0.0006213711922373339
 
     @staticmethod
-    def m2nm(n):
+    def m2nm(n: float|bool) -> bool | float:
         return False if n is False else n * 0.0005399568
 
     @staticmethod
-    def m2kn(n):
+    def m2kn(n: float|bool) -> bool | float:
         return False if n is False else n * 1852
 
     @staticmethod
@@ -105,7 +106,7 @@ class c:
         return c.dm2dd(parts[0], parts[1][:-1], parts[1][-1]), c.dm2dd(parts[2], parts[3][:-1], parts[3][-1])
 
     @staticmethod
-    def oat2msltemp(oat, alt, tropo_temp=-56.5, tropo_alt=11000) -> float:
+    def oat2msltemp(oat: float, alt: float, tropo_temp: float=-56.5, tropo_alt: float=11000) -> float:
         """Converts oat temperature to mean sea level.
         oat in C, alt in meters
         http://en.wikipedia.org/wiki/International_Standard_Atmosphere#ICAO_Standard_Atmosphere
@@ -127,7 +128,7 @@ class c:
         return oat + gradient * alt
 
     @staticmethod
-    def greatCircleDistance(latlong_a, latlong_b) -> float:
+    def greatCircleDistance(latlong_a: tuple[float, float], latlong_b: tuple[float, float]) -> float:
         """Return the great circle distance of 2 coordinates pairs, in meters"""
 
         lat1, lon1 = latlong_a
@@ -157,25 +158,25 @@ class c:
         return degrees(lon2), degrees(lat2)
 
     @staticmethod
-    def interpolate(t1, t2, alt1, alt2, alt) -> float:
+    def interpolate(t1: float, t2: float, alt1: float, alt2: float, alt: float) -> float:
         if (alt2 - alt1) == 0:
             return t2
         return t1 + (alt - alt1) * (t2 - t1) / (alt2 - alt1)
 
     @staticmethod
-    def expoCosineInterpolate(t1, t2, alt1, alt2, alt, expo=3) -> float:
+    def expoCosineInterpolate(t1: float, t2: float, alt1: float, alt2: float, alt: float, expo: int=3) -> float:
         if alt1 == alt2: return t1
         x = (alt - alt1) / float(alt2 - alt1)
         return t1 + (t2 - t1) * x ** expo
 
     @staticmethod
-    def cosineInterpolate(t1, t2, alt1, alt2, alt) -> float:
+    def cosineInterpolate(t1: float, t2: float, alt1: float, alt2: float, alt: float) -> float:
         if alt1 == alt2: return t1
         x = (alt - alt1) / float(alt2 - alt1)
         return t1 + (t2 - t1) * (0.5 - cos(pi * x) / 2)
 
     @staticmethod
-    def cosineInterpolateHeading(hdg1, hdg2, alt1, alt2, alt) -> float:
+    def cosineInterpolateHeading(hdg1: float, hdg2: float, alt1: float, alt2: float, alt: float) -> float:
 
         if alt1 == alt2: return hdg1
 
@@ -189,7 +190,7 @@ class c:
             return t2 % 360
 
     @staticmethod
-    def expoCosineInterpolateHeading(hdg1, hdg2, alt1, alt2, alt, expo=3) -> float:
+    def expoCosineInterpolateHeading(hdg1: float, hdg2: float, alt1: float, alt2: float, alt: float, expo: int=3) -> float:
 
         if alt1 == alt2: return hdg1
 
@@ -203,7 +204,7 @@ class c:
             return t2 % 360
 
     @staticmethod
-    def interpolateHeading(hdg1, hdg2, alt1, alt2, alt) -> float:
+    def interpolateHeading(hdg1: float, hdg2: float, alt1: float, alt2: float, alt: float) -> float:
         if alt1 == alt2: return hdg1
 
         t1 = 0
@@ -219,17 +220,17 @@ class c:
             return t2 % 360
 
     @staticmethod
-    def fog2(rh) -> float:
+    def fog2(rh: float) -> float:
         return (80 - rh) / 20 * 24634
 
     @staticmethod
-    def isaDev(alt, temp) -> float:
+    def isaDev(alt: float, temp: float) -> float:
         """Calculates Temperature ISA Deviation"""
         isa = 15 - 0.65*alt/100
         return temp - isa
 
     @staticmethod
-    def toFloat(string, default=0) -> float:
+    def toFloat(string: str, default: float=0) -> float:
         """Convert to float or return default"""
         try:
             val = float(string)
@@ -238,7 +239,7 @@ class c:
         return val
 
     @staticmethod
-    def toInt(string, default=0) -> int:
+    def toInt(string: str, default: int=0) -> int:
         """Convert to float or return default"""
         try:
             val = int(string)
@@ -247,21 +248,21 @@ class c:
         return val
 
     @staticmethod
-    def rh2visibility(rh) -> float:
+    def rh2visibility(rh: float) -> float:
         # http://journals.ametsoc.org/doi/pdf/10.1175/2009JAMC1927.1
         return 1000 * (-5.19 * 10 ** -10 * rh ** 5.44 + 40.10)
 
     @staticmethod
-    def dewpoint2rh(temp, dew) -> float:
+    def dewpoint2rh(temp: float, dew: float) -> float:
         return 100 * (exp((17.625 * dew) / (243.04 + dew)) / exp((17.625 * temp) / (243.04 + temp)))
 
     @staticmethod
-    def dewpoint(temp, rh) -> float:
+    def dewpoint(temp: float, rh: float) -> float:
         return 243.04 * (log(rh / 100) + ((17.625 * temp) / (243.04 + temp))) / (
                     17.625 - log(rh / 100) - ((17.625 * temp) / (243.04 + temp)))
 
     @staticmethod
-    def shortHdg(a, b):
+    def shortHdg(a: float, b: float) -> float:
         if a == 360: a = 0
         if b == 360: b = 0
         if a > b:
@@ -275,16 +276,16 @@ class c:
         return ccw
 
     @staticmethod
-    def pa2inhg(pa) -> float:
+    def pa2inhg(pa: float) -> float:
         return pa * 0.0002952998016471232
 
     @classmethod
-    def datarefTransition(cls, dataref, new, elapsed, speed=0.25, id=False):
+    def datarefTransition(cls, dataref, new: float, elapsed: float, speed: float=0.25, id: str|bool=False) -> None:
         """Timed dataref transition"""
 
         # Save reference to ignore x-plane roundings
         if not id:
-            id = str(dataref.DataRef)
+            id = str(dataref.dref)
         if id not in cls.transrefs:
             cls.transrefs[id] = dataref.value
 
@@ -305,9 +306,9 @@ class c:
         dataref.value = new
 
     @classmethod
-    def snowDatarefTransition(cls, dataref, new: float, elapsed, speed: float):
+    def snowDatarefTransition(cls, dataref, new: float, elapsed: float, speed: float) -> None:
         """Timed dataref transition"""
-        snow_id = str(dataref.DataRef)
+        snow_id = str(dataref.dref)
         if snow_id not in cls.transrefs:
             cls.transrefs[snow_id] = dataref.value
 
@@ -320,7 +321,7 @@ class c:
         dataref.value = new
 
     @classmethod
-    def transition(cls, new, id, elapsed, speed=0.25):
+    def transition(cls, new: float, id: str, elapsed: float, speed: float=0.25) -> float:
         """Time based transition """
         if not id in cls.transrefs:
             cls.transrefs[id] = new
@@ -340,7 +341,7 @@ class c:
         return new
 
     @classmethod
-    def transitionClearReferences(cls, refs=False, exclude=False):
+    def transitionClearReferences(cls, refs: Optional[list|bool]=False, exclude: bool=False) -> None:
         """Clear transition references"""
         if exclude:
             for ref in list(cls.transrefs.keys()):
@@ -356,7 +357,7 @@ class c:
             cls.transrefs = {}
 
     @classmethod
-    def transitionHdg(cls, new, id, elapsed, speed=0.25):
+    def transitionHdg(cls, new: float, id: str, elapsed: float, speed: float=0.25) -> float:
         """Time based wind heading transition """
 
         if not id in cls.transrefs:
@@ -384,9 +385,9 @@ class c:
         return newval
 
     @classmethod
-    def datarefTransitionHdg(cls, dataref, new, elapsed, vel=1):
+    def datarefTransitionHdg(cls, dataref, new: float, elapsed: float, vel: float=1) -> None:
         """Time based wind heading transition"""
-        id = str(dataref.DataRef)
+        id = str(dataref.dref)
         if id not in cls.transrefs:
             cls.transrefs[id] = dataref.value
 
@@ -413,7 +414,7 @@ class c:
         dataref.value = newval
 
     @staticmethod
-    def float_or_lower(string: str) -> float or str:
+    def float_or_lower(string: str) -> float | str:
         el = string.rsplit('.')
         try:
             return float('.'.join(el[:2]))
@@ -430,16 +431,16 @@ class c:
         return False
 
     @staticmethod
-    def limit(value, max=None, min=None):
-        if max is not False and max is not None and value > max:
-            return max
-        elif min is not False and min is not None and value < min:
-            return min
+    def limit(value: float, max_value: Optional[float]=None, min_value: Optional[float]=None) -> float:
+        if isinstance(max_value, (int, float)) and value > max_value:
+            return max_value
+        elif isinstance(min_value, (int, float)) and value < min_value:
+            return min_value
         else:
             return value
 
     @staticmethod
-    def cc2xp_old(cover):
+    def cc2xp_old(cover: float) -> int:
         # Cloud cover to X-plane
         xp = int(cover / 100.0 * 4)
         if xp < 1 and cover > 0:
@@ -449,7 +450,7 @@ class c:
         return xp
 
     @staticmethod
-    def cc2xp(cover, base) -> int:
+    def cc2xp(cover: float, base: float) -> int:
         """GFS Percent cover to XP
         As GFS tends to overestimate, clouds are cut under 10% coverage that seems to happen often with SKC"""
         if cover <= 10:
@@ -471,11 +472,11 @@ class c:
             return 6  # 'STRATUS'
 
     @staticmethod
-    def metar2xpprecipitation(kind, intensity, mod, recent):
+    def metar2xpprecipitation(kind: str, intensity: str, mod: str, recent: bool) -> tuple[float | bool, float | bool, float | bool]:
         """Return intensity of a metar precipitation"""
 
         ints = {'-': 0, '': 1, '+': 2}
-        intensity = ints[intensity]
+        intv = ints[intensity]
 
         precipitation, friction, patchy = False, False, False
 
@@ -497,8 +498,8 @@ class c:
             kind = 'SH'
 
         if kind in precip:
-            precipitation = precip[kind][intensity]
-        if recent or intensity == 0:
+            precipitation = precip[kind][intv]
+        if recent or intv == 0:
             patchy = 1
         if kind in wet:
             friction = wet[kind]
@@ -506,7 +507,7 @@ class c:
         return precipitation, friction, patchy
 
     @staticmethod
-    def strFloat(i, false_label='na'):
+    def strFloat(i: float | bool, false_label: str='na') -> str:
         """Print a float or na if False"""
         if i is False:
             return false_label
@@ -514,7 +515,7 @@ class c:
             return f"{round(i, 2)}"
 
     @staticmethod
-    def str03d(i, false_label='na'):
+    def str03d(i: float | bool, false_label: str='na') -> str:
         """Print a 3 digit string with leading zeroes"""
         return false_label if i is False else f"{i:03.0F}"
 
@@ -535,7 +536,7 @@ class c:
         return str(value)
 
     @classmethod
-    def convertFromInput(cls, string, conversion, default=False, toFloat=False, max=False, min=False):
+    def convertFromInput(cls, string: str, conversion: str, default: float=False, toFloat: bool=False, max: float=False, min: float=False) -> float | int | bool:
         # Convert from str and convert
         value = cls.toFloat(string, default)
 
@@ -555,7 +556,7 @@ class c:
         return min + random() * (max - min)
 
     @classmethod
-    def randPattern(cls, id, max_val, elapsed, max_time=1, min_val=0, min_time=1, heading=False):
+    def randPattern(cls, id: str, max_val: float, elapsed: float, max_time: float=1, min_val: float=0, min_time: float=1, heading: bool=False) -> float:
         """ Creates random cosine interpolated "patterns" """
 
         if id in cls.randRefs:
@@ -584,7 +585,7 @@ class c:
         return ret
 
     @staticmethod
-    def middleHeading(hd1, hd2):
+    def middleHeading(hd1: float, hd2: float) -> float:
         if hd2 > hd1:
             return hd1 + (hd2 - hd1) / 2
         else:
@@ -619,7 +620,7 @@ class c:
         return layers
 
     @staticmethod
-    def isclose(value, ref, tol) -> bool:
+    def isclose(value: float, ref: float, tol: float) -> bool:
         return isclose(value, ref, abs_tol=tol)
 
     @staticmethod

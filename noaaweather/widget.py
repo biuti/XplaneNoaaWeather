@@ -1,6 +1,6 @@
 """
 X-plane NOAA GFS weather plugin.
-Copyright (C) 2021-2024 Antonio Golfari
+Copyright (C) 2021-2026 Antonio Golfari
 ---
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -10,8 +10,7 @@ of the License, or any later version.
 
 import time
 
-from . import xp, Conf, c, util, dref, weather
-from .easydref import EasyCommand
+from . import xp, Conf, c, util, dref, weather, create_command
 
 
 class Widget:
@@ -41,7 +40,7 @@ class Widget:
     config_height = 480
     config_line_chars = int((config_width - 4 * window_margin) / font_width)
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.conf = Conf()
         self.weather = weather.Weather(self.conf)
         self.data = self.weather.data
@@ -58,16 +57,16 @@ class Widget:
         self.config_window = False
 
         # Register commands
-        self.metarWindowCMD = EasyCommand(
-            self, 'metar_query_window_toggle', 
-            self.metarQueryWindowToggle,
-            description="Toggle METAR query window."
+        self.metarWindowCMD = create_command(
+            name=f'{self.conf.plugin_command_origin}/metar_query_window_toggle',
+            description="Toggle METAR query window.",
+            callback=self.metarQueryWindowToggle,
         )
 
-        self.infoWindowCMD = EasyCommand(
-            self, 'info_window_toggle', 
-            self.infoWindowToggle,
-            description="Toggle weather info window."
+        self.infoWindowCMD = create_command(
+            name=f'{self.conf.plugin_command_origin}/info_window_toggle',
+            description="Toggle Info window.",
+            callback=self.infoWindowToggle,
         )
 
         # Flightloop counters
@@ -77,7 +76,7 @@ class Widget:
 
         self.newAptLoaded = False
 
-    def create_main_menu(self):
+    def create_main_menu(self) -> None:
 
         # create Menu
         self.main_menu = xp.createMenu('XP NOAA Weather', handler=self.main_menu_callback)
@@ -87,7 +86,7 @@ class Widget:
         xp.appendMenuItem(self.main_menu, 'Metar Query', 2)
         xp.appendMenuItem(self.main_menu, 'Configuration', 3)
 
-    def main_menu_callback(self, menuRef, menuItem):
+    def main_menu_callback(self, menuRef, menuItem) -> None:
         """Main menu Callback"""
 
         if menuItem == 1:
@@ -110,7 +109,7 @@ class Widget:
             elif not xp.isWidgetVisible(self.config_window_widget):
                 xp.showWidget(self.config_window_widget)
 
-    def create_info_window(self):
+    def create_info_window(self) -> None:
         x, y = self.conf.info_window_position
         x2 = x + self.info_width
         y2 = y - self.info_height
@@ -143,7 +142,7 @@ class Widget:
 
         self.info_window = True
 
-    def create_metar_window(self):
+    def create_metar_window(self) -> None:
         x, y = self.conf.metar_window_position
         x2 = x + self.metar_width
         y2 = y - self.metar_height
@@ -157,45 +156,66 @@ class Widget:
         x += 10
         y -= self.line_height
 
-        cap = xp.createWidget(x, y, x + 40, y - self.line_height, 1, 'Airport ICAO code:', 0, 
-                              self.metar_window_widget, xp.WidgetClass_Caption)
+        cap = xp.createWidget(
+            x, y, x + 40, y - self.line_height,
+            1, 'Airport ICAO code:', 0, 
+            self.metar_window_widget, xp.WidgetClass_Caption
+        )
         xp.setWidgetProperty(cap, xp.Property_CaptionLit, 1)
 
         y -= self.line_height
         # Airport input
-        self.metarQueryInput = xp.createWidget(x, y, x + 120, y - self.line_height, 1, "", 0, 
-                                               self.metar_window_widget, xp.WidgetClass_TextField)
+        self.metarQueryInput = xp.createWidget(
+            x, y, x + 120, y - self.line_height,
+            1, "", 0, 
+            self.metar_window_widget, xp.WidgetClass_TextField
+        )
         xp.setWidgetProperty(self.metarQueryInput, xp.Property_TextFieldType, xp.TextTranslucent)
 
-        self.metarQueryButton = xp.createWidget(x + 140, y, x + 210, y - self.line_height, 1, "Request", 0, 
-                                               self.metar_window_widget, xp.WidgetClass_Button)
+        self.metarQueryButton = xp.createWidget(
+            x + 140, y, x + 210, y - self.line_height,
+            1, "Request", 0, 
+            self.metar_window_widget, xp.WidgetClass_Button
+        )
 
         y -= self.line_height * 2
         # Help caption
-        cap = xp.createWidget(x, y, x + 300, y - self.line_height, 1,
-                             f"{self.conf.metar_source}:", 0, self.metar_window_widget, xp.WidgetClass_Caption)
+        cap = xp.createWidget(
+            x, y, x + 300, y - self.line_height,
+            1, f"{self.conf.metar_source}:", 0,
+            self.metar_window_widget, xp.WidgetClass_Caption
+        )
         xp.setWidgetProperty(cap, xp.Property_CaptionLit, 1)
 
         y -= self.line_height
         # Query output
         self.metarQueryOutput = []
         for i in range(2):
-            l = xp.createWidget(x , y, x + self.metar_widget_width, y - self.line_height, 0, "", 0, 
-                                self.metar_window_widget, xp.WidgetClass_TextField)
+            l = xp.createWidget(
+                x , y, x + self.metar_widget_width, y - self.line_height,
+                0, "", 0, 
+                self.metar_window_widget, xp.WidgetClass_TextField
+            )
             xp.setWidgetProperty(l, xp.Property_TextFieldType, xp.TextTranslucent)
             self.metarQueryOutput.append(l)
             y -= self.line_height
 
         y -= self.line_height
-        cap = xp.createWidget(x, y, x + 300, y - self.line_height, 1, "XP12 Real Weather:", 0, 
-                              self.metar_window_widget, xp.WidgetClass_Caption)
+        cap = xp.createWidget(
+            x, y, x + 300, y - self.line_height,
+            1, "XP12 Real Weather:", 0, 
+            self.metar_window_widget, xp.WidgetClass_Caption
+        )
         xp.setWidgetProperty(cap, xp.Property_CaptionLit, 1)
 
         y -= self.line_height
         self.RWQueryOutput = []
         for i in range(2):
-            l = xp.createWidget(x, y, x + self.metar_widget_width, y - self.line_height, 0, "", 0, 
-                                self.metar_window_widget, xp.WidgetClass_TextField)
+            l = xp.createWidget(
+                x, y, x + self.metar_widget_width, y - self.line_height,
+                0, "", 0, 
+                self.metar_window_widget, xp.WidgetClass_TextField
+            )
             xp.setWidgetProperty(l, xp.Property_TextFieldType, xp.TextTranslucent)
             self.RWQueryOutput.append(l)
             y -= self.line_height
@@ -211,7 +231,7 @@ class Widget:
         xp.setKeyboardFocus(self.metarQueryInput)
         self.metar_window = True
 
-    def create_config_window(self):
+    def create_config_window(self) -> None:
         x, y = self.conf.config_window_position
         x2 = x + self.config_width
         y2 = y - self.config_height
@@ -442,8 +462,16 @@ class Widget:
             y -= self.line_height * 2
 
             # Tropo enable
-            xp.createWidget(x + 5, y, x + 20, y - self.line_height, 1, 'Tropo Temp', 0, window, xp.WidgetClass_Caption)
-            self.tropoCheck = xp.createWidget(x + 110, y, x + 120, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button)
+            xp.createWidget(
+                x + 5, y, x + 20, y - self.line_height,
+                1, 'Tropo Temp', 0, window,
+                xp.WidgetClass_Caption
+            )
+            self.tropoCheck = xp.createWidget(
+                x + 110, y, x + 120, y - self.line_height,
+                1, '', 0, window,
+                xp.WidgetClass_Button
+            )
             xp.setWidgetProperty(self.tropoCheck, xp.Property_ButtonState, xp.RadioButton)
             xp.setWidgetProperty(self.tropoCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
             xp.setWidgetProperty(self.tropoCheck, xp.Property_ButtonState, self.conf.set_tropo)
@@ -468,14 +496,18 @@ class Widget:
             # Performance Tweaks
             xp.createWidget(x, y, x + 80, y - self.line_height, 1, 'Performance Tweaks', 0, window, xp.WidgetClass_Caption)
             xp.createWidget(x + 5, y - self.line_height, x + 80, y - 40, 1, 'Max Visibility (sm)', 0, window, xp.WidgetClass_Caption)
-            self.maxVisInput = xp.createWidget(x + 119, y - self.line_height, x + 160, y - 40, 1,
-                                               c.convertForInput(self.conf.max_visibility, 'm2sm'), 0, window,
-                                               xp.WidgetClass_TextField)
+            self.maxVisInput = xp.createWidget(
+                x + 119, y - self.line_height, x + 160, y - 40,
+                1, c.convertForInput(self.conf.max_visibility, 'm2sm'), 0, window,
+                xp.WidgetClass_TextField
+            )
             y -= self.line_height * 2
             xp.createWidget(x + 5, y, x + 80, y - self.line_height, 1, 'Max cloud height (ft)', 0, window, xp.WidgetClass_Caption)
-            self.maxCloudHeightInput = xp.createWidget(x + 119, y, x + 160, y - self.line_height, 1,
-                                                       c.convertForInput(self.conf.max_cloud_height, 'm2ft'), 0, window,
-                                                       xp.WidgetClass_TextField)
+            self.maxCloudHeightInput = xp.createWidget(
+                x + 119, y, x + 160, y - self.line_height,
+                1, c.convertForInput(self.conf.max_cloud_height, 'm2ft'), 0, window,
+                xp.WidgetClass_TextField
+            )
 
         # elements to add at the bottom of the subwindow
         y1 = b + self.line_height * 4
@@ -534,14 +566,14 @@ class Widget:
 
         self.config_window = True
 
-    def infoWindowHandler(self, inMessage, inWidget, inParam1, inParam2):
+    def infoWindowHandler(self, inMessage, inWidget, inParam1, inParam2) -> int:
         if inMessage == xp.Message_CloseButtonPushed:
             if self.info_window:
                 xp.hideWidget(self.info_window_widget)
                 return 1
         return 0
 
-    def configWindowHandler(self, inMessage, inWidget, inParam1, inParam2):
+    def configWindowHandler(self, inMessage, inWidget, inParam1, inParam2) -> int:
         # About window events
         if inMessage == xp.Message_CloseButtonPushed:
             if self.config_window:
@@ -562,7 +594,7 @@ class Widget:
             return 1
 
         if inMessage == xp.Msg_ScrollBarSliderPositionChanged and inParam1 == self.turbulenceSlider:
-            val = xp.getWidgetProperty(self.turbulenceSlider, xp.Property_ScrollBarSliderPosition, None)
+            val = xp.getWidgetProperty(self.turbulenceSlider, xp.Property_ScrollBarSliderPosition)
             xp.setWidgetDescriptor(self.turbulenceCaption, f"Turbulence probability {round(val/10)}%")
             return 1
 
@@ -580,28 +612,26 @@ class Widget:
                 return 1
             if inParam1 == self.save_button:
                 # Save configuration
-                self.conf.enabled = xp.getWidgetProperty(self.enable_check, xp.Property_ButtonState, None)
+                self.conf.enabled = xp.getWidgetProperty(self.enable_check, xp.Property_ButtonState)
                 self.conf.metar_decode = xp.getWidgetProperty(self.decode_check, xp.Property_ButtonState)
                 if self.conf.use_real_weather_data:
-                    self.conf.download_GFS = xp.getWidgetProperty(self.GFSCheck, xp.Property_ButtonState, None)
-                    # self.conf.download_WAFS = xp.getWidgetProperty(self.WAFSCheck, xp.Property_ButtonState, None)
-                    self.conf.set_snow = xp.getWidgetProperty(self.snowCheck, xp.Property_ButtonState, None)
-                    self.conf.set_patches = xp.getWidgetProperty(self.rainCheck, xp.Property_ButtonState, None)
+                    self.conf.download_GFS = xp.getWidgetProperty(self.GFSCheck, xp.Property_ButtonState)
+                    # self.conf.download_WAFS = xp.getWidgetProperty(self.WAFSCheck, xp.Property_ButtonState)
+                    self.conf.set_snow = xp.getWidgetProperty(self.snowCheck, xp.Property_ButtonState)
+                    self.conf.set_patches = xp.getWidgetProperty(self.rainCheck, xp.Property_ButtonState)
                     # pass
                 else:
-                    self.conf.set_wind = xp.getWidgetProperty(self.windsCheck, xp.Property_ButtonState, None)
-                    self.conf.set_clouds = xp.getWidgetProperty(self.cloudsCheck, xp.Property_ButtonState, None)
-                    self.conf.opt_clouds_update = xp.getWidgetProperty(self.optUpdCheck, xp.Property_ButtonState, None)
-                    self.conf.set_temp = xp.getWidgetProperty(self.tempCheck, xp.Property_ButtonState, None)
-                    self.conf.set_pressure = xp.getWidgetProperty(self.pressureCheck, xp.Property_ButtonState, None)
-                    self.conf.set_tropo = xp.getWidgetProperty(self.tropoCheck, xp.Property_ButtonState, None)
-                    self.conf.set_thermals = xp.getWidgetProperty(self.thermalsCheck, xp.Property_ButtonState, None)
-                    self.conf.set_surface_layer = xp.getWidgetProperty(self.surfaceCheck, xp.Property_ButtonState, None)
-                    self.conf.turbulence_probability = xp.getWidgetProperty(self.turbulenceSlider,
-                                                                           xp.Property_ScrollBarSliderPosition,
-                                                                           None) / 1000.0
+                    self.conf.set_wind = xp.getWidgetProperty(self.windsCheck, xp.Property_ButtonState)
+                    self.conf.set_clouds = xp.getWidgetProperty(self.cloudsCheck, xp.Property_ButtonState)
+                    self.conf.opt_clouds_update = xp.getWidgetProperty(self.optUpdCheck, xp.Property_ButtonState)
+                    self.conf.set_temp = xp.getWidgetProperty(self.tempCheck, xp.Property_ButtonState)
+                    self.conf.set_pressure = xp.getWidgetProperty(self.pressureCheck, xp.Property_ButtonState)
+                    self.conf.set_tropo = xp.getWidgetProperty(self.tropoCheck, xp.Property_ButtonState)
+                    self.conf.set_thermals = xp.getWidgetProperty(self.thermalsCheck, xp.Property_ButtonState)
+                    self.conf.set_surface_layer = xp.getWidgetProperty(self.surfaceCheck, xp.Property_ButtonState)
+                    self.conf.turbulence_probability = xp.getWidgetProperty(self.turbulenceSlider, xp.Property_ScrollBarSliderPosition) / 1000.0
                     # Zero turbulence data if disabled
-                    self.conf.set_turb = xp.getWidgetProperty(self.turbCheck, xp.Property_ButtonState, None)
+                    self.conf.set_turb = xp.getWidgetProperty(self.turbCheck, xp.Property_ButtonState)
                     if not self.conf.set_turb:
                         for i in range(3):
                             self.data.winds[i]['turb'].value = 0
@@ -619,22 +649,22 @@ class Widget:
                     if len(icao) == 4:
                         ignore_stations.append(icao.upper())
 
-                self.conf.metar_ignore_auto = xp.getWidgetProperty(self.auto_check, xp.Property_ButtonState, None)
+                self.conf.metar_ignore_auto = xp.getWidgetProperty(self.auto_check, xp.Property_ButtonState)
                 self.conf.ignore_metar_stations = ignore_stations
 
                 # Check metar source
                 prev_metar_source = self.conf.metar_source
                 for check in self.metar_source_check:
-                    if xp.getWidgetProperty(check, xp.Property_ButtonState, None):
+                    if xp.getWidgetProperty(check, xp.Property_ButtonState):
                         self.conf.metar_source = self.metar_source_check[check]
 
                 # Check METAR.rwx file
                 prev_rwx = self.conf.update_rwx_file
-                self.conf.update_rwx_file = xp.getWidgetProperty(self.rwxCheck, xp.Property_ButtonState, None)
+                self.conf.update_rwx_file = xp.getWidgetProperty(self.rwxCheck, xp.Property_ButtonState)
 
                 # Check METAR.rwx source
                 prev_file_source = self.conf.metar_use_xp12
-                self.conf.metar_use_xp12 = xp.getWidgetProperty(self.xp12MetarCheck, xp.Property_ButtonState, None)
+                self.conf.metar_use_xp12 = xp.getWidgetProperty(self.xp12MetarCheck, xp.Property_ButtonState)
 
                 # Save config and tell server to reload it
                 self.conf.pluginSave()
@@ -668,7 +698,7 @@ class Widget:
                 return 1
         return 0
 
-    def configWindowUpdate(self):
+    def configWindowUpdate(self) -> None:
 
         xp.setWidgetProperty(self.enable_check, xp.Property_ButtonState, self.conf.enabled)
         xp.setWidgetProperty(self.decode_check, xp.Property_ButtonState, self.conf.metar_decode)
@@ -696,7 +726,7 @@ class Widget:
 
         self.updateStatus()
 
-    def save_windows_position(self):
+    def save_windows_position(self) -> None:
         """ Gets position of the windows and saves it in conf"""
         if self.info_window:
             self.conf.info_window_position = xp.getWidgetGeometry(self.info_window_widget)[:2]
@@ -706,7 +736,7 @@ class Widget:
             self.conf.config_window_position = xp.getWidgetGeometry(self.config_window_widget)[:2]
         xp.log(f"saved positions: {self.conf.info_window_position}, {self.conf.metar_window_position}, {self.conf.config_window_position}")
 
-    def updateStatus(self):
+    def updateStatus(self) -> None:
         """Updates status window"""
 
         sysinfo = self.weather.weatherInfo(self.info_line_chars)
@@ -722,7 +752,7 @@ class Widget:
                 text = f"Reloading ({15 - d} sec.) ..."
             xp.setWidgetDescriptor(self.save_caption, text)
 
-    def metarQueryInputHandler(self, inMessage, inWidget, inParam1, inParam2):
+    def metarQueryInputHandler(self, inMessage, inWidget, inParam1, inParam2) -> int:
         """Override Texfield keyboard input to be more friendly"""
         if inMessage == xp.Msg_KeyPress:
 
@@ -759,7 +789,7 @@ class Widget:
             return 1
         return 0
 
-    def metarWindowHandler(self, inMessage, inWidget, inParam1, inParam2):
+    def metarWindowHandler(self, inMessage, inWidget, inParam1, inParam2) -> int:
         if inMessage == xp.Message_CloseButtonPushed:
             if self.metar_window:
                 xp.hideWidget(self.metar_window_widget)
@@ -770,7 +800,7 @@ class Widget:
                 return 1
         return 0
 
-    def clean_metar_output(self):
+    def clean_metar_output(self) -> None:
         for out in (self.metarQueryOutput, self.RWQueryOutput):
             for line in out:
                 xp.setWidgetDescriptor(line, '')
@@ -781,7 +811,7 @@ class Widget:
         xp.showWidget(el)
         xp.setWidgetDescriptor(el, text)
 
-    def metarQuery(self):
+    def metarQuery(self) -> None:
         query = xp.getWidgetDescriptor(self.metarQueryInput).strip().upper()
         self.clean_metar_output()
         if len(query) == 4:
@@ -790,15 +820,19 @@ class Widget:
         else:
             xp.setWidgetDescriptor(self.metarQueryOutput[0], 'Please insert a valid ICAO code.')
 
-    def metarQueryCallback(self, msg):
+    def metarQueryCallback(self, msg) -> None:
         """Callback for metar queries"""
 
         if self.metar_window:
             # Filter metar text
-            metar = util.format_text(''.join(filter(lambda x: x in self.conf.printableChars, msg['metar']['metar'])), 
-                                          self.metar_line_chars)
-            rwmetar = util.format_text(''.join(filter(lambda x: x in self.conf.printableChars, msg['rwmetar']['metar'])), 
-                                            self.metar_line_chars)
+            metar = util.format_text(
+                ''.join(filter(lambda x: x in self.conf.printableChars, msg['metar']['metar'])), 
+                self.metar_line_chars
+            )
+            rwmetar = util.format_text(
+                ''.join(filter(lambda x: x in self.conf.printableChars, msg['rwmetar']['metar'])), 
+                self.metar_line_chars
+            )
             # adding source and RW METARs
             for i, line in enumerate(self.metarQueryOutput):
                 if len(metar) > i:
@@ -808,28 +842,30 @@ class Widget:
                 if len(rwmetar) > i:
                     self.file_metar_line(self.RWQueryOutput[i], f"{rwmetar[i]}")
 
-    def metarQueryWindowToggle(self):
+    def metarQueryWindowToggle(self, phase: int, duration: float) -> None:
         """Metar window toggle command"""
-        if self.metar_window:
-            if xp.isWidgetVisible(self.metar_window_widget):
-                xp.hideWidget(self.metar_window_widget)
-            else:
-                xp.showWidget(self.metar_window_widget)
-                xp.setKeyboardFocus(self.metarQueryInput)
-        else:
+        if phase > 0:
+            return
+        if not self.metar_window:
             self.create_metar_window()
-
-    def infoWindowToggle(self):
-        """Info window toggle command"""
-        if self.info_window:
-            if xp.isWidgetVisible(self.info_window_widget):
-                xp.hideWidget(self.info_window_widget)
-            else:
-                xp.showWidget(self.info_window_widget)
+        elif xp.isWidgetVisible(self.metar_window_widget):
+            xp.hideWidget(self.metar_window_widget)
         else:
-            self.create_info_window()
+            xp.showWidget(self.metar_window_widget)
+            xp.setKeyboardFocus(self.metarQueryInput)
 
-    def shutdown_widget(self):
+    def infoWindowToggle(self, phase: int, duration: float) -> None:
+        """Info window toggle command"""
+        if phase > 0:
+            return
+        if not self.info_window:
+            self.create_info_window()
+        elif xp.isWidgetVisible(self.info_window_widget):
+            xp.hideWidget(self.info_window_widget)
+        else:
+            xp.showWidget(self.info_window_widget)
+
+    def shutdown_widget(self) -> None:
         # Destroy windows
         if self.info_window:
             xp.destroyWidget(self.info_window_widget, 1)
@@ -837,8 +873,5 @@ class Widget:
             xp.destroyWidget(self.metar_window_widget, 1)
         if self.config_window:
             xp.destroyWidget(self.config_window_widget, 1)
-
-        self.metarWindowCMD.destroy()
-
         # kill Menu
         xp.destroyMenu(self.main_menu)

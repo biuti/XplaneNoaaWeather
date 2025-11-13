@@ -1,7 +1,7 @@
 """
 X-plane NOAA GFS weather plugin.
 Copyright (C) 2011-2020 Joan Perez i Cauhe
-Copyright (C) 2021-2024 Antonio Golfari
+Copyright (C) 2021-2026 Antonio Golfari
 ---
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -43,7 +43,7 @@ class WAFS(GribWeatherSource):
 
     RE_PRAM = re.compile(r'\bparmcat=(?P<parmcat>[0-9]+) parm=(?P<parm>[0-9]+)')
 
-    def __init__(self, conf):
+    def __init__(self, conf) -> None:
         self.variable_list = conf.wafs_variable_list
         self.download_enabled = conf.download_WAFS
         self.download_needed = False

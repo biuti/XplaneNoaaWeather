@@ -1,6 +1,6 @@
 """
 X-plane NOAA GFS weather plugin.
-Copyright (C) 2021-2024 Antonio Golfari
+Copyright (C) 2021-2026 Antonio Golfari
 ---
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -13,12 +13,13 @@ import sys
 
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Optional
 
 
 class Database:
     """Wrapper Class for SQLite database connection"""
 
-    def __init__(self, dbfile: Path = None):
+    def __init__(self, dbfile: Optional[Path] = None) -> None:
         self.conn = None
         self.cursor = None
 
@@ -32,10 +33,10 @@ class Database:
         self.close()
 
     def commit(self):
-        self.conn.commit()
+        if self.conn:
+            self.conn.commit()
 
-    def open(self, dbfile: Path):
-
+    def open(self, dbfile: Path) -> None:
         try:
             self.conn = sqlite3.connect(dbfile, check_same_thread=False)  # if it does not exist, file will be created
             self.create_database()
@@ -43,14 +44,13 @@ class Database:
         except sqlite3.Error as e:
             print(f"SQLite Error connecting to {dbfile.name}: {e}")
 
-    def close(self):
-
+    def close(self) -> None:
         if self.conn:
             self.conn.commit()
             self.cursor.close()
             self.conn.close()
 
-    def create_database(self):
+    def create_database(self) -> None:
         queries = [
             ''' CREATE TABLE IF NOT EXISTS source 
                 (icao text KEY UNIQUE, lat real, lon real, elevation int, timestamp int KEY, metar text);''',

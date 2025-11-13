@@ -5,7 +5,7 @@ NOAA weather daemon server
 ---
 X-plane NOAA GFS weather plugin.
 Copyright (C) 2011-2020 Joan Perez i Cauhe
-Copyright (C) 2021-2024 Antonio Golfari
+Copyright (C) 2021-2026 Antonio Golfari
 ---
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -44,7 +44,7 @@ from .weathersource import Worker
 class LogFile:
     """File object wrapper, adds timestamp to print output"""
 
-    def __init__(self, file: Path, options):
+    def __init__(self, file: Path, options) -> None:
         self.f = open(file, options)
 
     def write(self, data):
@@ -53,10 +53,10 @@ class LogFile:
         else:
             self.f.write(data)
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str):
         return getattr(self.f, name)
 
-    def __setattr__(self, name, value):
+    def __setattr__(self, name: str, value) -> None:
         if name != 'f':
             setattr(self.f, name, value)
         else:
@@ -122,7 +122,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             response['rwmetar'] = dict(zip(('file_time', 'result'), [rw.metar_file_time, rw.get_rwmetar(apt[0])]))
         return response
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         # shutdown Needs to be from called from a different thread
         def shut_down_now(srv):
             srv.shutdown()
@@ -130,7 +130,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
         th = threading.Thread(target=shut_down_now, args=(self.server,))
         th.start()
 
-    def handle(self):
+    def handle(self) -> None:
         response = False
         data = self.request[0].decode('utf-8').strip("\n\r\t")
 

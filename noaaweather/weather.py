@@ -4,7 +4,7 @@ X-plane NOAA GFS weather plugin.
 Development version for X-Plane 12
 ---
 Copyright (C) 2011-2020 Joan Perez i Cauhe
-Copyright (C) 2021-2024 Antonio Golfari
+Copyright (C) 2021-2026 Antonio Golfari
 ---
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -20,8 +20,9 @@ import subprocess
 
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
-from . import xp, c, dref, util
+from . import xp, c, dref, util, DataRef
 
 
 class Weather:
@@ -31,7 +32,15 @@ class Weather:
     ref_winds = {}
     lat, lon, last_lat, last_lon = 99, 99, False, False
 
-    def __init__(self, conf):
+    # snow default values
+    snow_default_values = {
+        'frozen_water': 0,
+        'tarmac_snow_width': 0.25,
+        'tarmac_snow_scale': 500,
+        'tarmac_snow_noise': 0.04
+    }
+
+    def __init__(self, conf) -> None:
 
         self.conf = conf
         self.data = dref.Dref()
@@ -59,12 +68,12 @@ class Weather:
 
         self.startWeatherServer()
 
-    def startWeatherClient(self):
+    def startWeatherClient(self ) -> None:
         if not self.weatherClientThread:
             self.weatherClientThread = threading.Thread(target=self.weatherClient)
             self.weatherClientThread.start()
 
-    def weatherClient(self):
+    def weatherClient(self) -> None:
         """Weather client thread fetches weather from Weather Server"""
 
         # Send something for windows to bind
@@ -82,11 +91,11 @@ class Weather:
                 self.weatherData = wdata
                 self.newData = True
 
-    def weatherClientSend(self, msg):
+    def weatherClientSend(self, msg: str) -> None:
         if self.weatherClientThread:
             self.sock.sendto(msg.encode('utf-8'), ('127.0.0.1', self.conf.server_port))
 
-    def startWeatherServer(self):
+    def startWeatherServer(self) -> None:
         DETACHED_PROCESS = 0x00000008
         args = [xp.pythonExecutable, Path(self.conf.respath, 'weatherServer.py'), self.conf.syspath]
         kwargs = {'close_fds': True}
@@ -98,15 +107,15 @@ class Weather:
         except Exception as e:
             print(f"Exception while executing subprocess: {e}")
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         # Shutdown client and server
         self.weatherClientSend('!shutdown')
         self.weatherClientThread = False
 
     def get_XP12_METAR(self, icao: str) -> str:
-        return xp.getMETARForAirport('icao')
+        return xp.getMETARForAirport(icao)
 
-    def setSnow(self, elapsed):
+    def setSnow(self, elapsed: float) -> None:
         """ Set snow cover
             Dref value goes from 1.25 to 0.01
             no snow:    1.25
@@ -205,10 +214,7 @@ class Weather:
 
         else:
             # default values
-            frozen_water = self.data.frozen_water.default_value
-            noise = self.data.tarmac_snow_noise.default_value
-            scale = self.data.tarmac_snow_scale.default_value
-            width = self.data.tarmac_snow_width.default_value
+            frozen_water, noise, scale, width = self.snow_default_values.values()
 
         # inject values
         c.datarefTransition(self.data.frozen_water, frozen_water, elapsed=elapsed, speed=transitions_speed)
@@ -216,7 +222,7 @@ class Weather:
         self.setDrefIfDiff(self.data.tarmac_snow_scale, scale)
         self.setDrefIfDiff(self.data.tarmac_snow_width, width)
 
-    def setDrefIfDiff(self, dref, value, max_diff=False):
+    def setDrefIfDiff(self, dref, value: float, max_diff: Optional[float] = False) -> bool:
         """ Set a Dataref if the current value differs
             Returns True if value was updated """
 
@@ -230,7 +236,7 @@ class Weather:
                 return True
         return False
 
-    def reset_weather(self):
+    def reset_weather(self) -> None:
         if self.nearest_snow:
             # reset nearest snow value
             self.nearest_snow = False
@@ -326,7 +332,7 @@ class Weather:
                     pressure_inHg = c.mb2inHg(pressure)
                     line += f" | Press. at sea lvl: {pressure:.1f}mb ({pressure_inHg:.2f}inHg)"
                     sysinfo += [line]
-                    friction = self.data.runwayFriction.get()
+                    friction = self.data.runwayFriction.value
                     line = f"   Runway Friction: {friction:02}"
                     # if friction != metar_friction:
                     #     line += f" (original {metar_friction:02})"
@@ -510,6 +516,12 @@ class Weather:
                     #         sysinfo += [f"{ci['layers']}"]
 
         return sysinfo
+
+    def cleanup(self) -> None:
+        """Cleanup datarefs"""
+        datarefs = [el.dref for el in self.data.__dict__.values() if isinstance(el, DataRef)]
+        for dr in datarefs:
+            xp.unregisterDataAccessor(dr)
 
     def dumpLog(self) -> Path:
         """Dumps all the information to a file to report bugs"""

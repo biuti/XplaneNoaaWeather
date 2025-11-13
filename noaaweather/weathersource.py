@@ -1,7 +1,7 @@
 """
 X-plane NOAA GFS weather plugin.
 Copyright (C) 2011-2020 Joan Perez i Cauhe
-Copyright (C) 2021-2024 Antonio Golfari
+Copyright (C) 2021-2026 Antonio Golfari
 ---
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -25,20 +25,17 @@ from pathlib import Path
 from . import util, Conf
 
 
-class WeatherSource(object):
+class WeatherSource:
     """Weather source metaclass"""
 
-    cache_path = False
-
-    def __init__(self, conf):
+    def __init__(self, conf) -> None:
         self.download = False
         self.conf = conf
         self.die = threading.Event()
 
-        if not self.cache_path:
-            self.cache_path = self.conf.cachepath
-
-        self.cache_path.mkdir(parents=True, exist_ok=True)
+        self.cache_path = Path(self.conf.cachepath)
+        if not self.cache_path.exists():
+            self.cache_path.mkdir(parents=True, exist_ok=True)
 
     def read_grib_file(self, file: Path, lat: float = 46, lon: float = 9) -> list:
         """Executes wgrib2 on given GRIB file and parses its output"""
@@ -62,11 +59,11 @@ class WeatherSource(object):
 
         return proc.stdout.read().splitlines()
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         """Stop pending processes"""
         self.die.set()
 
-    def run(self, elapsed):
+    def run(self, elapsed: int) -> None:
         """Called by a worker thread"""
         return
 
@@ -96,7 +93,7 @@ class GribWeatherSource(WeatherSource):
         '100'    # ~ FL520
     ]
 
-    def __init__(self, conf):
+    def __init__(self, conf) -> None:
         self.cache_path = Path(conf.cachepath, 'gfs')
 
         super().__init__(conf)
@@ -123,7 +120,7 @@ class GribWeatherSource(WeatherSource):
 
         return f"{cnow.year}{cnow.month:02}{cnow.day:02}", lcycle, forecast
 
-    def run(self, elapsed: int):
+    def run(self, elapsed: int) -> None:
         """Worker function called by a worker thread to update the data"""
 
         if not self.download_enabled:
@@ -181,12 +178,12 @@ class GribWeatherSource(WeatherSource):
                 # Waiting for download
                 return
 
-    def __getattr__(self, item):
+    def __getattr__(self, item: str):
         if item == 'last_grib':
             return getattr(self.conf, self.grib_conf_var)
         return self.__getattribute__(item)
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, key: str, value) -> None:
         if key == 'last_grib':
             self.conf.__dict__[self.grib_conf_var] = value
         self.__dict__[key] = value
@@ -202,13 +199,13 @@ class Worker(threading.Thread):
         rate (int): wait rate seconds between runs
     """
 
-    def __init__(self, workers, rate):
+    def __init__(self, workers, rate: int) -> None:
         self.workers = workers
         self.die = threading.Event()
         self.rate = rate
         threading.Thread.__init__(self)
 
-    def run(self):
+    def run(self) -> None:
         while not self.die.wait(self.rate):
             for worker in self.workers:
                 worker.run(self.rate)
@@ -217,7 +214,7 @@ class Worker(threading.Thread):
             for worker in self.workers:
                 worker.shutdown()
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         if self.is_alive():
             self.die.set()
             self.join(3)
@@ -256,11 +253,11 @@ class AsyncTask(threading.Thread):
             self.join(3)
 
 
-class GribDownloader(object):
+class GribDownloader:
     """Grib download utilities"""
 
     @staticmethod
-    def decompress_grib(path_in: Path, path_out: Path, wgrib2bin, spinfo=False):
+    def decompress_grib(path_in: Path, path_out: Path, wgrib2bin, spinfo=False) -> None:
         """Unpacks grib file using wgrib2 binary
         """
         args = [wgrib2bin, path_in, '-set_grib_type', 'simple', '-grib_out', path_out]
@@ -273,7 +270,7 @@ class GribDownloader(object):
         p.wait()
 
     @staticmethod
-    def download_part(url: str, file_out, start: int = 0, end: int = 0, **kwargs):
+    def download_part(url: str, file_out, start: int = 0, end: int = 0, **kwargs) -> None:
         """File Downloader supports gzip and cancel
 
         Args:
@@ -342,7 +339,7 @@ class GribDownloader(object):
                 raise e
 
     @staticmethod
-    def to_download(level, var, variable_list) -> bool:
+    def to_download(level, var, variable_list: list) -> bool:
         """Returns true if level/var combination is in the download list"""
         for group in variable_list:
             if var in group['vars'] and level in group['levels']:
@@ -408,7 +405,7 @@ class GribDownloader(object):
         return index
 
     @classmethod
-    def download(cls, url, file_path: Path, binary=False, **kwargs) -> Path:
+    def download(cls, url, file_path: Path, binary: bool = False, **kwargs) -> Path:
         """Download grib for the specified variable_lists
 
             Args:
