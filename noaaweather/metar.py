@@ -145,11 +145,15 @@ class Metar(WeatherSource):
             # KSFO 181656Z 00000KT 10SM CLR 19/11 A2992 RMK AO2 SLP134 T01940106 10194 201
             # VATSIM:
             # KEVU 181635Z AUTO 13007KT 10SM CLR 22/21 A3002 RMK AO2 T02280212
+            # METAR MMZO 170140Z 06005KT 8SM BKN020 BKN210 25/24 A2982 RMK 8/105 RA E40
 
-            if line[0] == '"' and line[18] == 'Z':
-                line = line.split('"')[1][6:]
-            elif line[0].isalpha() and line[11] == 'Z':
+            if line.startswith('"') and len(line) > 18 and line[18] == 'Z':
+                line = line.split('"')[1]
+            elif line[0].isalpha() and len(line) > 11 and line[11] == 'Z':
                 line = line.split(',')[0]
+
+            line = line.replace('METAR', '').replace('SPECI', '').replace('metar', '').strip()
+
             if len(line) > 11:
                 icao, mtime, metar = line[0:4], line[5:11], re.sub(r'[^\x00-\x7F]+', ' ', line[5:]).strip()
 
