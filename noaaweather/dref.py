@@ -25,6 +25,9 @@ class Dref:
         Bind datarefs
         '''
 
+        # XP12 Version
+        self.xp_version = find_dataref('sim/version/xplane_internal_version')
+
         # Position
         self.latdr = find_dataref('sim/flightmodel/position/latitude')
         self.londr = find_dataref('sim/flightmodel/position/longitude')
@@ -71,11 +74,12 @@ class Dref:
         self.runwayFriction = find_dataref('sim/weather/region/runway_friction')
 
         # snow coverage, this are private dref for some reason cannot be initialized at start
-        self.snow_cover = None # 1.25 to 0.01
-        self.puddles = None  # 1.25 to 0.01
-        self.iced_tarmac = None  # 2 to 0.01
+        self.snow_override = None  # default 0, 1 if snow cover is active
+        self.snow_cover = None # from 0 (no snow) to 1 (full snow) in XP version 12.4
+        self.puddles = None  # from 0 (no puddles) to 1 (full puddles) in XP version 12.4
+        self.iced_tarmac = None  # from 0 (no ice) to 1 (full ice) in XP version 12.4
 
-        self.frozen_water = None   # default 0
+        self.frozen_water = None   # default 0 (no frozen water) to 1000 (full frozen water)
         self.tarmac_snow_width = None  # default 0.25 | 0 no snow on tarmac | 1 full | values should go 0.6 | 0.4 | 0.15
         self.tarmac_snow_scale = None  # default 500 | values should go 500 | 300 | 100
         self.tarmac_snow_noise = None  # default 0.04 | 0 uniform snow cover on tarmac | 1 very defined patches | values should go 0.2 | 0.1 | 0.05
@@ -106,6 +110,7 @@ class Dref:
     def check_snow_dref(self) -> bool:
         if self.snow_cover is None or not hasattr(self.snow_cover, 'value'):
             try:
+                self.snow_override = find_dataref('sim/private/controls/weather/allow_initial_snow_coverage')
                 self.snow_cover = find_dataref('sim/private/controls/wxr/snow_now')
                 self.frozen_water = find_dataref('sim/private/controls/snow/luma_b')
                 self.tarmac_snow_width = find_dataref('sim/private/controls/twxr/snow_area_width')
