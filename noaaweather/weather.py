@@ -55,6 +55,11 @@ class Weather:
         self.windAlts = -1
         self.nearest_snow = False
 
+        # cache to avoid recomputation
+        self._last_factor_input = None
+        self._cached_factor = 0.0
+        self._last_logged_val = None
+
         # Response queue for user queries
         self.queryResponses = []
 
@@ -117,11 +122,18 @@ class Weather:
 
     def setSnow(self, elapsed: float) -> None:
         """ Set snow cover
+            X-Plane version < 12.4:
             Dref value goes from 1.25 to 0.01
             no snow:    1.25
             light:      0.31
             medium:     0.21
             heavy:      0.07
+            X-Plane version >= 12.4:
+            Dref value goes from 0 to 1
+            no snow:    0
+            light:      0.2  no snow on tarmac, some on grass
+            medium:     0.5  no snow on tarmac, grass almost covered
+            heavy:      0.9  tarmac heavily contaminated
 
             GFS SNOD is in meters
             SNOD    Dref conversion:
@@ -134,6 +146,9 @@ class Weather:
         if not (self.weatherData['gfs'].get('surface') and self.data.check_snow_dref()):
             # we don't have snow data
             return
+
+        if self.data.snow_override.value == 0:
+            self.data.snow_override.value = 1  # enable snow coverage control (on 12.4-b1 does not seem to have any effect)
 
         data = self.weatherData['gfs']['surface']
         snow = data['snow']
@@ -181,46 +196,81 @@ class Weather:
                 'depth': snow
             }
 
-        if snow > 0:
-            # calculating a factor based on latitude and temperature
-            factor = max(-20, abs(lat) - 55 - max(0, 0.2 * temp))
-            val = max(3.8 * (1 - 0.005 * factor - snow**0.04), 0.05)
-            rw_val = self.data.snow_cover.value
-            if val < rw_val:
-                # injecting snow_cover value
-                try:
-                    c.snowDatarefTransition(self.data.snow_cover, val, elapsed=elapsed, speed=transitions_speed)
-                except SystemError as e:
-                    xp.log(f"ERROR injecting snow_cover: {e}")
-            else:
-                # no need to inject a different value
-                val = self.data.snow_cover.value
-
-            # calculating all other drefs
-            frozen_water = min(5 * max(0, factor)**1.5 * val, 1000)
-            noise = 0.15 - 0.005*factor
-            scale = noise*2000
-            width = noise*3
-
-            # adding ice based on temperature and snow (total wild guess)
-            # from 2 to 0.01, inversely proportional to factor
-            ice = 2 if temp > 4 else 0.00025*factor**2 - 0.045*factor + 1
-            self.data.iced_tarmac.value = ice
-
-            # adding standing water, as probably the tarmac is treated with addictives
-            # from 1.25 to 0.01, inversely proportional to factor, proportional to val
-            puddles = min(1.25, 1.15 - 0.5*ice)
-            self.data.puddles.value = puddles
+        # ------------------------------------------------------------------
+        # No snow → defaults
+        # ------------------------------------------------------------------
+        if snow <= 0.0:
+            val = 0.0
+            frozen_water, noise, scale, width = self.snow_default_values.values()
+            ice = puddles = 0.0
 
         else:
-            # default values
-            frozen_water, noise, scale, width = self.snow_default_values.values()
+            # --------------------------------------------------------------
+            # Factor caching (lat/temp rarely change)
+            # --------------------------------------------------------------
+            factor_key = (round(lat, 2), round(temp, 1))
+            if factor_key != self._last_factor_input:
+                self._cached_factor = c.computeWaterHostilityFactor(lat, temp)
+                self._last_factor_input = factor_key
 
-        # inject values
-        c.datarefTransition(self.data.frozen_water, frozen_water, elapsed=elapsed, speed=transitions_speed)
-        self.setDrefIfDiff(self.data.tarmac_snow_noise, noise)
-        self.setDrefIfDiff(self.data.tarmac_snow_scale, scale)
-        self.setDrefIfDiff(self.data.tarmac_snow_width, width)
+            factor = self._cached_factor
+
+            # --------------------------------------------------------------
+            # Compute snow coverage
+            # --------------------------------------------------------------
+            val = c.computeSnowVal(snow, lat, temp)
+
+            # --------------------------------------------------------------
+            # Compute surface effects
+            # --------------------------------------------------------------
+            (
+                frozen_water,
+                noise,
+                scale,
+                width,
+                ice,
+                puddles
+            ) = c.computeSurfaceEffects(val, factor, temp)
+
+        # ------------------------------------------------------------------
+        # Snow cover transition (only if changed meaningfully)
+        # ------------------------------------------------------------------
+        rw_val = self.data.snow_cover.value
+        if not c.isclose(rw_val, val, tol=0.005):
+            try:
+                c.snowDatarefTransition(
+                    self.data.snow_cover,
+                    val,
+                    elapsed=elapsed,
+                    speed=transitions_speed
+                )
+
+                c.datarefTransition(
+                    self.data.frozen_water,
+                    frozen_water,
+                    elapsed,
+                    transitions_speed
+                )
+
+                self.setDrefIfDiff(self.data.tarmac_snow_noise, noise)
+                self.setDrefIfDiff(self.data.tarmac_snow_scale, scale)
+                self.setDrefIfDiff(self.data.tarmac_snow_width, width)
+
+                # log only when change is visible
+                if self._last_logged_val is None or abs(val - self._last_logged_val) > 0.01:
+                    xp.log(
+                        f" Snow cover: {val:.3f} | depth {snow:.2f} m | lat {lat:.1f} | temp {temp:.1f}C"
+                    )
+                    self._last_logged_val = val
+
+            except SystemError as e:
+                xp.log(f"ERROR injecting snow_cover: {e}")
+
+        # ------------------------------------------------------------------
+        # Inject secondary drefs
+        # ------------------------------------------------------------------
+        self.setDrefIfDiff(self.data.iced_tarmac, ice)
+        self.setDrefIfDiff(self.data.puddles, puddles)
 
     def setDrefIfDiff(self, dref, value: float, max_diff: Optional[float] = False) -> bool:
         """ Set a Dataref if the current value differs

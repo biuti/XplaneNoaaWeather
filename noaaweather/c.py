@@ -128,6 +128,14 @@ class c:
         return oat + gradient * alt
 
     @staticmethod
+    def clamp01(value: float) -> float:
+        return 0.0 if value < 0.0 else 1.0 if value > 1.0 else value
+
+    @staticmethod
+    def clamp(value: float, min_val: float, max_val: float) -> float:
+        return min_val if value < min_val else max_val if value > max_val else value
+
+    @staticmethod
     def greatCircleDistance(latlong_a: tuple[float, float], latlong_b: tuple[float, float]) -> float:
         """Return the great circle distance of 2 coordinates pairs, in meters"""
 
@@ -706,3 +714,143 @@ class c:
     def copy_gfs_clouds(layers: list) -> list:
         """needed to avoid to change original list changing the copy"""
         return [] if not len(layers) else [[e[0], e[1], e[2]] for e in layers if e[0] > 0 and e[1] > 0 and e[2] > 0]
+
+    @staticmethod
+    def computeWaterHostilityFactor(lat: float, temp: float) -> float:
+        """
+        Environmental hostility factor for liquid water.
+
+        - High latitude increases factor
+        - Cold temperature increases factor
+        - Warm temperature reduces factor
+        - Clamped to avoid extreme values
+
+        Typical range:
+            warm / low lat  → negative values
+            cold / high lat → positive values
+        """
+
+        # Base latitude effect (55°N/S is the neutral pivot)
+        factor = abs(lat) - 55.0
+
+        # Temperature penalty: warmth reduces hostility
+        # (only affects above 0°C)
+        factor -= max(0.0, 0.2 * temp)
+
+        # Hard floor to prevent insane negatives
+        return max(-20.0, factor)
+
+    @staticmethod
+    def computeSnowVal(snow: float, lat: float, temp: float) -> float:
+        """
+        Compute normalized snow coverage (val) in range [0..1].
+
+        Inputs:
+        - snow: snow depth in meters (GFS SNOD)
+        - lat: latitude in degrees
+        - temp: temperature in °C
+
+        Behavior:
+        - Snow depth saturates smoothly (no hard thresholds)
+        - Warm / low-lat conditions reduce visible coverage
+        """
+
+        if snow <= 0.0:
+            return 0.0
+
+        # Smooth saturation of snow depth
+        # 0 m → 0.0
+        # ~0.25 m → ~0.35
+        # ≥1 m → ~1.0
+        snow_norm = 1.0 - exp(-snow * 1.8)
+
+        # Base hostility factor
+        factor = c.computeWaterHostilityFactor(lat, temp)
+
+        # Warm & low-lat snow melts / sticks less
+        lat_penalty  = max(0.0, (50.0 - abs(lat)) / 20.0)
+        temp_penalty = max(0.0, (temp - 5.0) / 20.0)
+        warm_penalty = lat_penalty * temp_penalty
+
+        # Bias applied to normalized snow
+        factor_bias = (
+            0.12 * (factor + 20.0) / 55.0
+            - 0.35 * warm_penalty
+        )
+        factor_bias = min(max(factor_bias, -0.35), 0.15)
+
+        # Final snow coverage value
+        val = snow_norm * (0.9 + factor_bias)
+
+        return c.clamp01(val)
+
+    @staticmethod
+    def computeSurfaceEffects(val: float, factor: float, temp: float) -> tuple[float, float, float, float, float, float]:
+        """
+        Compute surface contamination effects from snow coverage and climate.
+
+        Inputs:
+        - val: snow coverage [0..1]
+        - factor: environmental hostility factor
+        - temp: temperature in °C
+
+        Returns:
+        - frozen_water
+        - noise
+        - scale
+        - width
+        - ice
+        - puddles
+        """
+
+        # ------------------------------------------------------------------
+        # Snow damping
+        # Heavy snow absorbs / smooths surface irregularities
+        # ------------------------------------------------------------------
+        # Snow damping factor:
+        # - val is snow coverage in range [0..1]
+        # - produces a smooth exponential attenuation in range (0..1]
+        # - no snow (val = 0)    → damping = 1.0   (no effect)
+        # - light snow (~0.2)    → damping ≈ 0.63  (moderate reduction)
+        # - medium snow (~0.5)   → damping ≈ 0.32  (strong reduction)
+        # - heavy snow (≥0.9)    → damping ≈ 0.12  (almost fully damped)
+        # Used to progressively suppress frozen-water-related effects as snow cover increases
+        snow_damping = exp(-2.3 * val)
+
+        frozen_water = min(
+            5.0 * max(0.0, factor) ** 1.5 * snow_damping,
+            1000.0
+        )
+
+        # Visual noise parameters (legacy-compatible behavior)
+        noise = 0.15 - 0.005 * factor
+        scale = noise * 2000.0
+        width = noise * 3.0
+
+        # ------------------------------------------------------------------
+        # ICE / PUDDLES MIX (treated tarmac)
+        # ------------------------------------------------------------------
+
+        # Phase: 0 = liquid, 1 = solid
+        # +4°C → water
+        # -10°C → fully solid
+        phase = c.clamp01((4.0 - temp) / 14.0)
+
+        # Extra crystallization in deep cold
+        # -10°C -> 0.0
+        # -20°C -> 0.5
+        # -30°C -> 1.0
+        deep_cold = c.clamp01((-10.0 - temp) / 20.0)
+
+        # Ice builds from snow coverage and phase
+        ice = phase * (0.35 + 0.65 * val)
+
+        # Treated tarmac still accumulates ice in deep cold
+        ice *= (1.0 + 0.4 * deep_cold)
+        ice = c.clamp01(ice)
+
+        # Puddles dominate in warm conditions, suppressed by ice
+        puddles = (1.0 - phase) * val * (1.0 - 0.6 * ice)
+        puddles = c.clamp01(puddles)
+
+        return frozen_water, noise, scale, width, ice, puddles
