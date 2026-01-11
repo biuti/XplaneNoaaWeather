@@ -150,15 +150,6 @@ class RealWeather(GribWeatherSource):
 
         return self.db.get(self.table, icao)
 
-    def update_metar_rwx_file(self) -> int | bool:
-        """Dumps all metar data from XP12 METAR files to the METAR.rwx file"""
-        print(f"updating METAR.rwx file using XP12 files: RealWeather.update_metar_rwx_file()")
-        if not self.metar_file or not self.metar_file.is_file():
-            print(f"ERROR updating METAR.rwx file: XP12 did not download files yet")
-            return False
-
-        return self.db.to_file(Path(self.conf.syspath, 'METAR.rwx'), self.table)
-
     def get_real_weather_forecast(self) -> None:
         """ configures x-plane 12 weather filenames to be read
             As X-Plane already downloads GFS grib files, there's no need to download them again as in XP11 version
@@ -374,7 +365,7 @@ class RealWeather(GribWeatherSource):
         return len(files) > 1
 
     def run(self, elapsed) -> None:
-        """ Updates METAR.rwx file from XP12 realweather metar files if option to do so is checked"""
+        """ Updates METAR database from XP12 realweather metar files if option to do so is checked"""
 
         if self.time_to_update_rwmetar:
             # update real weather metar database
@@ -383,15 +374,6 @@ class RealWeather(GribWeatherSource):
             print(f"*** RW METAR DB updated: {datetime.utcnow().strftime('%H:%M:%S')} ***")
             self.last_rwmetar = time.time()
             self.next_rwmetar = self.last_rwmetar + self.rwmetar_check_interval
-
-            if self.conf.update_rwx_file and self.conf.metar_use_xp12:
-                # Update METAR.rwx
-                if self.update_metar_rwx_file():
-                    print('Updated METAR.rwx file using XP12 Real Weather METAR files.')
-                else:
-                    print('There was an issue trying to update METAR.rwx file using XP12 Real Weather METAR files. Retrying in 30 seconds')
-                    # Retry in 30 sec
-                    self.next_rwmetar = time.time() + 30
 
     def shutdown(self) -> None:
         super().shutdown()

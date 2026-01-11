@@ -337,34 +337,6 @@ class Widget:
         )
         y-= self.line_height * 2
 
-        # Create METAR.rwx file
-        xp.createWidget(x, y, x + 200, y - self.line_height, 1, 'Create RWX file (READ the README file!):', 0, window, xp.WidgetClass_Caption)
-        self.rwxCheck = xp.createWidget(
-            xc, y, xc + self.line_height, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button
-        )
-        xp.setWidgetProperty(self.rwxCheck, xp.Property_ButtonState, xp.RadioButton)
-        xp.setWidgetProperty(self.rwxCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
-        xp.setWidgetProperty(self.rwxCheck, xp.Property_ButtonState, self.conf.update_rwx_file)
-        y -= self.line_height
-
-        # Use XP12 Real weather files to populate METAR.rwx file
-        xp.createWidget(x, y, x + 100, y - self.line_height, 1, 'Use Real Weather for RWX file:', 0, window, xp.WidgetClass_Caption)
-        self.xp12MetarCheck = xp.createWidget(
-            xc, y, xc + self.line_height, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button
-        )
-        xp.setWidgetProperty(self.xp12MetarCheck, xp.Property_ButtonState, xp.RadioButton)
-        xp.setWidgetProperty(self.xp12MetarCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
-        xp.setWidgetProperty(self.xp12MetarCheck, xp.Property_ButtonState, self.conf.metar_use_xp12)
-        y -= self.line_height * 2
-
-        # WAFS download enable
-        # xp.createWidget(x, y, x + 100, y - self.line_height, 1, 'WAFS download', 0, window, xp.WidgetClass_Caption)
-        # self.WAFSCheck = xp.createWidget(x + 120, y, x + 140, y - self.line_height, 1, '', 0, window, xpWidgetClass_Button)
-        # XPSetWidgetProperty(self.WAFSCheck, xp.Property_ButtonState, xp.RadioButton)
-        # XPSetWidgetProperty(self.WAFSCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
-        # XPSetWidgetProperty(self.WAFSCheck, xp.Property_ButtonState, self.conf.download_WAFS)
-        # y -= self.line_height * 2
-
         # Download GFS Data
         xp.createWidget(x, y, x + 100, y - self.line_height, 1, 'GFS data download:', 0, window, xp.WidgetClass_Caption)
         self.GFSCheck = xp.createWidget(xc, y, xc + self.line_height, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button)
@@ -658,17 +630,9 @@ class Widget:
                     if xp.getWidgetProperty(check, xp.Property_ButtonState):
                         self.conf.metar_source = self.metar_source_check[check]
 
-                # Check METAR.rwx file
-                prev_rwx = self.conf.update_rwx_file
-                self.conf.update_rwx_file = xp.getWidgetProperty(self.rwxCheck, xp.Property_ButtonState)
-
-                # Check METAR.rwx source
-                prev_file_source = self.conf.metar_use_xp12
-                self.conf.metar_use_xp12 = xp.getWidgetProperty(self.xp12MetarCheck, xp.Property_ButtonState)
-
                 # Save config and tell server to reload it
                 self.conf.pluginSave()
-                xp.log(f"Config saved. Weather client reloading ...")
+                xp.log("Config saved. Weather client reloading ...")
                 self.weather.weatherClientSend('!reload')
 
                 # If metar source has changed tell server to reinit metar database
@@ -678,10 +642,6 @@ class Widget:
                         xp.destroyWidget(self.metar_window_widget, 1)
                         self.metar_window = False
                     self.weather.weatherClientSend('!resetMetar')
-
-                # If metar source for METAR.rwx file has changed tell server to reinit rwmetar database
-                if self.conf.update_rwx_file != prev_rwx or self.conf.metar_use_xp12 != prev_file_source:
-                    self.weather.weatherClientSend('!resetRWMetar')
 
                 self.weather.startWeatherClient()
                 self.configWindowUpdate()
@@ -704,8 +664,6 @@ class Widget:
         xp.setWidgetProperty(self.decode_check, xp.Property_ButtonState, self.conf.metar_decode)
         xp.setWidgetDescriptor(self.ignore_list_input, ' '.join(self.conf.ignore_metar_stations))
         xp.setWidgetProperty(self.auto_check, xp.Property_ButtonState, self.conf.metar_ignore_auto)
-        xp.setWidgetProperty(self.rwxCheck, xp.Property_ButtonState, self.conf.update_rwx_file)
-        xp.setWidgetProperty(self.xp12MetarCheck, xp.Property_ButtonState, self.conf.metar_use_xp12)
 
         if self.conf.use_real_weather_data:
             # xp.setWidgetProperty(self.WAFSCheck, xp.Property_ButtonState, self.conf.download_WAFS)

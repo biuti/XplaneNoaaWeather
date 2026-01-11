@@ -79,25 +79,6 @@ class Database:
             met = res.fetchall()
             return met
 
-    def to_file(self, file: Path, table: str, batch: int = 100) -> int:
-        query = '''SELECT icao, metar FROM {} WHERE metar NOT NULL'''.format(table)
-        lines = 0
-        try:
-            f = open(file, 'w')
-            with self.session() as db:
-                res = db.execute(query)
-                while True:
-                    rows = res.fetchmany(batch)
-                    if not rows:
-                        break
-                    lines += len(rows)
-                    for row in rows:
-                        f.write(f"{row[0]} {row[1]}\n")
-            f.close()
-        except (OSError, IOError):
-            print(f"ERROR updating METAR.rwx file: {sys.exc_info()[0]}, {sys.exc_info()[1]}")
-        return lines
-
     def query(self, sql: str) -> int:
         with self.session() as db:
             res = db.execute(sql).rowcount

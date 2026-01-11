@@ -61,8 +61,6 @@ class Metar(WeatherSource):
         self.ms_download = False
         self.downloading = False
 
-        self.next_metarRWX = time.time() + 30
-
         # Metar stations update
         if (time.time() - conf.ms_update) > self.STATION_UPDATE_RATE * 86400:
             self.download_stations()
@@ -382,11 +380,6 @@ class Metar(WeatherSource):
 
         return weather
 
-    def update_metar_rwx_file(self) -> int:
-        """Dumps all metar data to the METAR.rwx file"""
-
-        return self.db.to_file(Path(self.conf.syspath, 'METAR.rwx'), self.table)
-
     def run(self, elapsed: int) -> None:
 
         # Update stations table if required
@@ -417,16 +410,6 @@ class Metar(WeatherSource):
                 else:
                     updated, parsed = self.update_metar(metar_file)
                 self.download = False
-
-        # Update METAR.rwx
-        elif self.conf.update_rwx_file and not self.conf.metar_use_xp12 and self.next_metarRWX < time.time():
-            if self.update_metar_rwx_file():
-                self.next_metarRWX = time.time() + self.conf.metar_updaterate * 60
-                print(f" **** {datetime.now().strftime('%H:%M:%S')} Updated METAR.rwx file using {self.conf.metar_source}.")
-            else:
-                print(f"There was an issue trying to update METAR.rwx file using {self.conf.metar_source}. Retrying in 30 seconds")
-                # Retry in 30 sec
-                self.next_metarRWX = time.time() + 30
 
         elif self.conf.download_METAR:
             # Download new data if required

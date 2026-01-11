@@ -153,6 +153,8 @@ class Conf:
         self.enabled = True
 
         self.metar_decode = False
+
+        # Weather settings mainly used if RealWeather is disabled
         self.set_wind = False
         self.set_tropo = False
         self.set_clouds = False
@@ -225,10 +227,6 @@ class Conf:
 
         self.ignore_metar_stations = []
 
-        # write METAR.rwx file
-        self.update_rwx_file = False  # Not needed by AviTab latest versions
-        self.metar_use_xp12 = False
-
         # windows position
         self.info_window_position = [220, 640]
         self.metar_window_position = [10, 900]
@@ -291,8 +289,6 @@ class Conf:
             'metar_updaterate': self.metar_updaterate,
             'ignore_metar_stations': self.ignore_metar_stations,
             'metar_ignore_auto': self.metar_ignore_auto,
-            'update_rwx_file': self.update_rwx_file,
-            'metar_use_xp12': self.metar_use_xp12,
             'info_window_position': self.info_window_position,
             'metar_window_position': self.metar_window_position,
             'config_window_position': self.config_window_position

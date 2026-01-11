@@ -175,11 +175,9 @@ class ClientHandler(SocketServer.BaseRequestHandler):
                 # Clear database and force redownload
                 metar.clear_reports(conf.dbfile)
                 metar.last_timestamp = 0
-                metar.next_metarRWX = time.time() + 10
             elif data == '!resetRWMetar':
                 # reload database
                 rw.next_rwmetar = time.time() + 5
-                metar.next_metarRWX = time.time() + 5
             elif data == '!ping':
                 response = '!pong'
             else:
