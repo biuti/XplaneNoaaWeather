@@ -145,7 +145,6 @@ class ClientHandler(SocketServer.BaseRequestHandler):
                     response = {}
                     apt = metar.get_metar(data[1:])
                     if apt and len(apt) > 2 and apt[5]:
-                        # response['metar'] = metar.parse_metar(apt[0], apt[5], apt[3])
                         response['metar'] = dict(zip(('icao', 'metar'), [apt[0], apt[5]]))
                     else:
                         response['metar'] = {
@@ -153,12 +152,8 @@ class ClientHandler(SocketServer.BaseRequestHandler):
                             'metar': 'NOT AVAILABLE'
                         }
                     apt = rw.get_rwmetar(data[1:])
-                    # print(f" ** weatherServer | RWMETAR: {apt}")
                     if apt and apt[1]:
                         response['rwmetar'] = dict(zip(('icao', 'metar'), [apt[0], apt[1]]))
-                        # response['rwmetar'] = dict(zip(('icao', 'metar'), rw.get_real_weather_metar(data[1:])))
-                        # print(f"METAR TEST: {xp.getMETARForAirport(data[1:])}")
-                        # xp.log(f"METAR TEST: {xp.getMETARForAirport(data[1:])}")
                     else:
                         response['rwmetar'] = {
                             'icao': 'METAR STATION',

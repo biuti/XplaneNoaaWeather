@@ -12,22 +12,22 @@ https://github.com/pbuckner/XplaneNoaaWeather
 ## Features
 At this stage the plugin in its X-Plane 12 version is almost only monitoring what XP Real Weather engine is doing.
 
-As XP12.1 still has not the capability to depict correctly snow cover, GFS information are downloaded from NOAA server and the plugin will add snow cover according to them
+As XP12.4 still has not the capability to depict correctly snow cover, GFS information are downloaded from NOAA server and the plugin will add snow cover according to them.
+
+XP12 in cold weather conditions is not simulating tarmac treatment, so if it detects heavy icing conditions they are reflected into runway friction, resulting in completely unrealistic situation.\
+This plugin has a feature that simulates tarmac treatment, lowering the slipperiness to maintain grip into domains that would permit the airport to be active. 
 
 Concerning all other data, as Real Weather already takes data from GFS Grib files, probably there will be no need to download them anylonger.
 
 X-Plane 12 is continuously updated, so I will consider if some of the XP11 version features will still be needed.
 
 - Adds snow cover using GFS data information
-- Writes missing METAR.rwx file for compatibility with XP11
-- Ability to populate METAR.rwx file using XP12 Real Weather as data source
-
-> [!NOTE]
-> latest versions of AviTab do not need METAR.rwx file anymore, so this function is disabled by default and probably deprecated in next versions (at the moment the API still has some problems, so this plugin is still more reliable to retrieve METAR)
-
+- Adjust runway friction level to simulate tarmac treatment
 - monitors XP12 real weather behavior
 - METAR query window that displays both from XP12 Real Weather and chosen source (NOAA, IVAO or VATSIM servers)
 
+> [!NOTE]
+> latest versions of AviTab do not need METAR.rwx file anymore, so function to write this file is deprecated
 
 > [!WARNING]
 > Be aware that using XP12 Real Weather as data source when flying online could give you outdated information.
@@ -38,7 +38,7 @@ Anyway, be respectful of other users, you are the one using wrong data.
 ## Requirements
 - MacOS 10.14, Windows 7 and Linux kernel 4.0 and above
 (tested using macOS 12.7.6)
-- X-Plane **12.3 and above** (not tested with previous versions) 
+- X-Plane **12.4 and above** (not tested with previous versions) 
 - pbuckner's [XPPython3 plugin **4.6.0 or above**](https://xppython3.readthedocs.io/en/latest/index.html) (tested using version 4.6.1)
 
 > [!NOTE]
