@@ -760,9 +760,10 @@ class c:
 
         # Smooth saturation of snow depth
         # 0 m → 0.0
+        # ~0.1 m → ~0.25
         # ~0.25 m → ~0.35
         # ≥1 m → ~1.0
-        snow_norm = 1.0 - exp(-snow * 1.8)
+        snow_norm = 1.0 - exp(-snow * 1.6)
 
         # Base hostility factor
         factor = c.computeWaterHostilityFactor(lat, temp)
@@ -779,8 +780,12 @@ class c:
         )
         factor_bias = min(max(factor_bias, -0.35), 0.15)
 
+        # --- Low-snow visual lift ---
+        # Acts only below ~15 cm, fades out smoothly
+        low_snow_boost = 0.28 * (1.0 - exp(-12.0 * snow))
+
         # Final snow coverage value
-        val = snow_norm * (0.9 + factor_bias)
+        val = snow_norm * (0.9 + factor_bias) + low_snow_boost
 
         return c.clamp01(val)
 
@@ -788,6 +793,8 @@ class c:
     def computeSurfaceEffects(val: float, factor: float, temp: float) -> tuple[float, float, float, float, float, float]:
         """
         Compute surface contamination effects from snow coverage and climate.
+        Tarmac is assumed to be treated and kept clean at low snow coverage.
+        Contamination ramps in smoothly only after sufficient accumulation.
 
         Inputs:
         - val: snow coverage [0..1]
@@ -842,15 +849,45 @@ class c:
         # -30°C -> 1.0
         deep_cold = c.clamp01((-10.0 - temp) / 20.0)
 
+        # ------------------------------------------------------------------
+        # TARMAC TREATMENT EFFECT
+        # Effective when snow coverage is low (kept clean)
+        # ------------------------------------------------------------------
+
+        # 1.0 at val = 0.0
+        # 0.0 at val >= 0.25
+        treatment = 1.0 - c.clamp01(val / 0.25)
+
         # Ice builds from snow coverage and phase
         ice = phase * (0.35 + 0.65 * val)
 
-        # Treated tarmac still accumulates ice in deep cold
+        # Treated tarmac removes ice efficiently
+        ice *= (1.0 - 0.85 * treatment)
+
+        # Deep cold still causes residual ice
         ice *= (1.0 + 0.4 * deep_cold)
+
         ice = c.clamp01(ice)
 
-        # Puddles dominate in warm conditions, suppressed by ice
-        puddles = (1.0 - phase) * val * (1.0 - 0.6 * ice)
+        # Base puddles from melt / water presence
+        puddles = val * (1.0 - 0.6 * ice)
+
+        # Cold normally suppresses puddles,
+        # but treatment allows water to remain
+        cold_suppression = phase * (1.0 - treatment)
+
+        puddles *= (1.0 - cold_suppression)
+
         puddles = c.clamp01(puddles)
 
         return frozen_water, noise, scale, width, ice, puddles
+
+def smoothstep(edge0: float, edge1: float, x: float) -> float:
+    """
+        Smoothstep function
+        0 if x <= edge0
+        1 if x >= edge1
+        smooth interpolation in between
+    """
+    t = c.clamp01((x - edge0) / (edge1 - edge0))
+    return t * t * (3.0 - 2.0 * t)

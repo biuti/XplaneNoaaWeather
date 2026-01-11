@@ -148,12 +148,12 @@ class Weather:
             return
 
         if self.data.snow_override.value == 0:
-            self.data.snow_override.value = 1  # enable snow coverage control (on 12.4-b1 does not seem to have any effect)
-
+            # enable snow coverage control (on 12.4-b1 does not seem to have any effect)
+            self.data.snow_override.value = 1
         data = self.weatherData['gfs']['surface']
         snow = data['snow']
-        lat = self.data.latdr.value
-        lon = self.data.londr.value
+        lat = self.data.latdr.value if isinstance(self.data.latdr.value, (int, float)) else 0.0
+        lon = self.data.londr.value if isinstance(self.data.londr.value, (int, float)) else 0.0
         temp = c.kel2cel(data['temp'])
         transitions_speed = 0.25 if self.data.on_ground else 0.01
 
