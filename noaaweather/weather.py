@@ -296,7 +296,6 @@ class Weather:
 
         if self.adjusted_friction is not None and c.isclose(friction, self.adjusted_friction, tol=0.01):
             # already adjusted value
-            xp.log(f"[RF] already adjusted value: {friction}")
             return
 
         # -----------------------------
