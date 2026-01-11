@@ -46,7 +46,10 @@ class Weather:
         self.data = dref.Dref()
         self.lastMetarStation = False
 
-        self.friction = 0
+        # runway friction values
+        self.xp_runway_friction = None
+        self.metar_friction = None
+        self.adjusted_friction = None
 
         # Data
         self.weatherData = False
@@ -272,6 +275,63 @@ class Weather:
         self.setDrefIfDiff(self.data.iced_tarmac, ice)
         self.setDrefIfDiff(self.data.puddles, puddles)
 
+    def setRunwayFriction(self, elapsed: float) -> None:
+        """
+            As of XP version 12.4, runway friction still needs to be adjusted as it 
+            uses high values of friction (icy tarmac) on any airport, so even international airports are affected.
+            This function adjusts the friction value considering that runways receive anti-ice treatment.
+            In the future, I will take into consideration METAR values and define a friction value internally
+            By now:
+            - 6 < friction <= 8  : medium snow -> set to puddly (6)
+            - 9 < friction <= 11 : icy     -> set to snowy (7)
+            - 12 and 13          : snowy/icy -> set to snowy (8)
+            - friction > 13      : heavy snow / ice -> set to heavy snow (9)
+        """
+        # # get current friction values
+        # # Dry = 0, wet(1-3), puddly(4-6), snowy(7-9), icy(10-12), snowy/icy(13-15)
+        friction = self.data.runwayFriction.value
+
+        if not isinstance(friction, (int, float)):
+            return
+
+        if self.adjusted_friction is not None and c.isclose(friction, self.adjusted_friction, tol=0.01):
+            # already adjusted value
+            xp.log(f"[RF] already adjusted value: {friction}")
+            return
+
+        # -----------------------------
+        # Decide desired state
+        # -----------------------------
+        if friction < 6:
+            desired = None
+        else:
+            desired = c.map_friction(friction)
+
+        # -----------------------------
+        # Release
+        # -----------------------------
+        if desired is None:
+            if self.adjusted_friction is not None:
+                xp.log("[RF] releasing friction override")
+                self.adjusted_friction = None
+                self.xp_runway_friction = None
+            return
+
+        # -----------------------------
+        # Apply or change override
+        # -----------------------------
+        if self.adjusted_friction != desired:
+            self.adjusted_friction = desired
+        if self.xp_runway_friction != friction:
+            self.xp_runway_friction = friction
+
+        if friction != desired:
+            try:
+                self.data.runwayFriction.value = desired
+                xp.log(f"[RF] adjusted {friction:.1f} → {desired}")
+            except SystemError as e:
+                xp.log(f"[RF] ERROR injecting runway friction: {e}")
+
     def setDrefIfDiff(self, dref, value: float, max_diff: Optional[float] = False) -> bool:
         """ Set a Dataref if the current value differs
             Returns True if value was updated """
@@ -384,8 +444,8 @@ class Weather:
                     sysinfo += [line]
                     friction = self.data.runwayFriction.value
                     line = f"   Runway Friction: {friction:02}"
-                    # if friction != metar_friction:
-                    #     line += f" (original {metar_friction:02})"
+                    if self.adjusted_friction is not None:
+                        line += f" (adjusted from {self.xp_runway_friction:02})"
                     sysinfo += [line, '']
 
             if not self.conf.meets_wgrib2_requirements:

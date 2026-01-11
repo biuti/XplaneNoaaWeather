@@ -167,6 +167,9 @@ class Conf:
         self.set_surface_layer = False
         self.turbulence_probability = 1
 
+        # Adjust runway friction
+        self.set_friction = True
+
         # added GFS Data in real Weather
         self.set_snow = True
         self.set_patches = True
@@ -277,6 +280,7 @@ class Conf:
             'set_surface_layer': self.set_surface_layer,
             'set_snow': self.set_snow,
             'set_patches': self.set_patches,
+            'set_friction': self.set_friction,
             'opt_clouds_update': self.opt_clouds_update,
             'metar_source': self.metar_source,
             'download_GFS': self.download_GFS,

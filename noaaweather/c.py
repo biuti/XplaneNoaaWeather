@@ -882,6 +882,24 @@ class c:
 
         return frozen_water, noise, scale, width, ice, puddles
 
+    @staticmethod
+    def map_friction(x: int | float) -> int:
+        """Map friction value and adjust to suitable value
+            0-8   -> 6
+            9-11  -> 7
+            12-13 -> 8
+            14+   -> 9
+        """
+        if x <= 8:
+            return 6
+        elif x <= 11:
+            return 7
+        elif x <= 13:
+            return 8
+        else:
+            return 9
+
+
 def smoothstep(edge0: float, edge1: float, x: float) -> float:
     """
         Smoothstep function

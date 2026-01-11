@@ -358,6 +358,13 @@ class Widget:
         xp.setWidgetProperty(self.rainCheck, xp.Property_ButtonState, xp.RadioButton)
         xp.setWidgetProperty(self.rainCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
         xp.setWidgetProperty(self.rainCheck, xp.Property_ButtonState, self.conf.set_patches)
+        y -= self.line_height * 2
+
+        xp.createWidget(x, y, x + 100, y - self.line_height, 1, 'Adjusted Runway Friction:', 0, window, xp.WidgetClass_Caption)
+        self.frictionCheck = xp.createWidget(xc, y, xc + self.line_height, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button)
+        xp.setWidgetProperty(self.frictionCheck, xp.Property_ButtonState, xp.RadioButton)
+        xp.setWidgetProperty(self.frictionCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
+        xp.setWidgetProperty(self.frictionCheck, xp.Property_ButtonState, self.conf.set_friction)
         y -= self.line_height
 
         if not self.conf.use_real_weather_data:
@@ -591,6 +598,7 @@ class Widget:
                     # self.conf.download_WAFS = xp.getWidgetProperty(self.WAFSCheck, xp.Property_ButtonState)
                     self.conf.set_snow = xp.getWidgetProperty(self.snowCheck, xp.Property_ButtonState)
                     self.conf.set_patches = xp.getWidgetProperty(self.rainCheck, xp.Property_ButtonState)
+                    self.conf.set_friction = xp.getWidgetProperty(self.frictionCheck, xp.Property_ButtonState)
                     # pass
                 else:
                     self.conf.set_wind = xp.getWidgetProperty(self.windsCheck, xp.Property_ButtonState)
@@ -669,6 +677,7 @@ class Widget:
             # xp.setWidgetProperty(self.WAFSCheck, xp.Property_ButtonState, self.conf.download_WAFS)
             xp.setWidgetProperty(self.snowCheck, xp.Property_ButtonState, self.conf.set_snow)
             xp.setWidgetProperty(self.rainCheck, xp.Property_ButtonState, self.conf.set_patches)
+            xp.setWidgetProperty(self.frictionCheck, xp.Property_ButtonState, self.conf.set_friction)
 
         else:
             xp.setWidgetProperty(self.windsCheck, xp.Property_ButtonState, self.conf.set_wind)

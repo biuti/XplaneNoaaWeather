@@ -98,6 +98,8 @@ class PythonInterface(widget.Widget):
             if self.conf.set_snow:
                 # ATM we need to overwrite dref value every cycle
                 self.weather.setSnow(elapsed=elapsedMe)
+            if self.conf.set_friction:
+                self.weather.setRunwayFriction(elapsed=elapsedMe)
             if self.weather.newData:
                 # Real Weather active
                 # check Dref values, RW overwrites them. Probably needed for any change to Real Weather data
