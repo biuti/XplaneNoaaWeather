@@ -74,7 +74,7 @@ class Conf:
         # self.metar_agl_limit = 10
 
         # Selects the apropiate wgrib binary
-        self.platform, _, self.version = [c.float_or_lower(el) for el in platform.uname()[:3]]
+        self.platform, _, self.version, _, _, self.machine = [c.float_or_lower(el) for el in platform.uname()]
         self.spinfo = False
         self.wgrib2bin = None
 
@@ -84,7 +84,10 @@ class Conf:
             # 19.0 Catalina (MacOS 10.15)
             # 20.0 Big Sur (MacOS 16.0)
             # 21.0 Monterey (MacOS 12.0)
-            wgbin = 'OSX11wgrib2'  # compiled in MacOS 11.6.3 Big Sur
+            if 'arm' in self.machine:  # Apple Silicon
+                wgbin = 'AppleSilicon-wgrib2'  # compiled in MacOS 26.2 Tahoe using Apple Silicon
+            else:
+                wgbin = 'OSX11wgrib2'  # compiled in MacOS 11.6.3 Big Sur
 
         elif self.platform == 'windows' and self.version >= 7.0:  # Windows 7 and above
             wgbin = 'WIN32wgrib2.exe'  # compiled in windows 11 using cygwin
