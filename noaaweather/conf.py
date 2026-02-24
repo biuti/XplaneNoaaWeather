@@ -1,7 +1,7 @@
 """
 X-plane NOAA GFS weather plugin.
 Copyright (C) 2011-2020 Joan Perez i Cauhe
-Copyright (C) 2021-2024 Antonio Golfari
+Copyright (C) 2021-2026 Antonio Golfari
 ---
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -25,7 +25,10 @@ class Conf:
     syspath, dirsep = '', os.sep
     printableChars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ '
 
-    __VERSION__ = '12.1'
+    __VERSION__ = '12.4-b.6'  # plugin version 
+
+    # Dref and Command parameters
+    plugin_command_origin = 'XPNOAAWeather'
 
     GFS_JSON_HELP = '''Here you can edit which wind levels will be downloaded from NOAA without hacking the code.
                     Keep the list short to optimize the download size and parsing times.
@@ -37,7 +40,7 @@ class Conf:
                         
                     Refer to the following list for millibar Flight Level conversion:'''
 
-    def __init__(self, xplane_path=False):
+    def __init__(self, xplane_path=False) -> None:
         """The plugin uses wgrib2 utility to decode GFS files
         - Compiled version: v3.1.0"""
 
@@ -71,7 +74,7 @@ class Conf:
         # self.metar_agl_limit = 10
 
         # Selects the apropiate wgrib binary
-        self.platform, _, self.version = [c.float_or_lower(el) for el in platform.uname()[:3]]
+        self.platform, _, self.version, _, _, self.machine = [c.float_or_lower(el) for el in platform.uname()]
         self.spinfo = False
         self.wgrib2bin = None
 
@@ -81,7 +84,10 @@ class Conf:
             # 19.0 Catalina (MacOS 10.15)
             # 20.0 Big Sur (MacOS 16.0)
             # 21.0 Monterey (MacOS 12.0)
-            wgbin = 'OSX11wgrib2'  # compiled in MacOS 11.6.3 Big Sur
+            if 'arm' in self.machine:  # Apple Silicon
+                wgbin = 'AppleSilicon-wgrib2'  # compiled in MacOS 26.2 Tahoe using Apple Silicon
+            else:
+                wgbin = 'OSX11wgrib2'  # compiled in MacOS 11.6.3 Big Sur
 
         elif self.platform == 'windows' and self.version >= 7.0:  # Windows 7 and above
             wgbin = 'WIN32wgrib2.exe'  # compiled in windows 11 using cygwin
@@ -114,7 +120,7 @@ class Conf:
     def wafs_variable_list(self) -> dict:
         return self.wafs_levels_real_weather() if self.use_real_weather_data else self.gfs_levels
 
-    def setDefaults(self):
+    def setDefaults(self) -> None:
         """Default settings"""
         print(f"Loading defaults settings ...")
 
@@ -150,6 +156,8 @@ class Conf:
         self.enabled = True
 
         self.metar_decode = False
+
+        # Weather settings mainly used if RealWeather is disabled
         self.set_wind = False
         self.set_tropo = False
         self.set_clouds = False
@@ -161,6 +169,9 @@ class Conf:
         self.set_thermals = False
         self.set_surface_layer = False
         self.turbulence_probability = 1
+
+        # Adjust runway friction
+        self.set_friction = True
 
         # added GFS Data in real Weather
         self.set_snow = True
@@ -222,21 +233,17 @@ class Conf:
 
         self.ignore_metar_stations = []
 
-        # write METAR.rwx file
-        self.update_rwx_file = False  # Not needed by AviTab latest versions
-        self.metar_use_xp12 = False
-
         # windows position
         self.info_window_position = [220, 640]
         self.metar_window_position = [10, 900]
         self.config_window_position = [200, 640]
 
-    def saveSettings(self, filepath: Path, settings: dict):
+    def saveSettings(self, filepath: Path, settings: dict) -> None:
         f = open(filepath, 'wb')
         cPickle.dump(settings, f)
         f.close()
 
-    def loadSettings(self, filepath: Path):
+    def loadSettings(self, filepath: Path) -> None:
         if filepath.is_file():
             f = open(filepath, 'rb')
             try:
@@ -259,7 +266,7 @@ class Conf:
                 if var in self.__dict__:
                     self.__dict__[var] = conf[var]
 
-    def pluginSave(self):
+    def pluginSave(self) -> None:
         """Save plugin settings"""
         conf = {
             'version': self.__VERSION__,
@@ -276,6 +283,7 @@ class Conf:
             'set_surface_layer': self.set_surface_layer,
             'set_snow': self.set_snow,
             'set_patches': self.set_patches,
+            'set_friction': self.set_friction,
             'opt_clouds_update': self.opt_clouds_update,
             'metar_source': self.metar_source,
             'download_GFS': self.download_GFS,
@@ -288,15 +296,13 @@ class Conf:
             'metar_updaterate': self.metar_updaterate,
             'ignore_metar_stations': self.ignore_metar_stations,
             'metar_ignore_auto': self.metar_ignore_auto,
-            'update_rwx_file': self.update_rwx_file,
-            'metar_use_xp12': self.metar_use_xp12,
             'info_window_position': self.info_window_position,
             'metar_window_position': self.metar_window_position,
             'config_window_position': self.config_window_position
         }
         self.saveSettings(self.settingsfile, conf)
 
-    def pluginLoad(self):
+    def pluginLoad(self) -> None:
         self.loadSettings(self.settingsfile)
 
         if self.metar_source == 'NOAA':
@@ -304,7 +310,7 @@ class Conf:
         else:
             self.metar_updaterate = 10
 
-    def serverSave(self):
+    def serverSave(self) -> None:
         """Save weather server settings"""
         server_conf = {
             'version': self.__VERSION__,
@@ -315,7 +321,7 @@ class Conf:
         }
         self.saveSettings(self.serverSettingsFile, server_conf)
 
-    def serverLoad(self):
+    def serverLoad(self) -> None:
         self.pluginLoad()
         self.loadSettings(self.serverSettingsFile)
 

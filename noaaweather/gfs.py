@@ -4,7 +4,7 @@ NOAA weather daemon server
 ---
 X-plane NOAA GFS weather plugin.
 Copyright (C) 2011-2020 Joan Perez i Cauhe
-Copyright (C) 2021-2024 Antonio Golfari
+Copyright (C) 2021-2026 Antonio Golfari
 ---
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -24,7 +24,7 @@ class GFS(GribWeatherSource):
     download = False
     download_wait = 0
 
-    def __init__(self, conf):
+    def __init__(self, conf) -> None:
         self.variable_list = conf.gfs_variable_list
         self.download_enabled = conf.download_GFS
         super().__init__(conf)
@@ -161,7 +161,7 @@ class GFS(GribWeatherSource):
 
         return data
 
-    def check_snow_values(self, filepath, lat, lon, hdg, gfs):
+    def check_snow_values(self, filepath, lat: float, lon: float, hdg: float, gfs: dict) -> None:
         snow = gfs['surface'].get('snow')
         if not c.is_exponential(snow):
             return

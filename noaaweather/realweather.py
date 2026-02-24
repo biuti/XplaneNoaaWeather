@@ -4,7 +4,7 @@ X-Plane 12 Real Weather daemon server
 ---
 X-plane NOAA GFS weather plugin.
 Copyright (C) 2011-2020 Joan Perez i Cauhe
-Copyright (C) 2021-2024 Antonio Golfari
+Copyright (C) 2021-2026 Antonio Golfari
 ---
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -43,7 +43,7 @@ class RealWeather(GribWeatherSource):
     table = 'realweather'
     rwmetar_check_interval = 300  # 5 minutes
 
-    def __init__(self, conf):
+    def __init__(self, conf) -> None:
         self.starting = True
         self.zulu_time = None
         self.idx_behind = None
@@ -150,16 +150,7 @@ class RealWeather(GribWeatherSource):
 
         return self.db.get(self.table, icao)
 
-    def update_metar_rwx_file(self):
-        """Dumps all metar data from XP12 METAR files to the METAR.rwx file"""
-        print(f"updating METAR.rwx file using XP12 files: RealWeather.update_metar_rwx_file()")
-        if not self.metar_file or not self.metar_file.is_file():
-            print(f"ERROR updating METAR.rwx file: XP12 did not download files yet")
-            return False
-
-        return self.db.to_file(Path(self.conf.syspath, 'METAR.rwx'), self.table)
-
-    def get_real_weather_forecast(self):
+    def get_real_weather_forecast(self) -> None:
         """ configures x-plane 12 weather filenames to be read
             As X-Plane already downloads GFS grib files, there's no need to download them again as in XP11 version
             Filenames:
@@ -373,8 +364,8 @@ class RealWeather(GribWeatherSource):
             util.copy(grib_file, file)
         return len(files) > 1
 
-    def run(self, elapsed):
-        """ Updates METAR.rwx file from XP12 realweather metar files if option to do so is checked"""
+    def run(self, elapsed) -> None:
+        """ Updates METAR database from XP12 realweather metar files if option to do so is checked"""
 
         if self.time_to_update_rwmetar:
             # update real weather metar database
@@ -384,16 +375,7 @@ class RealWeather(GribWeatherSource):
             self.last_rwmetar = time.time()
             self.next_rwmetar = self.last_rwmetar + self.rwmetar_check_interval
 
-            if self.conf.update_rwx_file and self.conf.metar_use_xp12:
-                # Update METAR.rwx
-                if self.update_metar_rwx_file():
-                    print('Updated METAR.rwx file using XP12 Real Weather METAR files.')
-                else:
-                    print('There was an issue trying to update METAR.rwx file using XP12 Real Weather METAR files. Retrying in 30 seconds')
-                    # Retry in 30 sec
-                    self.next_rwmetar = time.time() + 30
-
-    def shutdown(self):
+    def shutdown(self) -> None:
         super().shutdown()
         self.db.commit()
         self.db.close()

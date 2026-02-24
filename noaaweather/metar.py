@@ -1,7 +1,7 @@
 """
 X-plane NOAA GFS weather plugin.
 Copyright (C) 2011-2020 Joan Perez i Cauhe
-Copyright (C) 2021-2024 Antonio Golfari
+Copyright (C) 2021-2026 Antonio Golfari
 ---
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -51,7 +51,7 @@ class Metar(WeatherSource):
 
     table = 'source'
 
-    def __init__(self, conf):
+    def __init__(self, conf) -> None:
 
         self.db = Database(conf.dbfile)
 
@@ -61,14 +61,12 @@ class Metar(WeatherSource):
         self.ms_download = False
         self.downloading = False
 
-        self.next_metarRWX = time.time() + 30
-
         # Metar stations update
         if (time.time() - conf.ms_update) > self.STATION_UPDATE_RATE * 86400:
             self.download_stations()
         self.last_timestamp = 0
 
-    def download_stations(self, url: str = METAR_STATIONS_GZIP, filename: str = 'stations.json'):
+    def download_stations(self, url: str = METAR_STATIONS_GZIP, filename: str = 'stations.json') -> None:
         self.ms_download = AsyncTask(
             GribDownloader.download, 
             url, 
@@ -79,7 +77,7 @@ class Metar(WeatherSource):
         self.ms_download.start()
         self.ms_url = url
 
-    def update_stations(self, path: Path, batch: int = 100):
+    def update_stations(self, path: Path, batch: int = 100) -> int:
         """Updates db's airport information from the METAR stations file"""
 
         nparsed = 0
@@ -131,16 +129,31 @@ class Metar(WeatherSource):
 
         if self.conf.metar_source == 'IVAO':
             r = json.loads(f.read())
-            lines = [f"{e['metar']}\n" for e in r]
+            lines = [e['metar'] for e in r]
         else:
             lines = f.readlines()
 
         query = '''UPDATE {} SET timestamp = ?, metar = ? WHERE icao = ? AND timestamp < ?'''.format(self.table)
 
         for i, line in enumerate(lines, 1):
-            if line[0].isalpha() and len(line) > 11 and line[11] == 'Z':
-                icao, mtime, metar = line[0:4], line[5:11], re.sub(r'[^\x00-\x7F]+', ' ', line[5:-1])
-                metar = metar.split(',')[0]
+            # 20250915 NOAA changed line formats to:
+            # "SPECI YMML 181527Z AUTO 01023G33KT 9999 // NCD 13/04 Q1015",YMML,2025-09-18T15:27:00.000Z,-37.6660,144.8320,13,4,10,23,33,6+,29.97,,,TRUE,,,,,,,,,,,,,,,,VFR,,,,,,,,,,,,SPECI,115
+            # "METAR KFCH 181640Z AUTO 00000KT 10SM CLR 24/11 A2980 RMK A01",KFCH,2025-09-18T15:26:11.000Z,36.7338,-119.8204,24,11,0,,,10+,29.80,,,TRUE,TRUE,,,,,,,,,,,,,,,VFR,,,,,,,,,,,,METAR,85
+            # IVAO (decoded json):
+            # KSFO 181656Z 00000KT 10SM CLR 19/11 A2992 RMK AO2 SLP134 T01940106 10194 201
+            # VATSIM:
+            # KEVU 181635Z AUTO 13007KT 10SM CLR 22/21 A3002 RMK AO2 T02280212
+            # METAR MMZO 170140Z 06005KT 8SM BKN020 BKN210 25/24 A2982 RMK 8/105 RA E40
+
+            if line.startswith('"') and len(line) > 18 and line[18] == 'Z':
+                line = line.split('"')[1]
+            elif line[0].isalpha() and len(line) > 11 and line[11] == 'Z':
+                line = line.split(',')[0]
+
+            line = line.replace('METAR', '').replace('SPECI', '').replace('metar', '').strip()
+
+            if len(line) > 11:
+                icao, mtime, metar = line[0:4], line[5:11], re.sub(r'[^\x00-\x7F]+', ' ', line[5:]).strip()
 
                 if mtime[-1] == 'Z':
                     mtime = '0' + mtime[:-1]
@@ -168,7 +181,7 @@ class Metar(WeatherSource):
         return nupdated, nparsed
 
     @staticmethod
-    def clear_reports(file: Path):
+    def clear_reports(file: Path) -> None:
         """Clears all metar reports from the db"""
 
         db = Database(file)
@@ -204,7 +217,7 @@ class Metar(WeatherSource):
         return self.db.get(self.table, icao)
 
     @staticmethod
-    def get_current_cycle():
+    def get_current_cycle() -> tuple[str, int]:
         """Returns the current METAR cycle"""
         now = datetime.utcnow()
         # Cycle is updated until the hour has arrived (ex: 01 cycle updates until 1am)
@@ -215,7 +228,7 @@ class Metar(WeatherSource):
         return f"{current_cycle.hour:02}", timestamp
 
     @classmethod
-    def parse_metar(cls, icao, metar, airport_msl=0):
+    def parse_metar(cls, icao: str, metar: str, airport_msl: float=0) -> dict:
         """Returns a parsed METAR"""
 
         weather = {
@@ -367,12 +380,7 @@ class Metar(WeatherSource):
 
         return weather
 
-    def update_metar_rwx_file(self):
-        """Dumps all metar data to the METAR.rwx file"""
-
-        return self.db.to_file(Path(self.conf.syspath, 'METAR.rwx'), self.table)
-
-    def run(self, elapsed: int):
+    def run(self, elapsed: int) -> None:
 
         # Update stations table if required
         if self.ms_download:
@@ -403,16 +411,6 @@ class Metar(WeatherSource):
                     updated, parsed = self.update_metar(metar_file)
                 self.download = False
 
-        # Update METAR.rwx
-        elif self.conf.update_rwx_file and not self.conf.metar_use_xp12 and self.next_metarRWX < time.time():
-            if self.update_metar_rwx_file():
-                self.next_metarRWX = time.time() + self.conf.metar_updaterate * 60
-                print(f" **** {datetime.now().strftime('%H:%M:%S')} Updated METAR.rwx file using {self.conf.metar_source}.")
-            else:
-                print(f"There was an issue trying to update METAR.rwx file using {self.conf.metar_source}. Retrying in 30 seconds")
-                # Retry in 30 sec
-                self.next_metarRWX = time.time() + 30
-
         elif self.conf.download_METAR:
             # Download new data if required
             cycle, timestamp = self.get_current_cycle()
@@ -420,9 +418,8 @@ class Metar(WeatherSource):
                 self.last_timestamp = timestamp
                 self.download_cycle(cycle, timestamp)
 
-    def download_cycle(self, cycle, timestamp):
+    def download_cycle(self, cycle: str, timestamp: int) -> None:
         self.downloading = True
-        self.cache_path.mkdir(parents=True, exist_ok=True)
 
         prefix = self.conf.metar_source
         headers = {}
@@ -453,7 +450,7 @@ class Metar(WeatherSource):
         )
         self.download.start()
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         super().shutdown()
         self.db.commit()
         self.db.close()

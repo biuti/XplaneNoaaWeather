@@ -4,7 +4,7 @@ X-plane NOAA GFS weather plugin.
 Development version for X-Plane 12
 ---
 Copyright (C) 2011-2020 Joan Perez i Cauhe
-Copyright (C) 2021-2024 Antonio Golfari
+Copyright (C) 2021-2026 Antonio Golfari
 ---
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -20,8 +20,9 @@ import subprocess
 
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
-from . import xp, c, dref, util
+from . import xp, c, dref, util, DataRef
 
 
 class Weather:
@@ -31,13 +32,24 @@ class Weather:
     ref_winds = {}
     lat, lon, last_lat, last_lon = 99, 99, False, False
 
-    def __init__(self, conf):
+    # snow default values
+    snow_default_values = {
+        'frozen_water': 0,
+        'tarmac_snow_width': 0.25,
+        'tarmac_snow_scale': 500,
+        'tarmac_snow_noise': 0.04
+    }
+
+    def __init__(self, conf) -> None:
 
         self.conf = conf
         self.data = dref.Dref()
         self.lastMetarStation = False
 
-        self.friction = 0
+        # runway friction values
+        self.xp_runway_friction = None
+        self.metar_friction = None
+        self.adjusted_friction = None
 
         # Data
         self.weatherData = False
@@ -45,6 +57,11 @@ class Weather:
 
         self.windAlts = -1
         self.nearest_snow = False
+
+        # cache to avoid recomputation
+        self._last_factor_input = None
+        self._cached_factor = 0.0
+        self._last_logged_val = None
 
         # Response queue for user queries
         self.queryResponses = []
@@ -59,12 +76,12 @@ class Weather:
 
         self.startWeatherServer()
 
-    def startWeatherClient(self):
+    def startWeatherClient(self ) -> None:
         if not self.weatherClientThread:
             self.weatherClientThread = threading.Thread(target=self.weatherClient)
             self.weatherClientThread.start()
 
-    def weatherClient(self):
+    def weatherClient(self) -> None:
         """Weather client thread fetches weather from Weather Server"""
 
         # Send something for windows to bind
@@ -82,11 +99,11 @@ class Weather:
                 self.weatherData = wdata
                 self.newData = True
 
-    def weatherClientSend(self, msg):
+    def weatherClientSend(self, msg: str) -> None:
         if self.weatherClientThread:
             self.sock.sendto(msg.encode('utf-8'), ('127.0.0.1', self.conf.server_port))
 
-    def startWeatherServer(self):
+    def startWeatherServer(self) -> None:
         DETACHED_PROCESS = 0x00000008
         args = [xp.pythonExecutable, Path(self.conf.respath, 'weatherServer.py'), self.conf.syspath]
         kwargs = {'close_fds': True}
@@ -98,21 +115,28 @@ class Weather:
         except Exception as e:
             print(f"Exception while executing subprocess: {e}")
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         # Shutdown client and server
         self.weatherClientSend('!shutdown')
         self.weatherClientThread = False
 
     def get_XP12_METAR(self, icao: str) -> str:
-        return xp.getMETARForAirport('icao')
+        return xp.getMETARForAirport(icao)
 
-    def setSnow(self, elapsed):
+    def setSnow(self, elapsed: float) -> None:
         """ Set snow cover
+            X-Plane version < 12.4:
             Dref value goes from 1.25 to 0.01
             no snow:    1.25
             light:      0.31
             medium:     0.21
             heavy:      0.07
+            X-Plane version >= 12.4:
+            Dref value goes from 0 to 1
+            no snow:    0
+            light:      0.2  no snow on tarmac, some on grass
+            medium:     0.5  no snow on tarmac, grass almost covered
+            heavy:      0.9  tarmac heavily contaminated
 
             GFS SNOD is in meters
             SNOD    Dref conversion:
@@ -126,10 +150,13 @@ class Weather:
             # we don't have snow data
             return
 
+        if self.data.snow_override.value == 0:
+            # enable snow coverage control (on 12.4-b1 does not seem to have any effect)
+            self.data.snow_override.value = 1
         data = self.weatherData['gfs']['surface']
         snow = data['snow']
-        lat = self.data.latdr.value
-        lon = self.data.londr.value
+        lat = self.data.latdr.value if isinstance(self.data.latdr.value, (int, float)) else 0.0
+        lon = self.data.londr.value if isinstance(self.data.londr.value, (int, float)) else 0.0
         temp = c.kel2cel(data['temp'])
         transitions_speed = 0.25 if self.data.on_ground else 0.01
 
@@ -172,51 +199,139 @@ class Weather:
                 'depth': snow
             }
 
-        if snow > 0:
-            # calculating a factor based on latitude and temperature
-            factor = max(-20, abs(lat) - 55 - max(0, 0.2 * temp))
-            val = max(3.8 * (1 - 0.005 * factor - snow**0.04), 0.05)
-            rw_val = self.data.snow_cover.value
-            if val < rw_val:
-                # injecting snow_cover value
-                try:
-                    c.snowDatarefTransition(self.data.snow_cover, val, elapsed=elapsed, speed=transitions_speed)
-                except SystemError as e:
-                    xp.log(f"ERROR injecting snow_cover: {e}")
-            else:
-                # no need to inject a different value
-                val = self.data.snow_cover.value
-
-            # calculating all other drefs
-            frozen_water = min(5 * max(0, factor)**1.5 * val, 1000)
-            noise = 0.15 - 0.005*factor
-            scale = noise*2000
-            width = noise*3
-
-            # adding ice based on temperature and snow (total wild guess)
-            # from 2 to 0.01, inversely proportional to factor
-            ice = 2 if temp > 4 else 0.00025*factor**2 - 0.045*factor + 1
-            self.data.iced_tarmac.value = ice
-
-            # adding standing water, as probably the tarmac is treated with addictives
-            # from 1.25 to 0.01, inversely proportional to factor, proportional to val
-            puddles = min(1.25, 1.15 - 0.5*ice)
-            self.data.puddles.value = puddles
+        # ------------------------------------------------------------------
+        # No snow → defaults
+        # ------------------------------------------------------------------
+        if snow <= 0.0:
+            val = 0.0
+            frozen_water, noise, scale, width = self.snow_default_values.values()
+            ice = puddles = 0.0
 
         else:
-            # default values
-            frozen_water = self.data.frozen_water.default_value
-            noise = self.data.tarmac_snow_noise.default_value
-            scale = self.data.tarmac_snow_scale.default_value
-            width = self.data.tarmac_snow_width.default_value
+            # --------------------------------------------------------------
+            # Factor caching (lat/temp rarely change)
+            # --------------------------------------------------------------
+            factor_key = (round(lat, 2), round(temp, 1))
+            if factor_key != self._last_factor_input:
+                self._cached_factor = c.computeWaterHostilityFactor(lat, temp)
+                self._last_factor_input = factor_key
 
-        # inject values
-        c.datarefTransition(self.data.frozen_water, frozen_water, elapsed=elapsed, speed=transitions_speed)
-        self.setDrefIfDiff(self.data.tarmac_snow_noise, noise)
-        self.setDrefIfDiff(self.data.tarmac_snow_scale, scale)
-        self.setDrefIfDiff(self.data.tarmac_snow_width, width)
+            factor = self._cached_factor
 
-    def setDrefIfDiff(self, dref, value, max_diff=False):
+            # --------------------------------------------------------------
+            # Compute snow coverage
+            # --------------------------------------------------------------
+            val = c.computeSnowVal(snow, lat, temp)
+
+            # --------------------------------------------------------------
+            # Compute surface effects
+            # --------------------------------------------------------------
+            (
+                frozen_water,
+                noise,
+                scale,
+                width,
+                ice,
+                puddles
+            ) = c.computeSurfaceEffects(val, factor, temp)
+
+        # ------------------------------------------------------------------
+        # Snow cover transition (only if changed meaningfully)
+        # ------------------------------------------------------------------
+        rw_val = self.data.snow_cover.value
+        if not c.isclose(rw_val, val, tol=0.005):
+            try:
+                c.snowDatarefTransition(
+                    self.data.snow_cover,
+                    val,
+                    elapsed=elapsed,
+                    speed=transitions_speed
+                )
+
+                c.datarefTransition(
+                    self.data.frozen_water,
+                    frozen_water,
+                    elapsed,
+                    transitions_speed
+                )
+
+                self.setDrefIfDiff(self.data.tarmac_snow_noise, noise)
+                self.setDrefIfDiff(self.data.tarmac_snow_scale, scale)
+                self.setDrefIfDiff(self.data.tarmac_snow_width, width)
+
+                # log only when change is visible
+                if self._last_logged_val is None or abs(val - self._last_logged_val) > 0.01:
+                    xp.log(
+                        f" Snow cover: {val:.3f} | depth {snow:.2f} m | lat {lat:.1f} | temp {temp:.1f}C"
+                    )
+                    self._last_logged_val = val
+
+            except SystemError as e:
+                xp.log(f"ERROR injecting snow_cover: {e}")
+
+        # ------------------------------------------------------------------
+        # Inject secondary drefs
+        # ------------------------------------------------------------------
+        self.setDrefIfDiff(self.data.iced_tarmac, ice)
+        self.setDrefIfDiff(self.data.puddles, puddles)
+
+    def setRunwayFriction(self, elapsed: float) -> None:
+        """
+            As of XP version 12.4, runway friction still needs to be adjusted as it 
+            uses high values of friction (icy tarmac) on any airport, so even international airports are affected.
+            This function adjusts the friction value considering that runways receive anti-ice treatment.
+            In the future, I will take into consideration METAR values and define a friction value internally
+            By now:
+            - 6 < friction <= 8  : medium snow -> set to puddly (6)
+            - 9 < friction <= 11 : icy     -> set to snowy (7)
+            - 12 and 13          : snowy/icy -> set to snowy (8)
+            - friction > 13      : heavy snow / ice -> set to heavy snow (9)
+        """
+        # # get current friction values
+        # # Dry = 0, wet(1-3), puddly(4-6), snowy(7-9), icy(10-12), snowy/icy(13-15)
+        friction = self.data.runwayFriction.value
+
+        if not isinstance(friction, (int, float)):
+            return
+
+        if self.adjusted_friction is not None and c.isclose(friction, self.adjusted_friction, tol=0.01):
+            # already adjusted value
+            return
+
+        # -----------------------------
+        # Decide desired state
+        # -----------------------------
+        if friction < 6:
+            desired = None
+        else:
+            desired = c.map_friction(friction)
+
+        # -----------------------------
+        # Release
+        # -----------------------------
+        if desired is None:
+            if self.adjusted_friction is not None:
+                xp.log("[RF] releasing friction override")
+                self.adjusted_friction = None
+                self.xp_runway_friction = None
+            return
+
+        # -----------------------------
+        # Apply or change override
+        # -----------------------------
+        if self.adjusted_friction != desired:
+            self.adjusted_friction = desired
+        if self.xp_runway_friction != friction:
+            self.xp_runway_friction = friction
+
+        if friction != desired:
+            try:
+                self.data.runwayFriction.value = desired
+                xp.log(f"[RF] adjusted {friction:.1f} → {desired}")
+            except SystemError as e:
+                xp.log(f"[RF] ERROR injecting runway friction: {e}")
+
+    def setDrefIfDiff(self, dref, value: float, max_diff: Optional[float] = False) -> bool:
         """ Set a Dataref if the current value differs
             Returns True if value was updated """
 
@@ -230,7 +345,7 @@ class Weather:
                 return True
         return False
 
-    def reset_weather(self):
+    def reset_weather(self) -> None:
         if self.nearest_snow:
             # reset nearest snow value
             self.nearest_snow = False
@@ -326,10 +441,10 @@ class Weather:
                     pressure_inHg = c.mb2inHg(pressure)
                     line += f" | Press. at sea lvl: {pressure:.1f}mb ({pressure_inHg:.2f}inHg)"
                     sysinfo += [line]
-                    friction = self.data.runwayFriction.get()
+                    friction = self.data.runwayFriction.value
                     line = f"   Runway Friction: {friction:02}"
-                    # if friction != metar_friction:
-                    #     line += f" (original {metar_friction:02})"
+                    if self.adjusted_friction is not None:
+                        line += f" (adjusted from {self.xp_runway_friction:02})"
                     sysinfo += [line, '']
 
             if not self.conf.meets_wgrib2_requirements:
@@ -510,6 +625,12 @@ class Weather:
                     #         sysinfo += [f"{ci['layers']}"]
 
         return sysinfo
+
+    def cleanup(self) -> None:
+        """Cleanup datarefs"""
+        datarefs = [el.dref for el in self.data.__dict__.values() if isinstance(el, DataRef)]
+        for dr in datarefs:
+            xp.unregisterDataAccessor(dr)
 
     def dumpLog(self) -> Path:
         """Dumps all the information to a file to report bugs"""
