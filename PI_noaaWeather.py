@@ -865,9 +865,9 @@ class Data:
         self.cloud_top = EasyDref('xjpc/XPNoaaWeather/weather/cloud_top[3]', 'float', register=True)
         self.cloud_cover = EasyDref('xjpc/XPNoaaWeather/weather/cloud_cover[3]', 'float', register=True)
 
-        self.nturbulence = EasyDref('xjpc/XPNoaaWeather/weather/wafs_nturb', 'int', register=True)
-        self.turbulence_alt = EasyDref('xjpc/XPNoaaWeather/weather/turbulence_alt[16]', 'float', register=True)
-        self.turbulence_sev = EasyDref('xjpc/XPNoaaWeather/weather/turbulence_sev[16]', 'float', register=True)
+        # self.nturbulence = EasyDref('xjpc/XPNoaaWeather/weather/wafs_nturb', 'int', register=True)
+        # self.turbulence_alt = EasyDref('xjpc/XPNoaaWeather/weather/turbulence_alt[16]', 'float', register=True)
+        # self.turbulence_sev = EasyDref('xjpc/XPNoaaWeather/weather/turbulence_sev[16]', 'float', register=True)
 
         # Metar variables
         self.metar_temperature = EasyDref('xjpc/XPNoaaWeather/weather/metar_temperature', 'float', register=True)
@@ -1075,26 +1075,27 @@ class PythonInterface:
         y -= 20
 
         # Turbulence enable
-        XPCreateWidget(x + 5, y - 40, x + 20, y - 60, 1, 'Turbulence', 0, window, xpWidgetClass_Caption)
-        self.turbCheck = XPCreateWidget(x + 110, y - 40, x + 120, y - 60, 1, '', 0, window, xpWidgetClass_Button)
-        XPSetWidgetProperty(self.turbCheck, xpProperty_ButtonType, xpRadioButton)
-        XPSetWidgetProperty(self.turbCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
-        XPSetWidgetProperty(self.turbCheck, xpProperty_ButtonState, self.conf.set_turb)
-        y -= 20
+        # This GRIB files are not available anymore without a payed subscription
+        # XPCreateWidget(x + 5, y - 40, x + 20, y - 60, 1, 'Turbulence', 0, window, xpWidgetClass_Caption)
+        # self.turbCheck = XPCreateWidget(x + 110, y - 40, x + 120, y - 60, 1, '', 0, window, xpWidgetClass_Button)
+        # XPSetWidgetProperty(self.turbCheck, xpProperty_ButtonType, xpRadioButton)
+        # XPSetWidgetProperty(self.turbCheck, xpProperty_ButtonBehavior, xpButtonBehaviorCheckBox)
+        # XPSetWidgetProperty(self.turbCheck, xpProperty_ButtonState, self.conf.set_turb)
+        # y -= 20
 
-        self.turbulenceCaption = XPCreateWidget(x + 5, y - 40, x + 80, y - 60, 1, 'Turbulence prob.  %d%%' % (
-                self.conf.turbulence_probability * 100), 0, window, xpWidgetClass_Caption)
-        y -= 20
-        self.turbulenceSlider = XPCreateWidget(x + 10, y - 40, x + 160, y - 60, 1, '', 0, window,
-                                               xpWidgetClass_ScrollBar)
-        XPSetWidgetProperty(self.turbulenceSlider, xpProperty_ScrollBarType, xpScrollBarTypeSlider)
-        XPSetWidgetProperty(self.turbulenceSlider, xpProperty_ScrollBarMin, 10)
-        XPSetWidgetProperty(self.turbulenceSlider, xpProperty_ScrollBarMax, 1000)
-        XPSetWidgetProperty(self.turbulenceSlider, xpProperty_ScrollBarPageAmount, 1)
+        # self.turbulenceCaption = XPCreateWidget(x + 5, y - 40, x + 80, y - 60, 1, 'Turbulence prob.  %d%%' % (
+        #         self.conf.turbulence_probability * 100), 0, window, xpWidgetClass_Caption)
+        # y -= 20
+        # self.turbulenceSlider = XPCreateWidget(x + 10, y - 40, x + 160, y - 60, 1, '', 0, window,
+        #                                        xpWidgetClass_ScrollBar)
+        # XPSetWidgetProperty(self.turbulenceSlider, xpProperty_ScrollBarType, xpScrollBarTypeSlider)
+        # XPSetWidgetProperty(self.turbulenceSlider, xpProperty_ScrollBarMin, 10)
+        # XPSetWidgetProperty(self.turbulenceSlider, xpProperty_ScrollBarMax, 1000)
+        # XPSetWidgetProperty(self.turbulenceSlider, xpProperty_ScrollBarPageAmount, 1)
 
-        XPSetWidgetProperty(self.turbulenceSlider, xpProperty_ScrollBarSliderPosition,
-                            int(self.conf.turbulence_probability * 1000))
-        y -= 20
+        # XPSetWidgetProperty(self.turbulenceSlider, xpProperty_ScrollBarSliderPosition,
+        #                     int(self.conf.turbulence_probability * 1000))
+        # y -= 20
 
         # Tropo enable
         XPCreateWidget(x + 5, y - 40, x + 20, y - 60, 1, 'Tropo Temp', 0, window, xpWidgetClass_Caption)
@@ -1323,12 +1324,12 @@ class PythonInterface:
                 self.conf.set_thermals = XPGetWidgetProperty(self.thermalsCheck, xpProperty_ButtonState, None)
                 self.conf.set_surface_layer = XPGetWidgetProperty(self.surfaceCheck, xpProperty_ButtonState, None)
                 self.conf.inputbug = XPGetWidgetProperty(self.bugCheck, xpProperty_ButtonState, None)
-                self.conf.turbulence_probability = XPGetWidgetProperty(self.turbulenceSlider,
-                                                                       xpProperty_ScrollBarSliderPosition,
-                                                                       None) / 1000.0
+                # self.conf.turbulence_probability = XPGetWidgetProperty(self.turbulenceSlider,
+                #                                                        xpProperty_ScrollBarSliderPosition,
+                #                                                        None) / 1000.0
 
                 # Zero turbulence data if disabled
-                self.conf.set_turb = XPGetWidgetProperty(self.turbCheck, xpProperty_ButtonState, None)
+                # self.conf.set_turb = XPGetWidgetProperty(self.turbCheck, xpProperty_ButtonState, None)
                 if not self.conf.set_turb:
                     for i in range(3):
                         self.weather.winds[i]['turbulence'].value = 0
