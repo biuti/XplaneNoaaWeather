@@ -136,7 +136,7 @@ class Conf:
         self.opt_clouds_update = True
         self.set_temp = True
         self.set_visibility = False
-        self.set_turb = True
+        self.set_turb = False  # Turbulence data is not freely available on NOAA server anymore
         self.set_pressure = True
         self.set_thermals = True
         self.set_surface_layer = True
@@ -220,7 +220,7 @@ class Conf:
 
             # may be "dangerous" if someone messes our config file
             for var in conf:
-                if var in self.__dict__:
+                if var in self.__dict__ and var != 'set_turb':  # avoid enabling turbulence reading old config files
                     self.__dict__[var] = conf[var]
 
             # Versions config overrides
@@ -241,7 +241,7 @@ class Conf:
             'set_temp': self.set_temp,
             'set_clouds': self.set_clouds,
             'set_wind': self.set_wind,
-            'set_turb': self.set_turb,
+            #'set_turb': self.set_turb,
             'set_pressure': self.set_pressure,
             'set_tropo': self.set_tropo,
             'set_thermals': self.set_thermals,
