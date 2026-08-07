@@ -112,7 +112,7 @@ class Metar(WeatherSource):
                         lon = float(line[47:50]) + round(float(line[51:53]) / 60, 4)
                         if line[53] == 'W':
                             lon *= -1
-                        elevation = int(line[55:59])
+                        elevation = int(line[55:59]) if line[55:59].isdigit() else 0
                         if line[20] != ' ' and line[51] != '9':
                             cursor.execute(
                                 'INSERT OR REPLACE INTO airports (icao, lat, lon, elevation, timestamp) \
