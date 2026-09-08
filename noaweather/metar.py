@@ -156,42 +156,39 @@ class Metar(WeatherSource):
         else:
             lines = f.readlines()
 
-        for line in lines:
+        lines = [l for l in lines if len(l) > 11]
+
+        for i, line in enumerate(lines, 1):
             if line[0] == '"' and line[18] == 'Z':
-                line = line.split('"')[1][6:]
+                line = line.split('"')[1]
             elif line[0].isalpha() and line[11] == 'Z':
                 line = line.split(',')[0]
-            if len(line) > 11:
-                i += 1
-                icao, mtime, metar = line[0:4], line[5:11], re.sub(r'[^\x00-\x7F]+', ' ', line[5:]).strip()
+                
+            line = line.replace('METAR', '').replace('SPECI', '').replace('metar', '').strip()
 
-                if mtime[-1] == 'Z':
-                    mtime = '0' + mtime[:-1]
+            if mtime[-1] == 'Z':
+                mtime = '0' + mtime[:-1]
 
-                if not mtime.isdigit():
-                    mtime = '000000'
+            if not mtime.isdigit():
+                mtime = '000000'
 
-                # Prepend year and month to the timestamp
-                if mtime[:2] == today:
-                    timestamp = today_prefix + mtime
-                else:
-                    timestamp = yesterday_prefix + mtime
+            # Prepend year and month to the timestamp
+            if mtime[:2] == today:
+                timestamp = today_prefix + mtime
+            else:
+                timestamp = yesterday_prefix + mtime
 
-                inserts.append((timestamp, metar, icao, timestamp))
-                nparsed += 1
-                timestamp = 0
+            inserts.append((timestamp, metar, icao, timestamp))
+            nparsed += 1
+            timestamp = 0
 
-                if (i % INSBUF) == 0:
-                    cursor.executemany('UPDATE airports SET timestamp = ?, metar = ? WHERE icao = ? AND timestamp < ?',
-                                       inserts)
-                    inserts = []
-                    nupdated += cursor.rowcount
+            if (i % INSBUF) == 0 or i >= len(lines):
+                cursor.executemany('UPDATE airports SET timestamp = ?, metar = ? WHERE icao = ? AND timestamp < ?',
+                                   inserts)
+                inserts = []
+                nupdated += cursor.rowcount
 
-        if len(inserts):
-            cursor.executemany('UPDATE airports SET timestamp = ?, metar = ? WHERE icao = ? AND timestamp < ?', inserts)
-            nupdated += cursor.rowcount
         db.commit()
-
         f.close()
 
         if not self.conf.keepOldFiles:
