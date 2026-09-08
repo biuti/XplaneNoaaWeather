@@ -165,6 +165,7 @@ class Metar(WeatherSource):
                 line = line.split(',')[0]
                 
             line = line.replace('METAR', '').replace('SPECI', '').replace('metar', '').strip()
+            icao, mtime, metar = line[0:4], line[5:11], re.sub(r'[^\x00-\x7F]+', ' ', line[5:]).strip()
 
             if mtime[-1] == 'Z':
                 mtime = '0' + mtime[:-1]
