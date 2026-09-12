@@ -25,7 +25,7 @@ class Conf:
     syspath, dirsep = '', os.sep
     printableChars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ '
 
-    __VERSION__ = '12.4'  # plugin version 
+    __VERSION__ = '12.4.4-beta.1'  # plugin version 
 
     # Dref and Command parameters
     plugin_command_origin = 'XPNOAAWeather'
