@@ -22,6 +22,11 @@ from .database import Database
 from .weathersource import GribWeatherSource
 
 
+# Variables that drive turbulence/icing vs. wind/temp/humidity handling
+ICING_VARS = frozenset(('ICESEV', 'EDPARM'))
+WIND_VARS = frozenset(('UGRD', 'VGRD', 'TMP', 'RH'))
+
+
 class RealWeather(GribWeatherSource):
     """X-Plane 12 Real Weather files source"""
 
@@ -197,49 +202,60 @@ class RealWeather(GribWeatherSource):
         turb = {}
         checked = False
 
-        # inizialize levels
-        for level in self.levels:
-            wind.setdefault(level, {})
+        # pre-initialize one bucket per pressure level; '1000' doubles as the
+        # near-surface bucket for both real low pressure levels and 2/10 m
+        # "above ground" readings (see the < 100 check below)
+        for lvl in self.levels:
+            wind.setdefault(lvl, {})
 
         for line in it:
             r = line.split(':')
-
-            # Level, variable, value
-            level, variable, value = [r[4].split(' '), r[3], r[7].split(',')[2].split('=')[1]]
+            level = r[4].split(' ')
+            variable = r[3]
+            value = r[7].split(',')[2].split('=')[1]
 
             if len(level) > 1:
                 if level[1] == 'cloud':
                     # cloud layer
+                    # ['low', 'cloud', 'bottom', 'level'] PRES 95267.5
+                    # ['low', 'cloud', 'layer'] LCDC 56.8
                     clouds.setdefault(level[0], {})
                     if len(level) > 3 and variable == 'PRES':
+                        # 'bottom' / 'top' pressure
                         clouds[level[0]][level[2]] = value
                     else:
-                        # level coverage/temperature
+                        # level coverage / temperature
                         clouds[level[0]][variable] = value
-                elif any(el in variable for el in ('ICESEV', 'EDPARM', 'UGRD', 'VGRD', 'TMP', 'RH')):
-                    if variable == 'ICESEV':
-                        # Icing severity
-                        pass
-                    elif variable == 'EDPARM':
-                        # Eddy Dissipation Param
+                    continue
+
+                # Any reading taken "above ground" (2 m / 10 m) is a surface value
+                # regardless of which variable it is. This single check replaces the
+                # two separate `level[-1] == 'ground'` checks that used to exist.
+                if level[-1] == 'ground':
+                    surface[variable] = value
+
+                if variable in ICING_VARS:
+                    # ICESEV (icing severity) isn't consumed yet -> nothing to do
+                    if variable == 'EDPARM':
+                        # Eddy Dissipation Parameter -> turbulence
                         if not checked:
-                            # getting cycle info
-                            if not r[2].split('=')[1] == self.wafs_run:
-                                self.wafs_run = r[2].split('=')[1]
+                            run = r[2].split('=')[1]
+                            if run != self.wafs_run:
+                                self.wafs_run = run
                                 self.wafs_fcst = r[5]
                             checked = True
                         turb['1000' if float(level[0]) < 100 else level[0]] = value
-                    elif variable in ['UGRD', 'VGRD', 'TMP', 'RH']:
-                        # wind, temperature and humidity
-                        if not r[2].split('=')[1] == self.gfs_run:
-                            # getting cycle info
-                            self.gfs_run = r[2].split('=')[1]
-                            self.gfs_fcst = r[5]
-                        wind['1000' if float(level[0]) < 100 else level[0]][variable] = value
-                elif level[-1] == 'ground':
-                    surface[variable] = value
+
+                elif variable in WIND_VARS:
+                    run = r[2].split('=')[1]
+                    if run != self.gfs_run:
+                        self.gfs_run = run
+                        self.gfs_fcst = r[5]
+                    wind['1000' if float(level[0]) < 100 else level[0]][variable] = value
+
                 elif variable == 'PRMSL':
                     pressure = c.pa2inhg(float(value))
+
             elif level[0] == 'tropopause':
                 tropo[variable] = value
             elif level[0] == 'surface':
@@ -251,7 +267,6 @@ class RealWeather(GribWeatherSource):
         turblevels = []
 
         # Let data ready to push on datarefs.
-
         # Convert wind levels
         wind_levels = iter(wind.items())
         for level, wind in wind_levels:
@@ -307,7 +322,7 @@ class RealWeather(GribWeatherSource):
         turblevels.sort()
 
         # tropo
-        if any(k in tropo.keys() for k in ('PRESS', 'HGT')) and 'TMP' in tropo.keys():
+        if any(k in tropo.keys() for k in ('PRES', 'HGT')) and 'TMP' in tropo.keys():
             if 'PRES' in tropo.keys():
                 alt = round(c.mb2alt(float(tropo['PRES'])*0.01))
             else:
@@ -318,10 +333,12 @@ class RealWeather(GribWeatherSource):
         else:
             tropo = {}
 
-        # surface
-        default = {'PRES': 'press', 'TMP': 'temp', 'HGT': 'alt', 'SNOD': 'snow', 'APCP': 'apcp'}
-        for k, v in [i for i in default.items() if i[0] in surface.keys()]:
-            surface[v] = float(surface.pop(k, None)) if k != 'PRES' else float(surface.pop(k)) * 0.01
+        # Surface: rename raw GRIB keys, convert pressure Pa -> hPa
+        rename = {'PRES': 'press', 'TMP': 'temp', 'HGT': 'alt', 'SNOD': 'snow', 'APCP': 'apcp'}
+        for k, v in rename.items():
+            if k in surface:
+                raw = float(surface.pop(k))
+                surface[v] = raw * 0.01 if k == 'PRES' else raw
 
         data = {
             'winds': windlevels,

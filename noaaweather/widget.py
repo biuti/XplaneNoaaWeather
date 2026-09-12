@@ -76,6 +76,12 @@ class Widget:
 
         self.newAptLoaded = False
 
+        xp.log(f" * * * GFS Download Activated: {self.conf.download_GFS}")
+        xp.log(f" * * * WAFS Download Activated: {self.conf.download_WAFS}")
+        xp.log(f" * * * Snow Cover Activated: {self.conf.set_snow}")
+        xp.log(f" * * * Water Patches Activated: {self.conf.set_patches}")
+        xp.log(f" * * * Runway Friction Fix Activated: {self.conf.set_friction}")
+
     def create_main_menu(self) -> None:
 
         # create Menu
@@ -337,28 +343,28 @@ class Widget:
         )
         y-= self.line_height * 2
 
-        # Download GFS Data
-        xp.createWidget(x, y, x + 100, y - self.line_height, 1, 'GFS data download:', 0, window, xp.WidgetClass_Caption)
-        self.GFSCheck = xp.createWidget(xc, y, xc + self.line_height, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button)
-        xp.setWidgetProperty(self.GFSCheck, xp.Property_ButtonState, xp.RadioButton)
-        xp.setWidgetProperty(self.GFSCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
-        xp.setWidgetProperty(self.GFSCheck, xp.Property_ButtonState, self.conf.download_GFS)
-        y -= self.line_height
+        # # Download GFS Data
+        # xp.createWidget(x, y, x + 100, y - self.line_height, 1, 'GFS data download:', 0, window, xp.WidgetClass_Caption)
+        # self.GFSCheck = xp.createWidget(xc, y, xc + self.line_height, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button)
+        # xp.setWidgetProperty(self.GFSCheck, xp.Property_ButtonState, xp.RadioButton)
+        # xp.setWidgetProperty(self.GFSCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
+        # xp.setWidgetProperty(self.GFSCheck, xp.Property_ButtonState, self.conf.download_GFS)
+        # y -= self.line_height
 
-        # Accumulated snow | water
-        xp.createWidget(x + 50, y, x + 150, y - self.line_height, 1, 'Accumulated Snow:', 0, window, xp.WidgetClass_Caption)
-        self.snowCheck = xp.createWidget(xc, y, xc + self.line_height, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button)
-        xp.setWidgetProperty(self.snowCheck, xp.Property_ButtonState, xp.RadioButton)
-        xp.setWidgetProperty(self.snowCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
-        xp.setWidgetProperty(self.snowCheck, xp.Property_ButtonState, self.conf.set_snow)
-        y -= self.line_height
+        # # Accumulated snow | water
+        # xp.createWidget(x + 50, y, x + 150, y - self.line_height, 1, 'Accumulated Snow:', 0, window, xp.WidgetClass_Caption)
+        # self.snowCheck = xp.createWidget(xc, y, xc + self.line_height, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button)
+        # xp.setWidgetProperty(self.snowCheck, xp.Property_ButtonState, xp.RadioButton)
+        # xp.setWidgetProperty(self.snowCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
+        # xp.setWidgetProperty(self.snowCheck, xp.Property_ButtonState, self.conf.set_snow)
+        # y -= self.line_height
 
-        xp.createWidget(x + 50, y, x + 150, y - self.line_height, 1, 'Accumulated Water:', 0, window, xp.WidgetClass_Caption)
-        self.rainCheck = xp.createWidget(xc, y, xc + self.line_height, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button)
-        xp.setWidgetProperty(self.rainCheck, xp.Property_ButtonState, xp.RadioButton)
-        xp.setWidgetProperty(self.rainCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
-        xp.setWidgetProperty(self.rainCheck, xp.Property_ButtonState, self.conf.set_patches)
-        y -= self.line_height * 2
+        # xp.createWidget(x + 50, y, x + 150, y - self.line_height, 1, 'Accumulated Water:', 0, window, xp.WidgetClass_Caption)
+        # self.rainCheck = xp.createWidget(xc, y, xc + self.line_height, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button)
+        # xp.setWidgetProperty(self.rainCheck, xp.Property_ButtonState, xp.RadioButton)
+        # xp.setWidgetProperty(self.rainCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
+        # xp.setWidgetProperty(self.rainCheck, xp.Property_ButtonState, self.conf.set_patches)
+        # y -= self.line_height * 2
 
         xp.createWidget(x, y, x + 100, y - self.line_height, 1, 'Adjusted Runway Friction:', 0, window, xp.WidgetClass_Caption)
         self.frictionCheck = xp.createWidget(xc, y, xc + self.line_height, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button)
@@ -594,10 +600,10 @@ class Widget:
                 self.conf.enabled = xp.getWidgetProperty(self.enable_check, xp.Property_ButtonState)
                 self.conf.metar_decode = xp.getWidgetProperty(self.decode_check, xp.Property_ButtonState)
                 if self.conf.use_real_weather_data:
-                    self.conf.download_GFS = xp.getWidgetProperty(self.GFSCheck, xp.Property_ButtonState)
+                    # self.conf.download_GFS = xp.getWidgetProperty(self.GFSCheck, xp.Property_ButtonState)
                     # self.conf.download_WAFS = xp.getWidgetProperty(self.WAFSCheck, xp.Property_ButtonState)
-                    self.conf.set_snow = xp.getWidgetProperty(self.snowCheck, xp.Property_ButtonState)
-                    self.conf.set_patches = xp.getWidgetProperty(self.rainCheck, xp.Property_ButtonState)
+                    # self.conf.set_snow = xp.getWidgetProperty(self.snowCheck, xp.Property_ButtonState)
+                    # self.conf.set_patches = xp.getWidgetProperty(self.rainCheck, xp.Property_ButtonState)
                     self.conf.set_friction = xp.getWidgetProperty(self.frictionCheck, xp.Property_ButtonState)
                     # pass
                 else:
@@ -674,9 +680,10 @@ class Widget:
         xp.setWidgetProperty(self.auto_check, xp.Property_ButtonState, self.conf.metar_ignore_auto)
 
         if self.conf.use_real_weather_data:
+            # xp.setWidgetProperty(self.GFSCheck, xp.Property_ButtonState, self.conf.download_GFS)
             # xp.setWidgetProperty(self.WAFSCheck, xp.Property_ButtonState, self.conf.download_WAFS)
-            xp.setWidgetProperty(self.snowCheck, xp.Property_ButtonState, self.conf.set_snow)
-            xp.setWidgetProperty(self.rainCheck, xp.Property_ButtonState, self.conf.set_patches)
+            # xp.setWidgetProperty(self.snowCheck, xp.Property_ButtonState, self.conf.set_snow)
+            # xp.setWidgetProperty(self.rainCheck, xp.Property_ButtonState, self.conf.set_patches)
             xp.setWidgetProperty(self.frictionCheck, xp.Property_ButtonState, self.conf.set_friction)
 
         else:

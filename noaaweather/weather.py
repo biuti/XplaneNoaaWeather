@@ -495,6 +495,28 @@ class Weather:
                 if 'rw' in wdata and self.conf.use_real_weather_data:
                     # XP12 Real Weather is enabled
                     rw = wdata['rw']
+
+                    # X-Plane 12.4.4 and above should have SNOD in Real Weather Grib files data
+                    if 'surface' in rw and len(rw['surface']):
+                        sysinfo += ['XP12 REAL WEATHER SURFACE DATA:']
+                        s = rw['surface']
+                        elev = 'na' if s.get('alt') is None else round(s.get('alt'))
+                        surface_temp = 'na' if s.get('temp') is None else round(c.kel2cel(s.get('temp')), 1)
+                        snow = s.get('snow')
+                        if c.is_exponential(snow):
+                            snow = None
+                        snow_depth = f"{'na' if snow is None or snow < 0 else round(snow, 2)}"
+                        # acc_precip = 'na' if (s.get('acc_precip') is None or s.get('acc_precip') < 0) else round(s.get('acc_precip'), 2)
+                        sysinfo += [
+                            f"   elev. (ft): {elev} | temp (C): {surface_temp} | snow depth (m): {snow_depth}",
+                            ''
+                        ]
+                    else:
+                        # probably there was an error downloading data from NOAA server
+                        sysinfo += [
+                            'No precipitation data available. Check log files'
+                        ]
+
                     if 'winds' in rw:
                         sysinfo += ['XP12 REAL WEATHER WIND LAYERS: FL | HDG KT | TEMP | DEV']
                         wlayers = ''

@@ -174,8 +174,8 @@ class Conf:
         self.set_friction = True
 
         # added GFS Data in real Weather
-        self.set_snow = True
-        self.set_patches = True
+        self.set_snow = False
+        self.set_patches = False
 
         self.download_METAR = True
 
@@ -183,7 +183,7 @@ class Conf:
         self.use_real_weather_data = True
 
         # Avoid downloading GFS and WAFS data until it will have some use in XP12
-        self.download_GFS = True
+        self.download_GFS = False
         self.download_WAFS = False
 
         # From this AGL level METAR values are interpolated to GFS ones.
@@ -258,12 +258,15 @@ class Conf:
             # print(f"Conf settings Version: {conf['version']}")
             # Reset settings on different versions.
             if 'version' not in conf or conf['version'] < '12.0.0':
-                print(f"Version unknown or very old, skipping ...")
+                print("Version unknown or very old, skipping ...")
                 return
 
             # may be "dangerous" if someone messes our config file
             for var in conf:
-                if var in self.__dict__:
+                if var in ['set_snow', 'set_patches', 'download_GFS', 'download_WAFS'] and conf[var] is True:
+                    # overwriting older plugin version values
+                    continue
+                elif var in self.__dict__:
                     self.__dict__[var] = conf[var]
 
     def pluginSave(self) -> None:
