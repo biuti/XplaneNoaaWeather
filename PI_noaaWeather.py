@@ -90,7 +90,7 @@ class PythonInterface(widget.Widget):
         if wdata is False:
             return -1
 
-        if self.conf.use_real_weather_data and self.conf.download_GFS:
+        if self.conf.use_real_weather_data:
             if self.newAptLoaded:
                 xp.log(f" *** NEW APT LOADED ***")
                 self.weather.reset_weather()
