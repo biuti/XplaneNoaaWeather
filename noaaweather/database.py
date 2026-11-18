@@ -9,19 +9,24 @@ of the License, or any later version.
 """
 
 import sqlite3
-import sys
+import threading
+import traceback
 
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Optional
 
 
 class Database:
-    """Wrapper Class for SQLite database connection"""
+    """Wrapper Class for SQLite database connection
+    One connection per thread. A connection shared by two threads shares its transaction as well: a commit()
+    or rollback() in one thread would commit or discard the pending writes of the other.
+    """
 
-    def __init__(self, dbfile: Optional[Path] = None) -> None:
-        self.conn = None
-        self.cursor = None
+    def __init__(self, dbfile: Path | None = None) -> None:
+        self._dbfile = None
+        self._local = threading.local()
+        self._connections = []
+        self._lock = threading.Lock()
 
         if dbfile:
             self.open(dbfile)
@@ -32,23 +37,47 @@ class Database:
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
 
+    @property
+    def conn(self) -> sqlite3.Connection | None:
+        """Connection of the calling thread, opened on first use"""
+        if self._dbfile is None:
+            return None
+        conn = getattr(self._local, 'conn', None)
+        if conn is None:
+            # every connection is used by its own thread only: check_same_thread=False just lets close() reach them all
+            conn = sqlite3.connect(self._dbfile, timeout=10, check_same_thread=False)
+            try:
+                conn.execute('PRAGMA journal_mode=WAL')  # readers do not block the writer
+                conn.execute('PRAGMA synchronous=NORMAL')
+            except sqlite3.Error as e:
+                print(f"SQLite: can't set WAL mode: {e}")
+            self._local.conn = conn
+            with self._lock:
+                self._connections.append(conn)
+        return conn
+
     def commit(self):
-        if self.conn:
-            self.conn.commit()
+        conn = getattr(self._local, 'conn', None)
+        if conn:
+            conn.commit()
 
     def open(self, dbfile: Path) -> None:
+        self._dbfile = dbfile
         try:
-            self.conn = sqlite3.connect(dbfile, check_same_thread=False)  # if it does not exist, file will be created
             self.create_database()
-            self.cursor = self.conn.cursor()
         except sqlite3.Error as e:
-            print(f"SQLite Error connecting to {dbfile.name}: {e}")
+            print(f"SQLite Error connecting to {Path(dbfile).name}: {e}")
 
     def close(self) -> None:
-        if self.conn:
-            self.conn.commit()
-            self.cursor.close()
-            self.conn.close()
+        with self._lock:
+            connections, self._connections = self._connections, []
+        for conn in connections:
+            try:
+                conn.commit()
+                conn.close()
+            except sqlite3.Error as e:
+                print(f"SQLite Error closing connection: {e}")
+        self._local = threading.local()
 
     def create_database(self) -> None:
         queries = [
@@ -65,52 +94,53 @@ class Database:
     def get(self, table: str, icao: str) -> tuple[str, str]:
 
         query = '''SELECT * FROM {} WHERE icao = ?'''.format(table)
+        met = (icao, 'not found')
         with self.session() as db:
             res = db.execute(query, (icao,))
-            met = res.fetchone() or (icao, 'not found')
+            met = res.fetchone() or met
         return met
 
     def get_all(self, table: str) -> list:
 
         query = '''SELECT * FROM {} WHERE metar NOT NULL'''.format(table)
-
+        met = []
         with self.session() as db:
             res = db.execute(query)
             met = res.fetchall()
-            return met
+        return met
 
     def query(self, sql: str) -> int:
+        res = 0
         with self.session() as db:
             res = db.execute(sql).rowcount
-            return res
+        return res
 
     def writemany(self, query: str, rows: list, batch: int = 100) -> int:
+        count = 0
         with self.session() as db:
-            return db.executemany(query, rows).rowcount
+            count = db.executemany(query, rows).rowcount
+        return count
 
     @contextmanager
     def session(self):
-        """Provide a transactional scope around a series of operations."""
-        session = self.conn
-        # print(f'with session id: {id(session)}')
+        """Provide a transactional scope around a series of operations (SQLite errors are logged and rolled back)"""
+
         try:
-            yield session
-            session.commit()
+            conn = self.conn
+        except sqlite3.Error as e:
+            print(f"SQLite Error connecting to {self._dbfile}: {e}")
+            conn = None
 
-        except sqlite3.IntegrityError as e:
-            print(f"Integrity Error: {e}")
-            session.rollback()
-            # raise
-        except Exception as e:
-            print(f"Exception Error: {e}")
-            session.rollback()
-            # raise
-        except sqlite3.OperationalError as e:
-            print(f"Operational Error: {e}")
-            session.rollback()
-            # raise
+        fallback = conn is None
+        if fallback:
+            # database not available: every query fails with a logged sqlite3 error
+            conn = sqlite3.connect(':memory:')
+        try:
+            yield conn
+            conn.commit()
+        except sqlite3.Error:
+            traceback.print_exc()
+            conn.rollback()
         finally:
-            # session.expunge_all()
-            # session.close()
-            pass
-
+            if fallback:
+                conn.close()
