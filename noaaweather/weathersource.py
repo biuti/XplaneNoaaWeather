@@ -15,14 +15,40 @@ import ssl
 import zlib
 import subprocess
 import sys
+import traceback
 
+from collections import defaultdict
+from collections.abc import Iterable, Sequence
+from itertools import chain
 from urllib.request import Request, urlopen
 from urllib.error import URLError
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from tempfile import TemporaryFile
 from pathlib import Path
+from typing import NamedTuple
 
-from . import util, Conf
+from . import c, util, Conf
+
+
+# Variables that drive turbulence/icing vs. wind/temp/humidity handling
+WIND_VARS = frozenset(('UGRD', 'VGRD', 'TMP', 'RH'))
+
+# raw GRIB surface keys -> names used downstream ('PRES' is also converted Pa -> hPa)
+SURFACE_RENAME = {'PRES': 'press', 'TMP': 'temp', 'HGT': 'alt', 'SNOD': 'snow', 'APCP': 'apcp'}
+
+
+class GribRecord(NamedTuple):
+    """One wgrib2 inventory line, reduced to the fields we use"""
+    run: str                  # cycle, e.g. '2026111412'
+    variable: str             # e.g. 'TMP'
+    level: tuple[str, ...]    # e.g. ('2', 'm', 'above', 'ground')
+    fcst: str                 # forecast descriptor
+    value: str
+
+    @classmethod
+    def parse(cls, line: str) -> 'GribRecord':
+        r = line.split(':')
+        return cls(r[2].split('=')[1], r[3], tuple(r[4].split(' ')), r[5], r[7].split(',')[2].split('=')[1])
 
 
 class WeatherSource:
@@ -37,10 +63,11 @@ class WeatherSource:
         if not self.cache_path.exists():
             self.cache_path.mkdir(parents=True, exist_ok=True)
 
-    def read_grib_file(self, file: Path, lat: float = 46, lon: float = 9) -> list:
-        """Executes wgrib2 on given GRIB file and parses its output"""
+    def read_grib_file(self, file: Path, lat: float = 46, lon: float = 9) -> list[str]:
+        """Executes wgrib2 on given GRIB file and returns its output lines"""
 
         args = [
+            self.conf.wgrib2bin,
             '-s',
             '-lon',
             f"{lon}",
@@ -48,16 +75,11 @@ class WeatherSource:
             file
         ]
 
-        kwargs = {'stdout': subprocess.PIPE, "text": True}
+        kwargs = {'stdout': subprocess.PIPE, 'text': True}
         if self.conf.spinfo:
             kwargs.update({'startupinfo': self.conf.spinfo, 'shell': True})
 
-        proc = subprocess.Popen([self.conf.wgrib2bin] + args, **kwargs)
-
-        if not proc.stdout:
-            return [] 
-
-        return proc.stdout.read().splitlines()
+        return subprocess.run(args, **kwargs).stdout.splitlines()
 
     def shutdown(self) -> None:
         """Stop pending processes"""
@@ -76,6 +98,15 @@ class GribWeatherSource(WeatherSource):
     variable_list = []
     download_wait = 0
     grib_conf_var = 'lastgrib'
+
+    # forecast hours the source publishes, None = every 3 hours
+    forecasts: Sequence[int] | None = None
+
+    # Run / forecast info of the data last read by parse_grib_data()
+    gfs_run: str | None = None
+    gfs_fcst: str | None = None
+    wafs_run: str | None = None
+    wafs_fcst: str | None = None
 
     levels = [
         '1000',  # ~ surface
@@ -101,24 +132,216 @@ class GribWeatherSource(WeatherSource):
         if self.last_grib and not Path(self.cache_path, self.last_grib).is_file():
             self.last_grib = False
 
+    @property
+    def grib_files(self) -> list[Path]:
+        """Grib files to parse: sources that download their data (GFS, WAFS) read the last downloaded
+        file, sources fed by another program (RealWeather) override this."""
+        file = Path(self.cache_path, self.last_grib) if self.last_grib else None
+        return [file] if file and file.is_file() else []
+
+    def __getattr__(self, item: str):
+        if item == 'last_grib':
+            return getattr(self.conf, self.grib_conf_var)
+        return self.__getattribute__(item)
+
+    def __setattr__(self, key: str, value) -> None:
+        if key == 'last_grib':
+            self.conf.__dict__[self.grib_conf_var] = value
+        self.__dict__[key] = value
+
+    @classmethod
+    def _elapsed_since_cycle(cls) -> tuple[datetime, int, int]:
+        """Returns (date of the last published cycle, its hour, hours elapsed since it started)"""
+
+        now = datetime.now(timezone.utc)
+        # a cycle is published after publish_delay (4 hours 25min)
+        cnow = now - timedelta(**cls.publish_delay)
+        lcycle = max(cycle for cycle in cls.cycles if cycle <= cnow.hour)
+        adjs = 24 if cnow.day != now.day else 0
+
+        return cnow, lcycle, adjs + now.hour - lcycle
+
     @classmethod
     def get_cycle_date(cls) -> tuple[str, int, int]:
-        """Returns last cycle date available"""
+        """Returns last cycle date available: (date 'YYYYMMDD', cycle hour, forecast hour)"""
 
-        now = datetime.utcnow()
-        # cycle is published with 4 hours 25min delay
-        cnow = now - timedelta(**cls.publish_delay)
-        # get last cycle
-        for cycle in cls.cycles:
-            if cnow.hour >= cycle:
-                lcycle = cycle
-        # Forecast
-        adjs = 0
-        if cnow.day != now.day:
-            adjs = +24
-        forecast = (adjs + now.hour - lcycle) // 3 * 3
+        cnow, lcycle, elapsed = cls._elapsed_since_cycle()
+        if cls.forecasts:
+            # first published forecast at or after the elapsed hours
+            forecast = next((fcast for fcast in cls.forecasts if elapsed <= fcast), elapsed)
+        else:
+            forecast = elapsed // 3 * 3
 
-        return f"{cnow.year}{cnow.month:02}{cnow.day:02}", lcycle, forecast
+        return f"{cnow:%Y%m%d}", lcycle, forecast
+
+    def _track_gfs_run(self, rec: GribRecord) -> None:
+        """Keeps the cycle / forecast info of the wind data read"""
+        if rec.run != self.gfs_run:
+            self.gfs_run = rec.run
+            self.gfs_fcst = rec.fcst
+
+    @staticmethod
+    def _convert_winds(wind: dict[str, dict]) -> tuple[list, list]:
+        """Wind buckets -> ([alt, hdg, kt, {...}] rows, [alt, temp, dev, dew] rows), both sorted"""
+        windlevels = []
+        templevels = []
+
+        for lvl, values in wind.items():
+            if 'UGRD' not in values or 'VGRD' not in values:
+                continue
+
+            hdg, vel = c.c2p(float(values['UGRD']), float(values['VGRD']))
+            alt = int(c.mb2alt(float(lvl)))
+
+            # optional variables, False when missing
+            temp = float(values['TMP']) if 'TMP' in values else False
+            rh = float(values['RH']) if 'RH' in values else False
+            dev = c.isaDev(alt, temp) if temp else False
+            dew = c.dewpoint(temp, rh) if temp and rh else False
+
+            windlevels.append([alt, hdg, c.ms2knots(vel), {'temp': temp, 'dev': dev, 'rh': rh, 'dew': dew, 'gust': 0}])
+            if alt and temp:
+                templevels.append([alt, temp, dev, dew])
+
+        return sorted(windlevels), sorted(templevels)
+
+    @staticmethod
+    def _tropo_from_200mb(wind: dict[str, dict]) -> dict:
+        """Fallback tropopause from the 200 mb level, in the raw format of a GRIB
+        tropopause message: PRES in Pa (not mb!), TMP in K"""
+        for lvl, values in wind.items():
+            if float(lvl) == 200 and all(k in values for k in ('UGRD', 'VGRD', 'TMP')):
+                return {'PRES': float(lvl) * 100, 'TMP': values['TMP']}
+        return {}
+
+    @staticmethod
+    def _convert_clouds(clouds: dict[str, dict]) -> list:
+        """Cloud layers -> sorted [bottom alt, top alt, coverage] rows"""
+        rows = []
+        for layer in clouds.values():
+            if 'top' not in layer or 'bottom' not in layer:
+                continue
+            cover_key = next((k for k in ('LCDC', 'MCDC', 'HCDC') if k in layer), None)
+            cover = float(layer[cover_key]) if cover_key else 0.0
+            if cover:
+                # layer pressures are in Pa -> mb
+                bottom, top = float(layer['bottom']) * 0.01, float(layer['top']) * 0.01
+                rows.append([round(c.mb2alt(bottom)), round(c.mb2alt(top)), cover])
+        return sorted(rows)
+
+    @staticmethod
+    def _convert_turbulence(turb: dict[str, str]) -> list:
+        """Eddy dissipation by pressure level -> sorted [alt, value] rows"""
+        return sorted([round(c.mb2alt(float(lvl))), float(val)] for lvl, val in turb.items())
+
+    @staticmethod
+    def _convert_tropo(tropo: dict[str, str]) -> dict:
+        """Raw tropopause values -> {'alt', 'temp', 'dev'}, or {} when incomplete"""
+        if 'TMP' not in tropo or not any(k in tropo for k in ('PRES', 'HGT')):
+            return {}
+        alt = round(c.mb2alt(float(tropo['PRES']) * 0.01)) if 'PRES' in tropo else float(tropo['HGT'])
+        temp = float(tropo['TMP'])
+        return {'alt': float(alt), 'temp': temp, 'dev': c.isaDev(alt, temp)}
+
+    @staticmethod
+    def _convert_surface(surface: dict[str, str]) -> dict:
+        """Surface values: renamed + float-converted for the SURFACE_RENAME keys (pressure Pa -> hPa),
+        everything else is passed through untouched"""
+        out = {k: v for k, v in surface.items() if k not in SURFACE_RENAME}
+        for raw_key, key in SURFACE_RENAME.items():
+            if raw_key in surface:
+                val = float(surface[raw_key])
+                out[key] = val * 0.01 if raw_key == 'PRES' else val
+        return out
+
+    def parse_grib_data(self, lat: float, lon: float, files: Iterable[Path] | None = None) -> dict:
+        """Executes wgrib2 and parses its output
+
+        files: grib files to read. Defaults to every file of the current base
+               (self.grib_files); pass a subset (e.g. only the snod file) to
+               avoid decoding files you don't need.
+        """
+
+        files = self.grib_files if files is None else files
+        lines = chain.from_iterable(self.read_grib_file(f, lat, lon) for f in files)
+
+        wind = defaultdict(dict)    # one bucket per pressure level (mb)
+        ground = {}                 # 2 m / 10 m above ground readings, see below
+        clouds = {}
+        pressure = False
+        tropo = {}
+        surface = {}
+        turb = {}
+        checked = False
+
+        for rec in map(GribRecord.parse, lines):
+            level, variable, value = rec.level, rec.variable, rec.value
+
+            match level:
+                case (layer, 'cloud', *rest):
+                    # ('low', 'cloud', 'bottom', 'level') PRES 95267.5  -> layer bottom / top pressure
+                    # ('low', 'cloud', 'layer') LCDC 56.8              -> layer coverage
+                    cloud = clouds.setdefault(layer, {})
+                    if variable == 'PRES' and len(rest) > 1:
+                        cloud[rest[0]] = value
+                    else:
+                        cloud[variable] = value
+
+                case ('tropopause',):
+                    tropo[variable] = value
+
+                case ('surface',):
+                    surface[variable] = value
+
+                case ('2' | '10', 'm', 'above', 'ground'):
+                    # near-surface readings, only used where the real levels have nothing (see below)
+                    ground[variable] = value
+                    if variable in WIND_VARS:
+                        self._track_gfs_run(rec)
+
+                case (hpa, 'mb'):
+                    # pressure levels
+                    if variable == 'EDPARM':
+                        # Eddy Dissipation Parameter -> turbulence
+                        if not checked:
+                            if rec.run != self.wafs_run:
+                                self.wafs_run = rec.run
+                                self.wafs_fcst = rec.fcst
+                            checked = True
+                        turb[hpa] = value
+                    elif variable in WIND_VARS:
+                        self._track_gfs_run(rec)
+                        wind[hpa][variable] = value
+                    # ICESEV (icing severity) isn't consumed yet
+
+                case ('mean', 'sea', 'level'):
+                    if variable == 'PRMSL':
+                        pressure = c.pa2inhg(float(value))
+
+        # 2 m / 10 m readings stand in for what the real levels don't provide: the surface level
+        # (Real Weather srfc files have no surface temperature, wind or humidity) and the 1000 mb bucket.
+        # Where the files do have real values (GFS) those keep the priority.
+        for variable, value in ground.items():
+            surface.setdefault(variable, value)
+            if variable in WIND_VARS:
+                wind['1000'].setdefault(variable, value)
+
+        # Let data ready to push on datarefs.
+        windlevels, templevels = self._convert_winds(wind)
+
+        if not tropo:
+            # no tropopause message in the files: derive it from the 200 mb (~F386) level
+            tropo = self._tropo_from_200mb(wind)
+
+        return {
+            'winds': windlevels,
+            'clouds': self._convert_clouds(clouds),
+            'temperature': templevels,
+            'turbulence': self._convert_turbulence(turb),
+            'pressure': pressure,
+            'tropo': self._convert_tropo(tropo),
+            'surface': self._convert_surface(surface),
+        }
 
     def run(self, elapsed: int) -> None:
         """Worker function called by a worker thread to update the data"""
@@ -178,16 +401,6 @@ class GribWeatherSource(WeatherSource):
                 # Waiting for download
                 return
 
-    def __getattr__(self, item: str):
-        if item == 'last_grib':
-            return getattr(self.conf, self.grib_conf_var)
-        return self.__getattribute__(item)
-
-    def __setattr__(self, key: str, value) -> None:
-        if key == 'last_grib':
-            self.conf.__dict__[self.grib_conf_var] = value
-        self.__dict__[key] = value
-
 
 class Worker(threading.Thread):
     """Creates a new thread to periodically run worker functions on weather sources to trigger
@@ -208,7 +421,11 @@ class Worker(threading.Thread):
     def run(self) -> None:
         while not self.die.wait(self.rate):
             for worker in self.workers:
-                worker.run(self.rate)
+                try:
+                    worker.run(self.rate)
+                except Exception:
+                    # a failing source must not stop the other ones, nor its own next run
+                    traceback.print_exc()
 
         if self.die.is_set():
             for worker in self.workers:

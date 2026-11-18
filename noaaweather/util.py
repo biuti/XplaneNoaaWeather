@@ -12,7 +12,7 @@ of the License, or any later version.
 import shutil
 import sys
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from textwrap import wrap
 
@@ -63,10 +63,10 @@ class util:
 
     @staticmethod
     def date_info() -> tuple[str, str, str]:
-        today_prefix = datetime.utcnow().strftime('%Y%m')
-        yesterday_prefix = (datetime.utcnow() + timedelta(days=-1)).strftime('%Y%m')
+        today_prefix = datetime.now(timezone.utc).strftime('%Y%m')
+        yesterday_prefix = (datetime.now(timezone.utc) + timedelta(days=-1)).strftime('%Y%m')
 
-        today = datetime.utcnow().strftime('%d')
+        today = datetime.now(timezone.utc).strftime('%d')
         return today, today_prefix, yesterday_prefix
 
     @staticmethod

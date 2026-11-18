@@ -18,7 +18,7 @@ import socket
 import threading
 import subprocess
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -77,8 +77,12 @@ class Weather:
         self.startWeatherServer()
 
     def startWeatherClient(self ) -> None:
-        if not self.weatherClientThread:
-            self.weatherClientThread = threading.Thread(target=self.weatherClient)
+        thread = self.weatherClientThread
+        if not (thread and thread.is_alive()):
+            self.die.clear()
+            self.sock.settimeout(1.0)  # lets the client thread notice self.die
+            # daemon: a stuck client can never keep X-Plane from exiting
+            self.weatherClientThread = threading.Thread(target=self.weatherClient, name='noaaweather-client', daemon=True)
             self.weatherClientThread.start()
 
     def weatherClient(self) -> None:
@@ -87,11 +91,29 @@ class Weather:
         # Send something for windows to bind
         self.weatherClientSend('!ping')
 
-        while True:
-            received = self.sock.recv(1024 * 8)
-            wdata = pickle.loads(received)
-            if self.die.is_set() or wdata == '!bye':
+        while not self.die.is_set():
+            try:
+                received = self.sock.recv(65535)  # max UDP datagram: nothing gets truncated
+            except socket.timeout:
+                continue
+            except OSError as e:
+                if not self.die.is_set():
+                    xp.log(f"weather client socket error: {e!r}")
+                    self.die.wait(1)
+                continue
+
+            try:
+                wdata = pickle.loads(received)
+            except Exception as e:
+                # corrupted datagram: skip it, the thread must survive
+                xp.log(f"weather client: discarded a bad datagram ({len(received)} bytes): {e!r}")
+                continue
+
+            if wdata == '!bye':
                 break
+            elif not isinstance(wdata, dict):
+                xp.log(f"weather client: discarded a bad datagram ({len(received)} bytes): not a dict")
+                continue
             elif 'info' not in wdata:
                 # A metar query response
                 self.queryResponses.append(wdata)
@@ -119,6 +141,7 @@ class Weather:
         # Shutdown client and server
         self.weatherClientSend('!shutdown')
         self.weatherClientThread = False
+        self.die.set()
 
     def get_XP12_METAR(self, icao: str) -> str:
         return xp.getMETARForAirport(icao)
@@ -146,14 +169,18 @@ class Weather:
             0.5     ~0.1
             1+      ~0.05
         """
-        if not (self.weatherData['gfs'].get('surface') and self.data.check_snow_dref()):
-            # we don't have snow data
+        if not self.data.check_snow_dref():
+            # something went wrong initializing snow datarefs
+            return
+
+        data = ((self.weatherData or {}).get('rw') or {}).get('surface')
+        if not data or 'snow' not in data or 'temp' not in data:
+            # no Real Weather surface data (yet): files still downloading or no SNOD in them
             return
 
         if self.data.snow_override.value == 0:
             # enable snow coverage control (on 12.4-b1 does not seem to have any effect)
             self.data.snow_override.value = 1
-        data = self.weatherData['gfs']['surface']
         snow = data['snow']
         lat = self.data.latdr.value if isinstance(self.data.latdr.value, (int, float)) else 0.0
         lon = self.data.londr.value if isinstance(self.data.londr.value, (int, float)) else 0.0
@@ -662,7 +689,7 @@ class Weather:
         dumpath = Path(self.conf.cachepath, 'dumplogs')
         dumpath.mkdir(parents=True, exist_ok=True)
 
-        dumplog = Path(dumpath, datetime.utcnow().strftime('%Y%m%d_%H%M%SZdump.txt'))
+        dumplog = Path(dumpath, datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%SZdump.txt'))
         xp.log(f"creating dumplog file: {dumplog}")
 
         f = open(dumplog, 'w')

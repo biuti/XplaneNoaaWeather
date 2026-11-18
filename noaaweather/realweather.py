@@ -13,7 +13,9 @@ of the License, or any later version.
 """
 
 import time
+import traceback
 
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
@@ -22,9 +24,8 @@ from .database import Database
 from .weathersource import GribWeatherSource
 
 
-# Variables that drive turbulence/icing vs. wind/temp/humidity handling
-ICING_VARS = frozenset(('ICESEV', 'EDPARM'))
-WIND_VARS = frozenset(('UGRD', 'VGRD', 'TMP', 'RH'))
+GFS_GRID_M = 28_000         # GFS 0.25 degree grid is ~27.75 km
+SNOW_LOOKAHEAD_M = 60_000   # how far ahead along the track we look for a valid snow value
 
 
 class RealWeather(GribWeatherSource):
@@ -34,15 +35,21 @@ class RealWeather(GribWeatherSource):
 
     suffixes = [
         'calt',
+        'cbbs',
+        'cbcv',
+        'cbtp',
         'ccov',
-        'wind',
-        'temp',
         'ctrb',
         'dewp',
+        'prcp',
         'pres',
-        'svis',
+        'snod',
         'srfc',
-        'prcp'
+        'svis',
+        'temp',
+        'trop',
+        'turb',
+        'wind',
     ]
 
     table = 'realweather'
@@ -53,10 +60,6 @@ class RealWeather(GribWeatherSource):
         self.zulu_time = None
         self.idx_behind = None
         self.idx_ahead = None
-        self.gfs_run = None
-        self.gfs_fcst = None
-        self.wafs_run = None
-        self.wafs_fcst = None
         self.latest_wafs_checked = None
         self.next_rwmetar = time.time() + 30
         self.last_rwmetar = None
@@ -88,7 +91,7 @@ class RealWeather(GribWeatherSource):
 
     @property
     def grib_files(self) -> list:
-        return [] if self.base is None else [path for path in self.conf.wpath.resolve().glob(f"*{self.base}*.grib")]
+        return [] if self.base is None else [path for path in self.conf.wpath.resolve().glob(f"*{self.base}*.grib") if path.is_file()]
 
     @property
     def metar_file(self) -> Path | None:
@@ -186,171 +189,49 @@ class RealWeather(GribWeatherSource):
         self.idx_ahead = next((k for k, v in enumerate(self.timeframes) if v > now.hour), 0)
         self.idx_behind = self.idx_ahead - 1 if self.idx_ahead > 0 else len(self.timeframes) - 1
 
-    def parse_grib_data(self, lat: float, lon: float) -> dict:
-        """Executes wgrib2 and parses its output"""
+    @staticmethod
+    def _snow_candidates(hdg: float) -> Iterator[tuple[float, int]]:
+        """(bearing, distance in m) points to probe for a valid snow value: first the 8 compass
+        points one GFS grid step away, then ahead along the present track"""
+        yield from ((bearing, GFS_GRID_M) for bearing in range(0, 360, 45))
+        yield from ((hdg, d) for d in range(GFS_GRID_M, SNOW_LOOKAHEAD_M + 1, GFS_GRID_M))
 
-        it = []
+    def find_snow(self, lat: float, lon: float, hdg: float, files: Sequence[Path]) -> dict | None:
+        """Looks for a valid snow value around the position and ahead along the track.
 
-        for file in [el for el in self.grib_files if el.is_file()]:
-            it.extend(self.read_grib_file(file, lat, lon))
+        files: grib files holding the snow data (read once per probed point)
+        Returns {'lat', 'lon', 'depth'} of the first valid point found, else None.
+        """
+        for bearing, dist in self._snow_candidates(hdg):
+            new_lon, new_lat = c.great_circle_destination(lon, lat, bearing, dist)
+            val = self.parse_grib_data(new_lat, new_lon, files)['surface'].get('snow')
+            if val is not None and not c.is_exponential(val):
+                return {'lat': new_lat, 'lon': new_lon, 'depth': val}
+        return None
 
-        wind = {}
-        clouds = {}
-        pressure = False
-        tropo = {}
-        surface = {}
-        turb = {}
-        checked = False
+    def check_snow_values(self, lat: float, lon: float, hdg: float, data: dict) -> None:
+        """Predicts snow cover when GFS has no valid value at the current position.
 
-        # pre-initialize one bucket per pressure level; '1000' doubles as the
-        # near-surface bucket for both real low pressure levels and 2/10 m
-        # "above ground" readings (see the < 100 check below)
-        for lvl in self.levels:
-            wind.setdefault(lvl, {})
+        Looks for a valid value on a ring around the position, then ahead along
+        the present track. The result is stored in data['surface']['prediction'].
+        """
 
-        for line in it:
-            r = line.split(':')
-            level = r[4].split(' ')
-            variable = r[3]
-            value = r[7].split(',')[2].split('=')[1]
+        surface = data.get('surface', {})
+        if not surface:
+            return
 
-            if len(level) > 1:
-                if level[1] == 'cloud':
-                    # cloud layer
-                    # ['low', 'cloud', 'bottom', 'level'] PRES 95267.5
-                    # ['low', 'cloud', 'layer'] LCDC 56.8
-                    clouds.setdefault(level[0], {})
-                    if len(level) > 3 and variable == 'PRES':
-                        # 'bottom' / 'top' pressure
-                        clouds[level[0]][level[2]] = value
-                    else:
-                        # level coverage / temperature
-                        clouds[level[0]][variable] = value
-                    continue
+        snow = surface.get('snow')
+        if not c.is_exponential(snow):
+            return
 
-                # Any reading taken "above ground" (2 m / 10 m) is a surface value
-                # regardless of which variable it is. This single check replaces the
-                # two separate `level[-1] == 'ground'` checks that used to exist.
-                if level[-1] == 'ground':
-                    surface[variable] = value
+        grib_file = next((f for f in self.grib_files if 'snod' in f.name and f.is_file()), None)
+        if not grib_file:
+            return
 
-                if variable in ICING_VARS:
-                    # ICESEV (icing severity) isn't consumed yet -> nothing to do
-                    if variable == 'EDPARM':
-                        # Eddy Dissipation Parameter -> turbulence
-                        if not checked:
-                            run = r[2].split('=')[1]
-                            if run != self.wafs_run:
-                                self.wafs_run = run
-                                self.wafs_fcst = r[5]
-                            checked = True
-                        turb['1000' if float(level[0]) < 100 else level[0]] = value
-
-                elif variable in WIND_VARS:
-                    run = r[2].split('=')[1]
-                    if run != self.gfs_run:
-                        self.gfs_run = run
-                        self.gfs_fcst = r[5]
-                    wind['1000' if float(level[0]) < 100 else level[0]][variable] = value
-
-                elif variable == 'PRMSL':
-                    pressure = c.pa2inhg(float(value))
-
-            elif level[0] == 'tropopause':
-                tropo[variable] = value
-            elif level[0] == 'surface':
-                surface[variable] = value
-
-        windlevels = []
-        cloudlevels = []
-        templevels = []
-        turblevels = []
-
-        # Let data ready to push on datarefs.
-        # Convert wind levels
-        wind_levels = iter(wind.items())
-        for level, wind in wind_levels:
-            if 'UGRD' in wind and 'VGRD' in wind:
-                hdg, vel = c.c2p(float(wind['UGRD']), float(wind['VGRD']))
-                alt = int(c.mb2alt(float(level)))
-
-                # Optional varialbes
-                temp, dev, rh, dew = False, False, False, False
-                # Temperature
-                if 'TMP' in wind:
-                    temp = float(wind['TMP'])
-                    dev = c.isaDev(alt, temp)
-                # Relative Humidity
-                if 'RH' in wind:
-                    rh = float(wind['RH'])
-
-                if temp and rh:
-                    dew = c.dewpoint(temp, rh)
-
-                windlevels.append(
-                    [
-                        alt,
-                        hdg,
-                        c.ms2knots(vel),
-                        {'temp': temp, 'dev': dev, 'rh': rh, 'dew': dew, 'gust': 0}
-                    ]
-                )
-                if alt and temp:
-                    templevels.append([alt, temp, dev, dew])
-
-                # get tropopause info from F386 wind level if not already available
-                if not tropo and float(level) == 200 and temp:
-                    tropo = {'PRES': level, 'TMP': wind['TMP']}
-
-        # Convert cloud level
-        for level in clouds.values():
-            if all(k in level.keys() for k in ('top', 'bottom')):
-                top, bottom = float(level['top']) * 0.01, float(level['bottom']) * 0.01  # mb
-                cover = float(level.get(next((k for k in level.keys() if k in ('LCDC', 'MCDC', 'HCDC')), None)) or 0)
-
-                if cover:
-                    cloudlevels.append([round(c.mb2alt(bottom)), round(c.mb2alt(top)), cover])
-
-        # convert turbulence
-        for lvl, val in turb.items():
-            alt = round(c.mb2alt(float(lvl)))
-            turblevels.append([alt, float(val)])
-
-        windlevels.sort()
-        cloudlevels.sort()
-        templevels.sort()
-        turblevels.sort()
-
-        # tropo
-        if any(k in tropo.keys() for k in ('PRES', 'HGT')) and 'TMP' in tropo.keys():
-            if 'PRES' in tropo.keys():
-                alt = round(c.mb2alt(float(tropo['PRES'])*0.01))
-            else:
-                alt = float(tropo['HGT'])
-            temp = float(tropo['TMP'])
-            dev = c.isaDev(alt, temp)
-            tropo = {'alt': float(alt), 'temp': temp, 'dev': dev}
-        else:
-            tropo = {}
-
-        # Surface: rename raw GRIB keys, convert pressure Pa -> hPa
-        rename = {'PRES': 'press', 'TMP': 'temp', 'HGT': 'alt', 'SNOD': 'snow', 'APCP': 'apcp'}
-        for k, v in rename.items():
-            if k in surface:
-                raw = float(surface.pop(k))
-                surface[v] = raw * 0.01 if k == 'PRES' else raw
-
-        data = {
-            'winds': windlevels,
-            'clouds': cloudlevels,
-            'temperature': templevels,
-            'turbulence': turblevels,
-            'pressure': pressure,
-            'tropo': tropo,
-            'surface': surface
-        }
-
-        return data
+        # no info about snow here, probably over or near water: probe around and ahead
+        if prediction := self.find_snow(lat, lon, hdg, [grib_file]):
+            surface['prediction'] = prediction
+            print(f"check_snow_values: prediction: {prediction}")
 
     def check_latest_wafs(self) -> str | None:
         """reads the run data from latest WAFS grib file """
@@ -386,11 +267,14 @@ class RealWeather(GribWeatherSource):
 
         if self.time_to_update_rwmetar:
             # update real weather metar database
-            print("Updating Real Weather DB ...")
-            self.update_rwmetar()
-            print(f"*** RW METAR DB updated: {datetime.utcnow().strftime('%H:%M:%S')} ***")
-            self.last_rwmetar = time.time()
-            self.next_rwmetar = self.last_rwmetar + self.rwmetar_check_interval
+            try:
+                print("Updating Real Weather DB ...")
+                self.update_rwmetar()
+                print(f"*** RW METAR DB updated: {datetime.now(timezone.utc).strftime('%H:%M:%S')} ***")
+                self.last_rwmetar = time.time()
+                self.next_rwmetar = self.last_rwmetar + self.rwmetar_check_interval
+            except Exception:
+                traceback.print_exc()
 
     def shutdown(self) -> None:
         super().shutdown()

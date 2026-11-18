@@ -93,16 +93,16 @@ class ClientHandler(SocketServer.BaseRequestHandler):
         # Parse gfs and wafs
         if conf.meets_wgrib2_requirements and conf.use_real_weather_data:
             rw.get_real_weather_forecast()
-            if all(el.is_file() for el in rw.grib_files):
+            if rw.grib_files:
                 response['rw'] = rw.parse_grib_data(lat, lon)
                 response['info']['rw_gfs_cycle'] = f"{rw.gfs_run}: {rw.gfs_fcst}" if rw.gfs_run else 'na'
                 response['info']['rw_wafs_cycle'] = f"{rw.wafs_run}: {rw.wafs_fcst}" if rw.wafs_run else 'na'
+                if conf.set_snow:
+                    # we could need to check for nearby snow depth values
+                    rw.check_snow_values(lat, lon, hdg, response['rw'])
                 if conf.download_GFS and gfs.last_grib:
                     filepath = Path(gfs.cache_path, gfs.last_grib)
                     response['gfs'] = gfs.parse_grib_data(filepath, lat, lon)
-                    if conf.set_snow:
-                        # we could need to check for nearby snow depth values
-                        gfs.check_snow_values(filepath, lat, lon, hdg, response['gfs'])
                 if conf.download_WAFS and rw.wafs_download_needed and wafs.last_grib:
                     # TURB data is not up-to-date, download GRIB file needed
                     print(f"TURB data is not up-to-date, download GRIB file needed ...")
@@ -110,7 +110,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
                     if wafs_file.is_file():
                         print(f"Turbulence updated from WFS data: {wafs_file.name}")
                         response['wafs'] = wafs.parse_grib_data(wafs_file, lat, lon)
-                        print(f"response['wafs]: {response['wafs']}")
+                        print(f"response['wafs']: {response['wafs']}")
                         response['info']['wafs_cycle'] = f"{wafs.wafs_run}: {wafs.wafs_fcst}" if wafs.wafs_run else 'na'
 
         # Parse metar
