@@ -374,125 +374,8 @@ class Widget:
         y -= self.line_height
 
         if not self.conf.use_real_weather_data:
-            # Winds enable
-            xp.createWidget(x + 5, y, x + 20, y - self.line_height, 1, 'Wind levels', 0, window, xp.WidgetClass_Caption)
-            self.windsCheck = xp.createWidget(
-                x + 110, y, x + 120, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button
-            )
-            xp.setWidgetProperty(self.windsCheck, xp.Property_ButtonState, xp.RadioButton)
-            xp.setWidgetProperty(self.windsCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
-            xp.setWidgetProperty(self.windsCheck, xp.Property_ButtonState, self.conf.set_wind)
-            y -= self.line_height
-
-            # Clouds enable
-            xp.createWidget(x + 5, y, x + 20, y - self.line_height, 1, 'Cloud levels', 0, window, xp.WidgetClass_Caption)
-            self.cloudsCheck = xp.createWidget(
-                x + 110, y, x + 120, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button
-            )
-            xp.setWidgetProperty(self.cloudsCheck, xp.Property_ButtonState, xp.RadioButton)
-            xp.setWidgetProperty(self.cloudsCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
-            xp.setWidgetProperty(self.cloudsCheck, xp.Property_ButtonState, self.conf.set_clouds)
-            y -= self.line_height
-
-            # Optimised clouds layers update for liners
-            xp.createWidget(x + 5, y, x + 20, y - self.line_height, 1, 'Opt. redraw', 0, window, xp.WidgetClass_Caption)
-            self.optUpdCheck = xp.createWidget(
-                x + 110, y, x + 120, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button
-            )
-            xp.setWidgetProperty(self.optUpdCheck, xp.Property_ButtonState, xp.RadioButton)
-            xp.setWidgetProperty(self.optUpdCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
-            xp.setWidgetProperty(self.optUpdCheck, xp.Property_ButtonState, self.conf.opt_clouds_update)
-            y -= self.line_height
-
-            # Temperature enable
-            xp.createWidget(x + 5, y, x + 20, y - self.line_height, 1, 'Temperature', 0, window, xp.WidgetClass_Caption)
-            self.tempCheck = xp.createWidget(x + 110, y, x + 120, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button)
-            xp.setWidgetProperty(self.tempCheck, xp.Property_ButtonState, xp.RadioButton)
-            xp.setWidgetProperty(self.tempCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
-            xp.setWidgetProperty(self.tempCheck, xp.Property_ButtonState, self.conf.set_temp)
-            y -= self.line_height
-
-            # Pressure enable
-            xp.createWidget(x + 5, y, x + 20, y - self.line_height, 1, 'Pressure', 0, window, xp.WidgetClass_Caption)
-            self.pressureCheck = xp.createWidget(x + 110, y, x + 120, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button)
-            xp.setWidgetProperty(self.pressureCheck, xp.Property_ButtonState, xp.RadioButton)
-            xp.setWidgetProperty(self.pressureCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
-            xp.setWidgetProperty(self.pressureCheck, xp.Property_ButtonState, self.conf.set_pressure)
-            y -= self.line_height
-
-            # Turbulence enable
-            xp.createWidget(x + 5, y, x + 20, y - self.line_height, 1, 'Turbulence', 0, window, xp.WidgetClass_Caption)
-            self.turbCheck = xp.createWidget(x + 110, y, x + 120, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button)
-            xp.setWidgetProperty(self.turbCheck, xp.Property_ButtonState, xp.RadioButton)
-            xp.setWidgetProperty(self.turbCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
-            xp.setWidgetProperty(self.turbCheck, xp.Property_ButtonState, self.conf.set_turb)
-            y -= self.line_height
-
-            self.turbulenceCaption = xp.createWidget(
-                x + 5, y, x + 80, y - self.line_height, 
-                1, f"Turbulence prob.  {self.conf.turbulence_probability * 100}%", 0, window, 
-                xp.WidgetClass_Caption
-            )
-            self.turbulenceSlider = xp.createWidget(
-                x + 10, y - self.line_height, x + 160, y - 40, 1, '', 0, window, xp.WidgetClass_ScrollBar
-            )
-            xp.setWidgetProperty(self.turbulenceSlider, xp.Property_ScrollBarType, xp.ScrollBarTypeSlider)
-            xp.setWidgetProperty(self.turbulenceSlider, xp.Property_ScrollBarMin, 10)
-            xp.setWidgetProperty(self.turbulenceSlider, xp.Property_ScrollBarMax, 1000)
-            xp.setWidgetProperty(self.turbulenceSlider, xp.Property_ScrollBarPageAmount, 1)
-            xp.setWidgetProperty(
-                self.turbulenceSlider, 
-                xp.Property_ScrollBarSliderPosition, int(self.conf.turbulence_probability * 1000)
-            )
-            y -= self.line_height * 2
-
-            # Tropo enable
-            xp.createWidget(
-                x + 5, y, x + 20, y - self.line_height,
-                1, 'Tropo Temp', 0, window,
-                xp.WidgetClass_Caption
-            )
-            self.tropoCheck = xp.createWidget(
-                x + 110, y, x + 120, y - self.line_height,
-                1, '', 0, window,
-                xp.WidgetClass_Button
-            )
-            xp.setWidgetProperty(self.tropoCheck, xp.Property_ButtonState, xp.RadioButton)
-            xp.setWidgetProperty(self.tropoCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
-            xp.setWidgetProperty(self.tropoCheck, xp.Property_ButtonState, self.conf.set_tropo)
-            y -= self.line_height
-
-            # Thermals enable
-            xp.createWidget(x + 5, y, x + 20, y - self.line_height, 1, 'Thermals', 0, window, xp.WidgetClass_Caption)
-            self.thermalsCheck = xp.createWidget(x + 110, y, x + 120, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button)
-            xp.setWidgetProperty(self.thermalsCheck, xp.Property_ButtonState, xp.RadioButton)
-            xp.setWidgetProperty(self.thermalsCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
-            xp.setWidgetProperty(self.thermalsCheck, xp.Property_ButtonState, self.conf.set_thermals)
-            y -= self.line_height
-
-            # Surface Wind Layer enable
-            xp.createWidget(x + 5, y, x + 20, y - self.line_height, 1, 'Surface Wind', 0, window, xp.WidgetClass_Caption)
-            self.surfaceCheck = xp.createWidget(x + 110, y, x + 120, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button)
-            xp.setWidgetProperty(self.surfaceCheck, xp.Property_ButtonState, xp.RadioButton)
-            xp.setWidgetProperty(self.surfaceCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
-            xp.setWidgetProperty(self.surfaceCheck, xp.Property_ButtonState, self.conf.set_surface_layer)
-            y -= self.line_height * 2
-
-            # Performance Tweaks
-            xp.createWidget(x, y, x + 80, y - self.line_height, 1, 'Performance Tweaks', 0, window, xp.WidgetClass_Caption)
-            xp.createWidget(x + 5, y - self.line_height, x + 80, y - 40, 1, 'Max Visibility (sm)', 0, window, xp.WidgetClass_Caption)
-            self.maxVisInput = xp.createWidget(
-                x + 119, y - self.line_height, x + 160, y - 40,
-                1, c.convertForInput(self.conf.max_visibility, 'm2sm'), 0, window,
-                xp.WidgetClass_TextField
-            )
-            y -= self.line_height * 2
-            xp.createWidget(x + 5, y, x + 80, y - self.line_height, 1, 'Max cloud height (ft)', 0, window, xp.WidgetClass_Caption)
-            self.maxCloudHeightInput = xp.createWidget(
-                x + 119, y, x + 160, y - self.line_height,
-                1, c.convertForInput(self.conf.max_cloud_height, 'm2ft'), 0, window,
-                xp.WidgetClass_TextField
-            )
+            # I cannot think any good reason to disable Real Weather data in 2026
+            pass
 
         # elements to add at the bottom of the subwindow
         y1 = b + self.line_height * 4
@@ -578,11 +461,6 @@ class Widget:
             self.conf.metar_decode = xp.getWidgetProperty(self.decode_check, xp.Property_ButtonState)
             return 1
 
-        if inMessage == xp.Msg_ScrollBarSliderPositionChanged and inParam1 == self.turbulenceSlider:
-            val = xp.getWidgetProperty(self.turbulenceSlider, xp.Property_ScrollBarSliderPosition)
-            xp.setWidgetDescriptor(self.turbulenceCaption, f"Turbulence probability {round(val/10)}%")
-            return 1
-
         # Handle any button pushes
         if inMessage == xp.Msg_PushButtonPressed:
 
@@ -606,27 +484,6 @@ class Widget:
                     # self.conf.set_patches = xp.getWidgetProperty(self.rainCheck, xp.Property_ButtonState)
                     self.conf.set_friction = xp.getWidgetProperty(self.frictionCheck, xp.Property_ButtonState)
                     # pass
-                else:
-                    self.conf.set_wind = xp.getWidgetProperty(self.windsCheck, xp.Property_ButtonState)
-                    self.conf.set_clouds = xp.getWidgetProperty(self.cloudsCheck, xp.Property_ButtonState)
-                    self.conf.opt_clouds_update = xp.getWidgetProperty(self.optUpdCheck, xp.Property_ButtonState)
-                    self.conf.set_temp = xp.getWidgetProperty(self.tempCheck, xp.Property_ButtonState)
-                    self.conf.set_pressure = xp.getWidgetProperty(self.pressureCheck, xp.Property_ButtonState)
-                    self.conf.set_tropo = xp.getWidgetProperty(self.tropoCheck, xp.Property_ButtonState)
-                    self.conf.set_thermals = xp.getWidgetProperty(self.thermalsCheck, xp.Property_ButtonState)
-                    self.conf.set_surface_layer = xp.getWidgetProperty(self.surfaceCheck, xp.Property_ButtonState)
-                    self.conf.turbulence_probability = xp.getWidgetProperty(self.turbulenceSlider, xp.Property_ScrollBarSliderPosition) / 1000.0
-                    # Zero turbulence data if disabled
-                    self.conf.set_turb = xp.getWidgetProperty(self.turbCheck, xp.Property_ButtonState)
-                    if not self.conf.set_turb:
-                        for i in range(3):
-                            self.data.winds[i]['turb'].value = 0
-
-                    buff = xp.getWidgetDescriptor(self.maxCloudHeightInput)
-                    self.conf.max_cloud_height = c.convertFromInput(buff, 'f2m', min=c.f2m(2000))
-
-                    buff = xp.getWidgetDescriptor(self.maxVisInput)
-                    self.conf.max_visibility = c.convertFromInput(buff, 'sm2m')
 
                 # Metar station ignore
                 buff = xp.getWidgetDescriptor(self.ignore_list_input)
@@ -685,18 +542,6 @@ class Widget:
             xp.setWidgetProperty(self.snowCheck, xp.Property_ButtonState, self.conf.set_snow)
             # xp.setWidgetProperty(self.rainCheck, xp.Property_ButtonState, self.conf.set_patches)
             xp.setWidgetProperty(self.frictionCheck, xp.Property_ButtonState, self.conf.set_friction)
-
-        else:
-            xp.setWidgetProperty(self.windsCheck, xp.Property_ButtonState, self.conf.set_wind)
-            xp.setWidgetProperty(self.cloudsCheck, xp.Property_ButtonState, self.conf.set_clouds)
-            xp.setWidgetProperty(self.optUpdCheck, xp.Property_ButtonState, self.conf.opt_clouds_update)
-            xp.setWidgetProperty(self.tempCheck, xp.Property_ButtonState, self.conf.set_temp)
-            xp.setWidgetProperty(self.turbCheck, xp.Property_ButtonState, self.conf.set_turb)
-            xp.setWidgetProperty(self.tropoCheck, xp.Property_ButtonState, self.conf.set_tropo)
-            xp.setWidgetProperty(self.thermalsCheck, xp.Property_ButtonState, self.conf.set_thermals)
-            xp.setWidgetProperty(self.surfaceCheck, xp.Property_ButtonState, self.conf.set_surface_layer)
-            xp.setWidgetDescriptor(self.maxVisInput, c.convertForInput(self.conf.max_visibility, 'm2sm'))
-            xp.setWidgetDescriptor(self.maxCloudHeightInput, c.convertForInput(self.conf.max_cloud_height, 'm2ft'))
 
         self.updateStatus()
 

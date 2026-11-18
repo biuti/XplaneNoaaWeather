@@ -495,29 +495,8 @@ class Weather:
                     sysinfo += [
                         '*** *** GFS 0.25 degrees weather data download *** ***'
                     ]
-                    gfs = wdata['gfs']
-                    if 'surface' in gfs and len(gfs['surface']):
-                        s = gfs['surface']
-                        surface_temp = round(c.kel2cel(s.get('temp')), 1)
-                        snow = s.get('snow')
-                        d = 0
-                        if c.is_exponential(snow):
-                            if self.nearest_snow:
-                                nlat, nlon, snow = self.nearest_snow.values()
-                                d = round(c.m2nm(c.greatCircleDistance((lat, lon), (nlat, nlon))), 1)  # in nm
-                            else:
-                                snow = None
-                        snow_depth = f"{'na' if snow is None or snow < 0 else round(snow, 2)}{'' if not d else f' ({d} nm)'}"
-                        acc_precip = 'na' if (s.get('acc_precip') is None or s.get('acc_precip') < 0) else round(s.get('acc_precip'), 2)
-                        sysinfo += [
-                            f"   sfc temp (C): {surface_temp} | snow depth (m): {snow_depth} | accumulated precip. (kg/sqm): {acc_precip}",
-                            ''
-                        ]
-                    else:
-                        # probably there was an error downloading data from NOAA server
-                        sysinfo += [
-                            'No precipitation data available. Check log files'
-                        ]
+                    # at the moment we are not using GFS data, but we could use it in the future
+                    pass
 
                 if 'rw' in wdata and self.conf.use_real_weather_data:
                     # XP12 Real Weather is enabled
@@ -596,82 +575,11 @@ class Weather:
                                 out.append(tblayers)
                                 tblayers = ''
                         sysinfo += out
-                    if self.conf.download_WAFS and 'wafs' in wdata and 'turbulence' in wdata['wafs']:
-                        wafs = wdata['wafs']['turbulence']
-                        tblayers = ''
-                        out = []
-                        sysinfo += [f"NOAA Downloaded WAFS data ({wdata['info']['wafs_cycle']}):  "
-                                    f"FL | SEV (val*10, max {self.conf.max_turbulence * 10}) "]
-                        for i, layer in enumerate(wafs, 1):
-                            fl = c.m2fl(layer[0])
-                            value = f"{round(layer[1] * 10, 1):.1f}" if layer[1] < self.conf.max_turbulence else '*'
-                            tblayers += f"    F{fl:03} | {value:3}"
-                            if i % 7 == 0 or i == len(wafs):
-                                out.append(tblayers)
-                                tblayers = ''
-                        sysinfo += out
                     sysinfo += ['']
 
                 else:
                     '''Normal GFS mode'''
                     pass
-                    # if 'winds' in gfs:
-                    #     sysinfo += ['', f"GFS WIND LAYERS: {len(gfs['winds'])} FL|HDG|KT|TEMP|DEV"]
-                    #     wlayers = ''
-                    #     i = 0
-                    #     for layer in gfs['winds']:
-                    #         i += 1
-                    #         alt, hdg, speed, extra = layer
-                    #         wlayers += f"   F{c.m2fl(alt):03}|{hdg:03}|{speed:02}kt|" \
-                    #                    f"{round(c.kel2cel(extra['temp'])):02}|{round(c.kel2cel(extra['dev'])):02}"
-                    #         if i > 3:
-                    #             i = 0
-                    #             sysinfo += [wlayers]
-                    #             wlayers = ''
-
-                    # if 'clouds' in gfs:
-                    #     clouds = 'GFS CLOUDS  FLBASE|FLTOP|COVER'
-                    #     for layer in gfs['clouds']:
-                    #         base, top, cover = layer
-                    #         if base > 0:
-                    #             clouds += f"    {c.m2fl(base):03} | {c.m2fl(top):03} | {cover}%"
-                    #     sysinfo += [clouds]
-
-                    # if 'tropo' in gfs:
-                    #     alt, temp, dev = gfs['tropo'].values()
-                    #     if alt and temp and dev:
-                    #         sysinfo += [f"TROPO LIMIT: {round(alt)}m "
-                    #                     f"temp {round(c.kel2cel(temp)):02}C ISA Dev {round(c.kel2cel(dev)):02}C"]
-
-                    # if 'wafs' in wdata:
-                    #     tblayers = ''
-                    #     for layer in wdata['wafs']:
-                    #         tblayers += f"   {c.m2fl(layer[0]):03}|{round(layer[1], 2)}" \
-                    #                     f"{'*' if layer[1]>=self.conf.max_turbulence else ''}"
-
-                    #     sysinfo += [f"WAFS TURBULENCE ({len(wdata['wafs'])}): FL|SEV (max {self.conf.max_turbulence}) ",
-                    #                 tblayers]
-
-                    # sysinfo += ['']
-                    # if 'thermals' in wdata:
-                    #     t = wdata['thermals']
-
-                    #     if not t['grad']:
-                    #         s = "THERMALS: N/A"
-                    #     else:
-                    #         if t['grad'] == "TS":
-                    #             s = "THERMALS (TS mode): "
-                    #         else:
-                    #             s = f"THERMALS: grad. {round(t['grad'], 2)} ºC/100m, "
-                    #         s += f"h {round(t['alt'])}m, p {round(t['prob']*100)}%, r {round(t['rate']*0.00508)}m/s"
-                    #     sysinfo += [s]
-
-                    # if 'cloud_info' in wdata and self.conf.opt_clouds_update:
-                    #     ci = wdata['cloud_info']
-                    #     s = 'OPTIMISED FOR BEST PERFORMANCE' if ci['OVC'] and ci['above_clouds'] else 'MERGED'
-                    #     sysinfo += [f"CLOUD LAYERS MODE: {s}"]
-                    #     if verbose:
-                    #         sysinfo += [f"{ci['layers']}"]
 
         return sysinfo
 

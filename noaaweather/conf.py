@@ -174,7 +174,7 @@ class Conf:
         self.set_friction = True
 
         # added GFS Data in real Weather
-        self.set_snow = False
+        self.set_snow = True
         self.set_patches = False
 
         self.download_METAR = True
@@ -263,7 +263,7 @@ class Conf:
 
             # may be "dangerous" if someone messes our config file
             for var in conf:
-                if var in ['set_snow', 'set_patches', 'download_GFS', 'download_WAFS'] and conf[var] is True:
+                if var in ['set_patches', 'download_GFS', 'download_WAFS']:
                     # overwriting older plugin version values
                     continue
                 elif var in self.__dict__:
