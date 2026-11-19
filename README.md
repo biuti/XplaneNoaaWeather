@@ -12,16 +12,18 @@ https://github.com/pbuckner/XplaneNoaaWeather
 ## Features
 At this stage the plugin in its X-Plane 12 version is almost only monitoring what XP Real Weather engine is doing.
 
-As XP12.4 still has not the capability to depict correctly snow cover, GFS information are downloaded from NOAA server and the plugin will add snow cover according to them.
+As XP12.4 still has not the capability to depict correctly snow cover.
+> [!NOTE]
+> Update: in version 12.4.4, LR attempted to depict snow cover, so now Real weather GRIB files have SNOD data and it's not needed to download them from NOAA server. Unfortunately, Real Weather engine is not interpreting snow data correectly, so the plugin will add snow cover according to them if the feature is enabled.
 
 XP12 in cold weather conditions is not simulating tarmac treatment, so if it detects heavy icing conditions they are reflected into runway friction, resulting in completely unrealistic situation.\
 This plugin has a feature that simulates tarmac treatment, lowering the slipperiness to maintain grip into domains that would permit the airport to be active. 
 
-Concerning all other data, as Real Weather already takes data from GFS Grib files, probably there will be no need to download them anylonger.
+Concerning all other data, as Real Weather already takes data from GFS Grib files, so there is no need to download them anymore.
 
-X-Plane 12 is continuously updated, so I will consider if some of the XP11 version features will still be needed.
+X-Plane 12.4+ Real Weather is working really well, so I'm pretty confident there will be no need to keep alive XP11 plugin features .
 
-- Adds snow cover using GFS data information
+- Adds snow cover using Real Weather data information
 - Adjust runway friction level to simulate tarmac treatment
 - monitors XP12 real weather behavior
 - METAR query window that displays both from XP12 Real Weather and chosen source (NOAA, IVAO or VATSIM servers)
@@ -37,9 +39,9 @@ Anyway, be respectful of other users, you are the one using wrong data.
 
 ## Requirements
 - MacOS 10.14, Windows 7 and Linux kernel 4.0 and above
-(tested using macOS 12.7.6)
-- X-Plane **12.4 and above** (not tested with previous versions) 
-- pbuckner's [XPPython3 plugin **4.6.0 or above**](https://xppython3.readthedocs.io/en/latest/index.html) (tested using version 4.6.1)
+(tested using macOS 14.8.9)
+- X-Plane **12.4.4 and above** (not tested with previous versions, probably won't work) 
+- pbuckner's [XPPython3 plugin **4.6.0 or above**](https://xppython3.readthedocs.io/en/latest/index.html) (tested using version 4.8.0)
 
 > [!NOTE]
 > **(*) Latest XPPython3 [plugin version (4.3.0 and above)](https://xppython3.readthedocs.io/en/latest/index.html) will contain all python needed libraries, so it won't be necessary to install Python on the machine anymore. Read carefully XPPython3 plugin documentation**
