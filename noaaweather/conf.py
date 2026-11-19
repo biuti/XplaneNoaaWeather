@@ -13,7 +13,8 @@ import os
 import platform
 import subprocess
 import json
-import pickle as cPickle
+import pickle
+import re
 
 from pathlib import Path
 
@@ -33,14 +34,14 @@ class Conf:
     GFS_JSON_HELP = '''Here you can edit which wind levels will be downloaded from NOAA without hacking the code.
                     Keep the list short to optimize the download size and parsing times.
                     If you mess-up just remove this file, a new one will be created with default values.
-                    
+
                     For a full list of levels check:
                     https://www.nco.ncep.noaa.gov/pmb/products/gfs/gfs.t00z.pgrb2.0p50.f003.shtml
                     Remove the current cycle from the cache/gfs to trigger a download with new values.
-                        
+
                     Refer to the following list for millibar Flight Level conversion:'''
 
-    def __init__(self, xplane_path=False) -> None:
+    def __init__(self, xplane_path: str | Path | bool = False) -> None:
         """The plugin uses wgrib2 utility to decode GFS files
         - Compiled version: v3.1.0"""
 
@@ -73,8 +74,10 @@ class Conf:
         self.parserate = 1
         # self.metar_agl_limit = 10
 
-        # Selects the apropiate wgrib binary
-        self.platform, _, self.version, _, _, self.machine = [c.float_or_lower(el) for el in platform.uname()]
+        # Selects the appropriate wgrib binary
+        self.platform = platform.system().lower()
+        self.version = c.float_or_lower(platform.release())
+        self.machine = platform.machine().lower()
         self.spinfo = False
         self.wgrib2bin = None
 
@@ -113,16 +116,16 @@ class Conf:
         self.meets_wgrib2_requirements = wgbin is not False
 
     @property
-    def gfs_variable_list(self) -> dict:
+    def gfs_variable_list(self) -> list[dict]:
         return self.gfs_levels_real_weather() if self.use_real_weather_data else self.gfs_levels
 
     @property
-    def wafs_variable_list(self) -> dict:
-        return self.wafs_levels_real_weather() if self.use_real_weather_data else self.gfs_levels
+    def wafs_variable_list(self) -> list[dict]:
+        return self.wafs_levels_real_weather() if self.use_real_weather_data else self.wafs_levels_default()
 
     def setDefaults(self) -> None:
         """Default settings"""
-        print(f"Loading defaults settings ...")
+        print("Loading defaults settings ...")
 
         '''XP cloud cover'''
         # in XP 11.50+ cloud coverage and type goes:
@@ -193,7 +196,7 @@ class Conf:
         # Max Altitude for TS clouds
         self.ts_clouds_top = 10000  # In meters (tropo limit?)
         # keep a surface wind layer with current METAR to get correct ATIS info
-        self.surface_wind_layer_limit = 600  # In meters over first GFS layer for smooth  transition
+        self.surface_wind_layer_limit = 600  # In meters over first GFS layer for smooth transition
 
         self.parserate = 1
         self.updaterate = 1
@@ -239,39 +242,46 @@ class Conf:
         self.config_window_position = [200, 640]
 
     def saveSettings(self, filepath: Path, settings: dict) -> None:
-        f = open(filepath, 'wb')
-        cPickle.dump(settings, f)
-        f.close()
+        try:
+            with open(filepath, 'wb') as f:
+                pickle.dump(settings, f)
+        except (OSError, pickle.PicklingError, AttributeError, TypeError) as e:
+            print(f"ERROR saving settings to {filepath.name}: {e}")
 
     def loadSettings(self, filepath: Path) -> None:
         if filepath.is_file():
-            f = open(filepath, 'rb')
             try:
-                conf = cPickle.load(f)
-                f.close()
-            except Exception:
-                # Corrupted settings, remove file
-                print(f"{filepath.name}: Corrupted file, deleting ...")
-                filepath.unlink()
+                with open(filepath, 'rb') as f:
+                    settings = pickle.load(f)
+            except (pickle.UnpicklingError, EOFError, ValueError) as e:
+                print(f"{filepath.name}: Corrupted pickle data ({e}), deleting ...")
+                filepath.unlink(missing_ok=True)
+                return
+            except OSError as e:
+                print(f"{filepath.name}: I/O error reading pickle file ({e}), skipping ...")
+                return
+            except Exception as e:
+                print(f"{filepath.name}: Unexpected error loading pickle file ({e}), deleting ...")
+                filepath.unlink(missing_ok=True)
                 return
 
             # print(f"Conf settings Version: {conf['version']}")
             # Reset settings on different versions.
-            if 'version' not in conf or conf['version'] < '12.0.0':
-                print("Version unknown or very old, skipping ...")
+            if 'version' not in settings or self.version_tuple(settings['version']) < (12, 0, 0):
+                print("Saved settings version unknown or very old, skipping ...")
                 return
 
             # may be "dangerous" if someone messes our config file
-            for var in conf:
+            for var in settings:
                 if var in ['set_patches', 'download_GFS', 'download_WAFS']:
                     # overwriting older plugin version values
                     continue
                 elif var in self.__dict__:
-                    self.__dict__[var] = conf[var]
+                    self.__dict__[var] = settings[var]
 
     def pluginSave(self) -> None:
         """Save plugin settings"""
-        conf = {
+        settings = {
             'version': self.__VERSION__,
             'enabled': self.enabled,
             'metar_decode': self.metar_decode,
@@ -303,7 +313,7 @@ class Conf:
             'metar_window_position': self.metar_window_position,
             'config_window_position': self.config_window_position
         }
-        self.saveSettings(self.settingsfile, conf)
+        self.saveSettings(self.settingsfile, settings)
 
     def pluginLoad(self) -> None:
         self.loadSettings(self.settingsfile)
@@ -337,7 +347,7 @@ class Conf:
         print(f"XP12 Real Weather Mode: {self.use_real_weather_data}")
 
     @staticmethod
-    def gfs_levels_defaults() -> list:
+    def gfs_levels_defaults() -> list[dict]:
         """GFS Levels default config"""
         d = [
                 {
@@ -406,15 +416,15 @@ class Conf:
         return d
 
     @staticmethod
-    def gfs_levels_real_weather() -> list:
-        """GFS Levels default config"""
+    def gfs_levels_real_weather() -> list[dict]:
+        """GFS surface data that still are missing in Real Weather"""
+        # not sure if we'll ever need them
+
         d = [
                 {
                     "vars": [
                         "PRES",
                         "TMP",
-                        "HGT",
-                        "SNOD",
                         "APCP"
                     ],
                     "levels": "surface"
@@ -423,8 +433,8 @@ class Conf:
         return d
 
     @staticmethod
-    def wafs_levels_default() -> list:
-        """GFS Levels default config"""
+    def wafs_levels_default() -> list[dict]:
+        """WAFS Levels default config"""
         d = [
                 {
                     "vars": [
@@ -451,14 +461,14 @@ class Conf:
         return d
 
     @staticmethod
-    def wafs_levels_real_weather() -> list:
-        """GFS Levels 
-        At the moment gfs.t00z.awf_0p25.fFFF.grib2 do not permit partial download. Empty list will use the whole file"""
+    def wafs_levels_real_weather() -> list[dict]:
+        """WAFS Levels 
+        Real Weather has WAFS data, so there is no need to download it from NOAA"""
         d = [
         ]
         return d
 
-    def save_gfs_levels(self, levels: list):
+    def save_gfs_levels(self, levels: list[dict]) -> None:
         """Save gfs levels settings to a json file"""
         with open(self.gfsLevelsFile, 'w', encoding='UTF-8') as f:
             config = {
@@ -469,16 +479,26 @@ class Conf:
             config['comment'] += [' | '.join(level[i:i + 5]) for i in range(0, len(level), 5)]
             json.dump(config, f, indent=2)
 
-    def load_gfs_levels(self, json_file: Path) -> list:
+    def load_gfs_levels(self, json_file: Path) -> list[dict]:
         """Load gfs levels configuration from a json file"""
 
         with open(json_file, 'r', encoding='UTF-8') as f:
             try:
                 return json.load(f)['config']
-            except (KeyError, Exception) as err:
-                print(f"Format ERROR parsing gfs levels file: {err}")
-                return self.gfs_levels_defaults()
+            except (json.JSONDecodeError, KeyError, TypeError) as e:
+                print(f"Format ERROR parsing gfs levels file: {e}")
+            except OSError as e:
+                print(f"I/O ERROR reading gfs levels file: {e}")
+            except Exception as e:
+                print(f"Unexpected ERROR loading gfs levels file: {e}")
+            return self.gfs_levels_defaults()
 
     @staticmethod
     def can_exec(file_path: Path) -> bool:
         return file_path.is_file() and os.access(file_path, os.X_OK)
+
+    @staticmethod
+    def version_tuple(version: str) -> tuple[int, int, int]:
+        """'12.4.4-beta.3' -> (12, 4, 4): version strings can't be compared as text ('3.5' > '12.0')"""
+        numbers = [int(n) for n in re.findall(r'\d+', str(version))] + [0, 0, 0]
+        return tuple(numbers[:3])

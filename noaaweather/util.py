@@ -37,7 +37,7 @@ class util:
                         if sys.platform == 'win32':
                             import ctypes
                             print(f"{filepath.name} marked for deletion on reboot.")
-                            ctypes.windll.kernel32.MoveFileExA(str(filepath), None, 4)
+                            ctypes.windll.kernel32.MoveFileExW(str(filepath), None, 4)
                     break
                 i += 1
 
@@ -89,4 +89,5 @@ class util:
     @staticmethod
     def date_in_filename(file: Path) -> int:
         """ metar-2023-04-30-13.30.txt -> 202304301330"""
-        return int(''.join([s for s in file.stem.replace('-', '.').split('.') if s.isdigit()])) or 0
+        digits = ''.join(s for s in file.stem.replace('-', '.').split('.') if s.isdigit())
+        return int(digits or 0)

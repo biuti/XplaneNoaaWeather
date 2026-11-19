@@ -13,7 +13,7 @@ of the License, or any later version.
 """
 
 import os
-import pickle
+import json
 import socket
 import threading
 import subprocess
@@ -74,6 +74,8 @@ class Weather:
 
         self.newData = False
 
+        # keep the handle: the server watches our end of its stdin pipe, closing it would stop the server
+        self.serverProcess = None
         self.startWeatherServer()
 
     def startWeatherClient(self ) -> None:
@@ -103,7 +105,7 @@ class Weather:
                 continue
 
             try:
-                wdata = pickle.loads(received)
+                wdata = json.loads(received)
             except Exception as e:
                 # corrupted datagram: skip it, the thread must survive
                 xp.log(f"weather client: discarded a bad datagram ({len(received)} bytes): {e!r}")
@@ -127,21 +129,31 @@ class Weather:
 
     def startWeatherServer(self) -> None:
         DETACHED_PROCESS = 0x00000008
-        args = [xp.pythonExecutable, Path(self.conf.respath, 'weatherServer.py'), self.conf.syspath]
-        kwargs = {'close_fds': True}
+        args = [xp.pythonExecutable, Path(self.conf.respath, 'weatherServer.py'), self.conf.syspath, '--parent-pipe']
+        # the server stops by itself when this pipe closes, i.e. when X-Plane exits or crashes
+        kwargs = {'close_fds': True, 'stdin': subprocess.PIPE}
         try:
             if self.conf.spinfo:
                 kwargs.update({'startupinfo': self.conf.spinfo, 'creationflags': DETACHED_PROCESS})
             xp.log(f"Starting Weather Server using: {args} {kwargs}")
-            subprocess.Popen(args, **kwargs)
+            self.serverProcess = subprocess.Popen(args, **kwargs)
         except Exception as e:
             print(f"Exception while executing subprocess: {e}")
 
     def shutdown(self) -> None:
-        # Shutdown client and server
+        """Shutdown client and server"""
+
         self.weatherClientSend('!shutdown')
+
         self.weatherClientThread = False
         self.die.set()
+
+        # Signal EOF to the weather server's parent-watch thread.
+        if self.serverProcess and self.serverProcess.stdin:
+            try:
+                self.serverProcess.stdin.close()
+            except OSError:
+                pass
 
     def get_XP12_METAR(self, icao: str) -> str:
         return xp.getMETARForAirport(icao)
@@ -509,9 +521,16 @@ class Weather:
                         elev = 'na' if s.get('alt') is None else round(s.get('alt'))
                         surface_temp = 'na' if s.get('temp') is None else round(c.kel2cel(s.get('temp')), 1)
                         snow = s.get('snow')
+                        d = 0
                         if c.is_exponential(snow):
-                            snow = None
-                        snow_depth = f"{'na' if snow is None or snow < 0 else round(snow, 2)}"
+                            # we are probably over water or very close to water
+                            # let's look for prediction data
+                            if self.nearest_snow:
+                                nlat, nlon, snow = self.nearest_snow.values()
+                                d = round(c.m2nm(c.greatCircleDistance((lat, lon), (nlat, nlon))), 1)  # in nm
+                            else:
+                                snow = None
+                        snow_depth = f"{'na' if snow is None or snow < 0 else round(snow, 2)}{'' if not d else f' ({d} nm from present position)'}"
                         # acc_precip = 'na' if (s.get('acc_precip') is None or s.get('acc_precip') < 0) else round(s.get('acc_precip'), 2)
                         sysinfo += [
                             f"   elev. (ft): {elev} | temp (C): {surface_temp} | snow depth (m): {snow_depth}",
@@ -600,7 +619,7 @@ class Weather:
         dumplog = Path(dumpath, datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%SZdump.txt'))
         xp.log(f"creating dumplog file: {dumplog}")
 
-        f = open(dumplog, 'w')
+        f = open(dumplog, 'w', encoding='utf-8')
 
         xpver, sdkver, hid = xp.getVersions()
         output = [
@@ -651,13 +670,12 @@ class Weather:
             if filepath.is_file():
 
                 lfsize = filepath.stat().st_size
-                lf = open(filepath, 'r')
-                lf.seek(0, os.SEEK_END)
-                lf.seek(lf.tell() - c.limit(1024 * 6, lfsize), os.SEEK_SET)
+                # binary: a text mode seek can land inside a multi-byte character (i.e. the arrow in our own log lines)
+                with open(filepath, 'rb') as lf:
+                    lf.seek(lfsize - c.limit(1024 * 6, lfsize))
+                    tail = lf.read().decode('utf-8', errors='replace')
                 f.write(f"\n--- {logfile} ---\n\n")
-                for line in lf.readlines():
-                    f.write(line.strip('\r'))
-                lf.close()
+                f.write(tail.replace('\r\n', '\n'))
 
         f.close()
 

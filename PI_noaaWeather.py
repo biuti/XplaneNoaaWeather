@@ -43,6 +43,8 @@ class PythonInterface(widget.Widget):
         self.name = f"{name} - {self.conf.__VERSION__}"
         self.sig = "noaaweather.xppython3"
         self.desc = "NOAA GFS Weather Data in X-Plane"
+        self.loop_id = None
+        self.stopped = False
 
     def floopCallback(self, elapsedMe, elapsedSim, counter, refcon) -> int:
         """Flight Loop Callback"""
@@ -124,17 +126,25 @@ class PythonInterface(widget.Widget):
         return -1
 
     def XPluginStart(self) -> tuple[str, str, str]:
+        self.stopped = False
         return self.name, self.sig, self.desc
 
     def XPluginEnable(self) -> int:
         # floop
         self.floop = self.floopCallback
-        self.loop_id = xp.createFlightLoop(self.floop, phase=1)
+        if self.loop_id is None:
+            self.loop_id = xp.createFlightLoop(self.floop, phase=1)
         xp.scheduleFlightLoop(self.loop_id, interval=-1)
         return 1
 
     def XPluginDisable(self) -> None:
-        pass
+        # no flight loop while disabled: Enable creates it again
+        self.destroy_flight_loop()
+
+    def destroy_flight_loop(self) -> None:
+        if self.loop_id is not None:
+            xp.destroyFlightLoop(self.loop_id)
+            self.loop_id = None
 
     def XPluginReceiveMessage(self, inFromWho, inMessage, inParam) -> None:
         if (inParam is None or inParam == xp.PLUGIN_XPLANE) and inMessage == xp.MSG_AIRPORT_LOADED:
@@ -145,8 +155,12 @@ class PythonInterface(widget.Widget):
             self.XPluginStop()
 
     def XPluginStop(self) -> None:
+        # the updater message above stops us, then X-Plane calls this again: only the first call does the work
+        if self.stopped:
+            return
+        self.stopped = True
         # kill flightloop
-        xp.destroyFlightLoop(self.loop_id)
+        self.destroy_flight_loop()
         # save windows position
         self.save_windows_position()
         # kill widget windows and menu

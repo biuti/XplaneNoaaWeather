@@ -19,7 +19,8 @@ import signal
 import socket
 import time
 import threading
-import pickle as cPickle
+import json
+import subprocess
 import socketserver as SocketServer
 
 from pathlib import Path
@@ -39,6 +40,64 @@ from .realweather import RealWeather
 from .gfs import GFS
 from .wafs import WAFS
 from .weathersource import Worker
+
+def ask_to_quit(port: int) -> None:
+    """Asks a weather server left over from a previous run, still listening on our port, to stop"""
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.sendto(b'!shutdown', ('127.0.0.1', port))
+
+
+def is_weather_server(pid: int) -> bool:
+    """True if pid is a weatherServer.py process: the saved pid can be stale and pids get reused"""
+    if os.name == 'nt':
+        return False
+    try:
+        out = subprocess.run(['ps', '-p', str(pid), '-o', 'command='], capture_output=True, text=True, timeout=5).stdout
+    except Exception:
+        return False
+    return 'weatherServer.py' in out
+
+
+def open_server(conf):
+    """UDP server on our port. If an old server still holds the port it is asked to quit,
+    and only if it does not answer (and really is one of ours) it is killed"""
+    address = ("localhost", conf.server_port)
+    try:
+        return SocketServer.UDPServer(address, ClientHandler)
+    except socket.error:
+        print(f"Can't bind address: localhost, port: {conf.server_port}.")
+
+    def retry(seconds: float):
+        deadline = time.time() + seconds
+        while time.time() < deadline:
+            time.sleep(0.5)
+            try:
+                srv = SocketServer.UDPServer(address, ClientHandler)
+                conf.serverLoad()  # the old server saved its state while quitting
+                return srv
+            except socket.error:
+                pass
+
+    ask_to_quit(conf.server_port)
+    if (server := retry(5)) is None:
+        pid = conf.weatherServerPid
+        if pid and is_weather_server(pid):
+            print(f"Old server does not answer, killing pid {pid}")
+            os.kill(pid, signal.SIGTERM)
+            server = retry(3)
+        elif pid:
+            print(f"pid {pid} is not a weather server, leaving it alone")
+    return server
+
+
+def exit_with_parent(srv) -> None:
+    """The plugin keeps our stdin pipe open: it closes when X-Plane exits or crashes"""
+    try:
+        sys.stdin.buffer.read()
+    except Exception:
+        pass
+    # print("Parent process is gone, shutting down")
+    srv.shutdown()
 
 
 class LogFile:
@@ -182,9 +241,13 @@ class ClientHandler(SocketServer.BaseRequestHandler):
         nbytes = 0
 
         if response:
-            response = cPickle.dumps(response)
-            socket.sendto(response + b"\n", self.client_address)
-            nbytes = sys.getsizeof(response)
+            # JSON, not pickle: the plugin must never unpickle what arrives on a UDP port
+            response = json.dumps(response, separators=(',', ':'), default=str).encode('utf-8')
+            try:
+                socket.sendto(response + b"\n", self.client_address)
+                nbytes = len(response)
+            except OSError as e:
+                print(f"can't send {len(response)} bytes to {self.client_address}: {e}")
 
         print(f"{self.client_address[0]}:{data}: {nbytes} bytes sent.")
 
@@ -212,17 +275,21 @@ if __name__ == "__main__":
     print('---------------')
     print(sys.argv)
 
-    try:
-        server = SocketServer.UDPServer(("localhost", conf.server_port), ClientHandler)
-    except socket.error:
-        print(f"Can't bind address: {'localhost'}, port: {conf.server_port}.")
+    server = open_server(conf)
+    if server is None:
+        print("Can't start the weather server: the port is busy")
+        sys.exit(1)
 
-        if conf.weatherServerPid is not False:
-            print(f"Killing old server with pid {conf.weatherServerPid}")
-            os.kill(conf.weatherServerPid, signal.SIGTERM)
-            time.sleep(2)
-            conf.serverLoad()
-            server = SocketServer.UDPServer(("localhost", conf.server_port), ClientHandler)
+    parent_watch = None
+
+    if '--parent-pipe' in sys.argv:
+        parent_watch = threading.Thread(
+            target=exit_with_parent,
+            args=(server,),
+            name='parent-watch',
+            daemon=True
+        )
+        parent_watch.start()
 
     # Save pid
     conf.weatherServerPid = os.getpid()
@@ -256,14 +323,18 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         pass
 
+    # Wait for the parent watcher to finish before interpreter shutdown.
+    if parent_watch:
+        parent_watch.join()
+
     # Close gfs worker and save config
     worker.shutdown()
     conf.serverSave()
-    sys.stdout.flush()
 
     print('Server stopped.')
 
     if not debug:
+        sys.stdout.flush()
         logfile.close()
 
-    server.shutdown()
+    server.server_close()
