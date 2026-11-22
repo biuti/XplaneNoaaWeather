@@ -19,7 +19,7 @@ class Dref:
     def __init__(self) -> None:
 
         self.registered = False
-        self.registerTries = 0
+        self.register_tries = 0
 
         '''
         Bind datarefs
@@ -58,7 +58,7 @@ class Dref:
         }
 
         # XP Time
-        self.xpTime = find_dataref('sim/time/local_time_sec')  # sim time (sec from midnight)
+        self.xp_time = find_dataref('sim/time/local_time_sec')  # sim time (sec from midnight)
 
         # What system is currently controlling the weather. 0 = Preset, 1 = Real Weather, 2 = Controlpad, 3 = Plugin.
         self.xp_weather_source = find_dataref('sim/weather/region/weather_source')

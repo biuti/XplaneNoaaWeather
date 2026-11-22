@@ -8,6 +8,23 @@ as published by the Free Software Foundation; either version 2
 of the License, or any later version.
 """
 
+from pathlib import Path
+
+
+def load_version() -> str:
+    """Load the version string from version.txt."""
+    version_file = Path(__file__).resolve().parents[1] / 'version.txt'
+
+    try:
+        return version_file.read_text(encoding='utf-8').strip()
+
+    except (OSError, UnicodeDecodeError) as e:
+        print(f"Unable to load plugin version from {version_file}: {e}")
+        return "unknown"
+
+
+__version__ = load_version()
+
 try:
     import xp
     from XPPython3.utils.commands import create_command
@@ -18,5 +35,5 @@ except ImportError as e:
     pass
 
 from .c import c
-from .util import util
+from .utils import utils
 from .conf import Conf

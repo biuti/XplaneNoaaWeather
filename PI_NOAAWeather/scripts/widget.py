@@ -10,7 +10,7 @@ of the License, or any later version.
 
 import time
 
-from . import xp, Conf, c, util, dref, weather, create_command
+from . import utils, xp, Conf, c, dref, weather, create_command
 
 
 class Widget:
@@ -41,7 +41,7 @@ class Widget:
     config_line_chars = int((config_width - 4 * window_margin) / font_width)
 
     def __init__(self) -> None:
-        self.conf = Conf()
+        self.conf = Conf(xp.getSystemPath())
         self.weather = weather.Weather(self.conf)
         self.data = self.weather.data
 
@@ -352,7 +352,7 @@ class Widget:
         # y -= self.line_height
 
         # Accumulated snow | water
-        xp.createWidget(x + 50, y, x + 150, y - self.line_height, 1, 'Accumulated Snow:', 0, window, xp.WidgetClass_Caption)
+        xp.createWidget(x, y, x + 100, y - self.line_height, 1, 'Accumulated Snow:', 0, window, xp.WidgetClass_Caption)
         self.snowCheck = xp.createWidget(xc, y, xc + self.line_height, y - self.line_height, 1, '', 0, window, xp.WidgetClass_Button)
         xp.setWidgetProperty(self.snowCheck, xp.Property_ButtonState, xp.RadioButton)
         xp.setWidgetProperty(self.snowCheck, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
@@ -502,9 +502,9 @@ class Widget:
                         self.conf.metar_source = self.metar_source_check[check]
 
                 # Save config and tell server to reload it
-                self.conf.pluginSave()
+                self.conf.save_plugin_settings()
                 xp.log("Config saved. Weather client reloading ...")
-                self.weather.weatherClientSend('!reload')
+                self.weather.weather_client_send('!reload')
 
                 # If metar source has changed tell server to reinit metar database
                 if self.conf.metar_source != prev_metar_source:
@@ -512,19 +512,19 @@ class Widget:
                         # update metar source label
                         xp.destroyWidget(self.metar_window_widget, 1)
                         self.metar_window = False
-                    self.weather.weatherClientSend('!resetMetar')
+                    self.weather.weather_client_send('!resetMetar')
 
-                self.weather.startWeatherClient()
+                self.weather.start_weather_client()
                 self.configWindowUpdate()
 
                 # Reset things
-                self.weather.newData = True
+                self.weather.new_data = True
                 self.newAptLoaded = True
 
                 return 1
 
             if inParam1 == self.dumplog_button:
-                dumpfile = self.weather.dumpLog()
+                dumpfile = self.weather.dump_log()
                 xp.setWidgetDescriptor(self.dump_caption, f"created {dumpfile.name} in cache folder")
                 return 1
         return 0
@@ -558,15 +558,15 @@ class Widget:
     def updateStatus(self) -> None:
         """Updates status window"""
 
-        sysinfo = self.weather.weatherInfo(self.info_line_chars)
+        sysinfo = self.weather.weather_info(self.info_line_chars)
 
         for line in self.info_captions:
             label = sysinfo.pop(0) if len(sysinfo) else '--'
             xp.setWidgetDescriptor(line, label)
 
         text = ""
-        if self.conf.settingsfile.is_file() and self.config_window:
-            d = int(time.time() - self.conf.settingsfile.stat().st_mtime)
+        if self.conf.settings_file.is_file() and self.config_window:
+            d = int(time.time() - self.conf.settings_file.stat().st_mtime)
             if d < 15:
                 text = f"Reloading ({15 - d} sec.) ..."
             xp.setWidgetDescriptor(self.save_caption, text)
@@ -634,7 +634,7 @@ class Widget:
         query = xp.getWidgetDescriptor(self.metarQueryInput).strip().upper()
         self.clean_metar_output()
         if len(query) == 4:
-            self.weather.weatherClientSend('?' + query)
+            self.weather.weather_client_send('?' + query)
             xp.setWidgetDescriptor(self.metarQueryOutput[0], 'Querying, please wait.')
         else:
             xp.setWidgetDescriptor(self.metarQueryOutput[0], 'Please insert a valid ICAO code.')
@@ -644,12 +644,12 @@ class Widget:
 
         if self.metar_window:
             # Filter metar text
-            metar = util.format_text(
-                ''.join(filter(lambda x: x in self.conf.printableChars, msg['metar']['metar'])), 
+            metar = utils.format_text(
+                ''.join(filter(lambda x: x in self.conf.printable_chars, msg['metar']['metar'])), 
                 self.metar_line_chars
             )
-            rwmetar = util.format_text(
-                ''.join(filter(lambda x: x in self.conf.printableChars, msg['rwmetar']['metar'])), 
+            rwmetar = utils.format_text(
+                ''.join(filter(lambda x: x in self.conf.printable_chars, msg['rwmetar']['metar'])), 
                 self.metar_line_chars
             )
             # adding source and RW METARs

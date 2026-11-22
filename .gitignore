@@ -1,20 +1,56 @@
 
+# ============================================================
+# IDE and editor settings
+# ============================================================
 .DS_Store
-.idea
-.vscode
-__pycache__
+.idea/
+.vscode/
+
+# ============================================================
+# Python environments and cache
+# ============================================================
+/venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ============================================================
+# Python build and distribution
+# ============================================================
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ============================================================
+# NOAA / GFS configuration and generated data
+# ============================================================
+*gfs_levels_config.json
+*cache/
 *.pkl
+*.rwx
+
+# ============================================================
+# Weather server logs
+# ============================================================
+*weather_server_log.txt
+*weatherServerLog.txt
+
+# ============================================================
+# Generated binaries and legacy files
+# ============================================================
+*bin/old*
+*bin/makefiles/
+
+# ============================================================
+# METAR and station data
+# ============================================================
+*metars*
 stations.txt
 stations.json
-noaaweather/__pycache__
-noaaweather/gfs_levels_config.json
-noaaweather/cache/
-noaaweather/bin/old*
-noaaweather/bin/makefiles/
-/venv/
-/*.rwx
-/*test.*
-/*test*
-*metars*
-weatherServerLog.*
+
+# ============================================================
+# Tests and temporary files
+# ============================================================
+*test*
 *.org*

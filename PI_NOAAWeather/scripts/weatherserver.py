@@ -26,13 +26,20 @@ import socketserver as SocketServer
 from pathlib import Path
 from datetime import datetime
 
-try:
-    from . import Conf
-except ImportError:
-    __package__ = 'noaaweather'
-    this_dir = Path(__file__).resolve().parent
-    sys.path.append(str(this_dir.parent))
-    from .conf import Conf
+# try:
+#     from . import Conf
+# except ImportError:
+#     __package__ = 'scripts'
+#     this_dir = Path(__file__).resolve().parent
+#     sys.path.append(str(this_dir.parent))
+#     from .conf import Conf
+
+if not __package__:
+    package_root = Path(__file__).resolve().parent.parent
+    sys.path.insert(0, str(package_root))
+    __package__ = 'scripts'
+
+from .conf import Conf
 
 from . import c
 from .metar import Metar
@@ -48,14 +55,14 @@ def ask_to_quit(port: int) -> None:
 
 
 def is_weather_server(pid: int) -> bool:
-    """True if pid is a weatherServer.py process: the saved pid can be stale and pids get reused"""
+    """True if pid is a weatherserver.py process: the saved pid can be stale and pids get reused"""
     if os.name == 'nt':
         return False
     try:
         out = subprocess.run(['ps', '-p', str(pid), '-o', 'command='], capture_output=True, text=True, timeout=5).stdout
     except Exception:
         return False
-    return 'weatherServer.py' in out
+    return 'weatherserver.py' in out
 
 
 def open_server(conf):
@@ -73,14 +80,14 @@ def open_server(conf):
             time.sleep(0.5)
             try:
                 srv = SocketServer.UDPServer(address, ClientHandler)
-                conf.serverLoad()  # the old server saved its state while quitting
+                conf.load_server_settings()  # the old server saved its state while quitting
                 return srv
             except socket.error:
                 pass
 
     ask_to_quit(conf.server_port)
     if (server := retry(5)) is None:
-        pid = conf.weatherServerPid
+        pid = conf.weather_server_pid
         if pid and is_weather_server(pid):
             print(f"Old server does not answer, killing pid {pid}")
             os.kill(pid, signal.SIGTERM)
@@ -219,15 +226,15 @@ class ClientHandler(SocketServer.BaseRequestHandler):
                             'metar': 'NOT AVAILABLE'
                         }
             elif data == '!shutdown':
-                conf.serverSave()
+                conf.save_server_settings()
                 self.shutdown()
                 response = '!bye'
             elif data == '!reload':
-                conf.serverSave()
-                conf.pluginLoad()
+                conf.save_server_settings()
+                conf.load_plugin_settings()
             elif data == '!resetMetar':
                 # Clear database and force redownload
-                metar.clear_reports(conf.dbfile)
+                metar.clear_reports(conf.db_file)
                 metar.last_timestamp = 0
             elif data == '!resetRWMetar':
                 # reload database
@@ -253,27 +260,23 @@ class ClientHandler(SocketServer.BaseRequestHandler):
 
 
 if __name__ == "__main__":
-    debug = False
     # Get the X-Plane path from the arguments
-    if len(sys.argv) > 1:
-        path = sys.argv[1]
-    else:
-        # Debug run
-        debug = True
-        path = False
-
+    path = sys.argv[1]
     conf = Conf(path)
 
-    if not debug:
-        logfile = LogFile(Path(conf.respath, 'weatherServerLog.txt'), 'w')
-        sys.stderr = logfile
-        sys.stdout = logfile
+    logfile = LogFile(conf.server_log_file, 'w')
+    sys.stderr = logfile
+    sys.stdout = logfile
 
     print(f"NOAA plugin version: {conf.__VERSION__}")
     print('---------------')
     print('Starting server')
     print('---------------')
     print(sys.argv)
+    print(f"__file__: {__file__}")
+    print(f"__package__: {__package__}")
+    print(f"sys.path[0]: {sys.path[0]}")
+    print(f"package root: {Path(__file__).resolve().parent.parent}")
 
     server = open_server(conf)
     if server is None:
@@ -292,8 +295,8 @@ if __name__ == "__main__":
         parent_watch.start()
 
     # Save pid
-    conf.weatherServerPid = os.getpid()
-    conf.serverSave()
+    conf.weather_server_pid = os.getpid()
+    conf.save_server_settings()
 
     # Weather classes
     workers = []
@@ -310,7 +313,7 @@ if __name__ == "__main__":
             workers.append(wafs)
 
     # Init worker thread
-    worker = Worker(workers, conf.parserate)
+    worker = Worker(workers, conf.parse_rate)
     worker.start()
 
     if not conf.meets_wgrib2_requirements:
@@ -329,12 +332,12 @@ if __name__ == "__main__":
 
     # Close gfs worker and save config
     worker.shutdown()
-    conf.serverSave()
+    conf.save_server_settings()
 
     print('Server stopped.')
 
-    if not debug:
-        sys.stdout.flush()
-        logfile.close()
+
+    sys.stdout.flush()
+    logfile.close()
 
     server.server_close()

@@ -24,13 +24,13 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 """
 
-from noaaweather import xp, widget
+from .scripts import xp, widget
 
 
 # XPython3 required plugin parameters
-name = "NOAA Weather"
-sig = "noaaweather.xppython3"
-desc = "NOAA GFS Weather Data in X-Plane 12"
+NAME = "NOAA Weather"
+SIG = "noaaweather.xppython3"
+DESC = "NOAA GFS Weather Data in X-Plane 12"
 
 class PythonInterface(widget.Widget):
     """
@@ -40,9 +40,9 @@ class PythonInterface(widget.Widget):
     def __init__(self) -> None:
 
         super().__init__()
-        self.name = f"{name} - {self.conf.__VERSION__}"
-        self.sig = "noaaweather.xppython3"
-        self.desc = "NOAA GFS Weather Data in X-Plane"
+        self.name = f"{NAME} - {self.conf.__VERSION__}"
+        self.sig = SIG
+        self.desc = DESC
         self.loop_id = None
         self.stopped = False
 
@@ -57,8 +57,8 @@ class PythonInterface(widget.Widget):
             self.updateStatus()
 
         # Handle server misc requests
-        if len(self.weather.queryResponses):
-            msg = self.weather.queryResponses.pop()
+        if len(self.weather.query_response):
+            msg = self.weather.query_response.pop()
             if 'metar' in msg:
                 self.metarQueryCallback(msg)
 
@@ -69,7 +69,7 @@ class PythonInterface(widget.Widget):
         ''' Request new data from the weather server (if required)'''
         self.flcounter += elapsedMe
         self.fltime += elapsedMe
-        if self.flcounter > self.conf.parserate and self.weather.weatherClientThread:
+        if self.flcounter > self.conf.parse_rate and self.weather.weather_client_thread:
 
             lat, lon = round(self.data.latdr.value, 1), round(self.data.londr.value, 1)
 
@@ -79,7 +79,7 @@ class PythonInterface(widget.Widget):
                 hdg = round(self.data.track)
                 gs = round(self.data.groundspeed)
 
-                self.weather.weatherClientSend(f"?{round(lat, 2)}|{round(lon, 2)}|{hdg}|{gs}\n")
+                self.weather.weather_client_send(f"?{round(lat, 2)}|{round(lon, 2)}|{hdg}|{gs}\n")
 
                 self.flcounter = 0
                 self.lastParse = self.fltime
@@ -87,7 +87,7 @@ class PythonInterface(widget.Widget):
         # Store altitude
         self.weather.alt = self.data.altdr.value
 
-        wdata = self.weather.weatherData
+        wdata = self.weather.weather_data
         # Return if there's no weather data
         if wdata is False:
             return -1
@@ -99,10 +99,10 @@ class PythonInterface(widget.Widget):
                 self.newAptLoaded = False
             if self.conf.set_snow:
                 # ATM we need to overwrite dref value every cycle
-                self.weather.setSnow(elapsed=elapsedMe)
+                self.weather.set_snow(elapsed=elapsedMe)
             if self.conf.set_friction:
-                self.weather.setRunwayFriction(elapsed=elapsedMe)
-            if self.weather.newData:
+                self.weather.set_runway_friction(elapsed=elapsedMe)
+            if self.weather.new_data:
                 # Real Weather active
                 # check Dref values, RW overwrites them. Probably needed for any change to Real Weather data
                 # looking at actual weather, does not seem to have any impact tho.
@@ -117,12 +117,12 @@ class PythonInterface(widget.Widget):
                 pass
 
         ''' Data set on new weather Data '''
-        if not self.conf.use_real_weather_data and self.weather.newData:
+        if not self.conf.use_real_weather_data and self.weather.new_data:
             pass
             # Update Dataref data
             # self.data.updateData(wdata)
 
-        self.weather.newData = False
+        self.weather.new_data = False
         return -1
 
     def XPluginStart(self) -> tuple[str, str, str]:
@@ -148,7 +148,7 @@ class PythonInterface(widget.Widget):
 
     def XPluginReceiveMessage(self, inFromWho, inMessage, inParam) -> None:
         if (inParam is None or inParam == xp.PLUGIN_XPLANE) and inMessage == xp.MSG_AIRPORT_LOADED:
-            self.weather.startWeatherClient()
+            self.weather.start_weather_client()
             self.newAptLoaded = True
         elif inMessage == (0x8000000 | 8090) and inParam == 1:
             # inSimUpdater wants to shutdown
@@ -167,4 +167,4 @@ class PythonInterface(widget.Widget):
         self.shutdown_widget()
         # kill weather server/client
         self.weather.shutdown()
-        self.conf.pluginSave()
+        self.conf.save_plugin_settings()

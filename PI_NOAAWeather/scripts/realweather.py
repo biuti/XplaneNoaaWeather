@@ -19,7 +19,7 @@ from collections.abc import Iterator, Sequence
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
-from . import c, util
+from . import c, utils
 from .database import Database
 from .weathersource import GribWeatherSource
 
@@ -31,9 +31,9 @@ SNOW_LOOKAHEAD_M = 60_000   # how far ahead along the track we look for a valid 
 class RealWeather(GribWeatherSource):
     """X-Plane 12 Real Weather files source"""
 
-    timeframes = range(0, 24, 3)
+    TIMEFRAMES = range(0, 24, 3)
 
-    suffixes = [
+    SUFFIXES = [
         'calt',
         'cbbs',
         'cbcv',
@@ -52,8 +52,8 @@ class RealWeather(GribWeatherSource):
         'wind',
     ]
 
-    table = 'realweather'
-    rwmetar_check_interval = 300  # 5 minutes
+    DB_TABLE = 'realweather'
+    RWMETAR_CHECK_INTERVAL = 300  # 5 minutes
 
     def __init__(self, conf) -> None:
         self.starting = True
@@ -64,26 +64,26 @@ class RealWeather(GribWeatherSource):
         self.next_rwmetar = time.time() + 30
         self.last_rwmetar = None
 
-        self.db = Database(conf.dbfile)
+        self.db = Database(conf.db_file)
 
         super().__init__(conf)
 
     @property
     def base_behind(self) -> str | None:
         if self.idx_behind is not None and self.zulu_time:
-            return f'{self.zulu_time.year}-{self.zulu_time.month:02d}-{self.zulu_time.day:02d}-{self.timeframes[self.idx_behind]:02d}.00'
+            return f'{self.zulu_time.year}-{self.zulu_time.month:02d}-{self.zulu_time.day:02d}-{self.TIMEFRAMES[self.idx_behind]:02d}.00'
 
     @property
     def base_ahead(self) -> str | None:
         if self.idx_ahead is not None and self.zulu_time:
             day = self.zulu_time if self.idx_ahead > 0 else self.zulu_time + timedelta(days=1)
-            return f'{day.year}-{day.month:02d}-{day.day:02d}-{self.timeframes[self.idx_ahead]:02d}.00'
+            return f'{day.year}-{day.month:02d}-{day.day:02d}-{self.TIMEFRAMES[self.idx_ahead]:02d}.00'
 
     @property
     def base(self) -> str | None:
         if self.zulu_time and self.idx_behind is not None and self.idx_ahead is not None:
-            time_behind = self.timeframes[self.idx_behind]
-            time_ahead = self.timeframes[self.idx_ahead] if self.idx_ahead > 0 else 24
+            time_behind = self.TIMEFRAMES[self.idx_behind]
+            time_ahead = self.TIMEFRAMES[self.idx_ahead] if self.idx_ahead > 0 else 24
             if self.zulu_time.hour - time_behind < time_ahead - self.zulu_time.hour:
                 return self.base_behind
             else:
@@ -91,18 +91,23 @@ class RealWeather(GribWeatherSource):
 
     @property
     def grib_files(self) -> list:
-        return [] if self.base is None else [path for path in self.conf.wpath.resolve().glob(f"*{self.base}*.grib") if path.is_file()]
+        return [] if self.base is None else [path for path in self.conf.rw_path.resolve().glob(f"*{self.base}*.grib") if path.is_file()]
 
     @property
     def metar_file(self) -> Path | None:
         """ Should get the latest RW METAR file
             Unfortunately when RW initialize does not save files in a smart order, so we need to use filename"""
-        metar_files = [p for p in self.conf.wpath.iterdir() if p.is_file() and 'METAR' in p.stem.upper()]
-        if metar_files:
-            '''get latest file'''
-            return max(metar_files, key=lambda x: util.date_in_filename(x))
-        else:
+
+        if not self.conf.rw_path.is_dir():
             return None
+
+        metar_files = [p for p in self.conf.rw_path.iterdir() if p.is_file() and 'METAR' in p.stem.upper()]
+
+        if not metar_files:
+            return None
+
+        # get latest file
+        return max(metar_files, key=lambda x: utils.date_in_filename(x))
 
     @property
     def metar_file_time(self) -> str:
@@ -128,7 +133,7 @@ class RealWeather(GribWeatherSource):
         nparsed = 0
         inserts = []
 
-        lines = util.get_rw_ordered_lines(self.metar_file)
+        lines = utils.get_rw_ordered_lines(self.metar_file)
 
         if lines:
             seen = set()
@@ -156,7 +161,7 @@ class RealWeather(GribWeatherSource):
             icao: ICAO code for requested airport
             returns METAR string"""
 
-        return self.db.get(self.table, icao)
+        return self.db.get(self.DB_TABLE, icao)
 
     def get_real_weather_forecast(self) -> None:
         """ configures x-plane 12 weather filenames to be read
@@ -186,8 +191,8 @@ class RealWeather(GribWeatherSource):
 
         now = datetime.now(timezone.utc)
         self.zulu_time = now
-        self.idx_ahead = next((k for k, v in enumerate(self.timeframes) if v > now.hour), 0)
-        self.idx_behind = self.idx_ahead - 1 if self.idx_ahead > 0 else len(self.timeframes) - 1
+        self.idx_ahead = next((k for k, v in enumerate(self.TIMEFRAMES) if v > now.hour), 0)
+        self.idx_behind = self.idx_ahead - 1 if self.idx_ahead > 0 else len(self.TIMEFRAMES) - 1
 
     @staticmethod
     def _snow_candidates(hdg: float) -> Iterator[tuple[float, int]]:
@@ -236,7 +241,7 @@ class RealWeather(GribWeatherSource):
     def check_latest_wafs(self) -> str | None:
         """reads the run data from latest WAFS grib file """
 
-        file = next((f for f in self.conf.wpath.iterdir() if 'ctrb' in f.name and self.base_ahead in f.name), None)
+        file = next((f for f in self.conf.rw_path.iterdir() if 'ctrb' in f.name and self.base_ahead in f.name), None)
         print(f"check_latest_wafs: {file}")
         if file:
             it = self.read_grib_file(file)
@@ -254,12 +259,12 @@ class RealWeather(GribWeatherSource):
         """takes the downloaded WAFS file and copies it to the XP12 Real Weather folder"""
         if self.starting:
             print(f"Need to change both ahead and behind files")
-            files = [f for f in self.conf.wpath.iterdir() if 'ctrb' in f.name and (self.base_behind in f.name or self.base_ahead in f.name)]
+            files = [f for f in self.conf.rw_path.iterdir() if 'ctrb' in f.name and (self.base_behind in f.name or self.base_ahead in f.name)]
         else:
-            files = [f for f in self.conf.wpath.iterdir() if 'ctrb' in f.name and self.base_ahead in f.name]
+            files = [f for f in self.conf.rw_path.iterdir() if 'ctrb' in f.name and self.base_ahead in f.name]
         for file in files:
             print(f"copying {grib_file.name} over {file.name}")
-            util.copy(grib_file, file)
+            utils.copy(grib_file, file)
         return len(files) > 1
 
     def run(self, elapsed) -> None:
@@ -272,7 +277,7 @@ class RealWeather(GribWeatherSource):
                 self.update_rwmetar()
                 print(f"*** RW METAR DB updated: {datetime.now(timezone.utc).strftime('%H:%M:%S')} ***")
                 self.last_rwmetar = time.time()
-                self.next_rwmetar = self.last_rwmetar + self.rwmetar_check_interval
+                self.next_rwmetar = self.last_rwmetar + self.RWMETAR_CHECK_INTERVAL
             except Exception:
                 traceback.print_exc()
 

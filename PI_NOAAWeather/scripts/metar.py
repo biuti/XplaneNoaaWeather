@@ -22,7 +22,7 @@ from datetime import datetime, timedelta, timezone
 from itertools import batched
 from pathlib import Path
 
-from . import c, util
+from . import c, utils
 from .database import Database
 from .weathersource import WeatherSource, GribDownloaderError, GribDownloader, AsyncTask
 
@@ -60,7 +60,7 @@ class Metar(WeatherSource):
 
     def __init__(self, conf) -> None:
 
-        self.db = Database(conf.dbfile)
+        self.db = Database(conf.db_file)
 
         super().__init__(conf)
 
@@ -162,7 +162,7 @@ class Metar(WeatherSource):
     def update_metar(self, path: Path, batch: int = 100) -> tuple[int, int]:
         """Updates metar table from Metar file. Returns (updated, parsed)"""
 
-        today, today_prefix, yesterday_prefix = util.date_info()
+        today, today_prefix, yesterday_prefix = utils.date_info()
 
         # deal with non utf-8 characters, avoiding error
         with open(path, encoding='utf-8', errors='replace') as f:
@@ -182,7 +182,7 @@ class Metar(WeatherSource):
             nupdated += self.db.writemany(query, list(chunk))
 
         if not self.conf.keepOldFiles:
-            util.remove(path)
+            utils.remove(path)
 
         return nupdated, nparsed
 
@@ -400,28 +400,40 @@ class Metar(WeatherSource):
             if not self.ms_download.pending():
                 self.ms_download.join()
                 stations = self.ms_download.result
-                if isinstance(stations, GribDownloaderError):
+                self.ms_download = False
+
+                if isinstance(stations, Exception):
                     print(f"Error downloading metar stations file: {stations!r}")
+
                     if self.ms_url == self.METAR_STATIONS_GZIP:
                         print("Trying backup static url")
-                        self.download_stations(url=self.METAR_STATIONS_BACKUP_URL, filename='stations.txt')
+                        self.download_stations(
+                            url=self.METAR_STATIONS_BACKUP_URL,
+                            filename='stations.txt'
+                        )
                 else:
                     print('Updating metar stations.')
                     try:
                         nstations = self.update_stations(stations)
-                        print(f"**** {datetime.now(timezone.utc).strftime('%H:%M:%S')} {nstations} metar stations updated.")
+                        print(
+                            f"**** {datetime.now(timezone.utc).strftime('%H:%M:%S')} "
+                            f"{nstations} metar stations updated."
+                        )
                     except Exception:
                         traceback.print_exc()
-                self.ms_download = False
+
             else:
-                print(f" **** {datetime.now(timezone.utc).strftime('%H:%M:%S')} waiting stations download ... ")
+                print(
+                    f" **** {datetime.now(timezone.utc).strftime('%H:%M:%S')} "
+                    "waiting stations download ... "
+                )
 
         # Check for new metar downloaded data
         elif self.download:
             if not self.download.pending():
                 metar_file = self.download.result
                 self.download.join()
-                if isinstance(metar_file, GribDownloaderError):
+                if isinstance(metar_file, Exception):
                     print(f"Error downloading METAR: {metar_file!r}")
                 else:
                     self.update_metar(metar_file)
@@ -448,7 +460,7 @@ class Metar(WeatherSource):
 
         headers = {}
         if source == 'IVAO':
-            key = base64.b64decode(Path(self.conf.respath, 'bin', 'ivao.bin').read_text())
+            key = base64.b64decode(Path(self.conf.bin_path, 'ivao.bin').read_text())
             headers = {
                 'accept': 'application/json',
                 'apiKey': key

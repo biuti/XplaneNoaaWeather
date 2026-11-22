@@ -12,7 +12,6 @@ as published by the Free Software Foundation; either version 2
 of the License, or any later version.
 """
 
-import os
 import json
 import socket
 import threading
@@ -22,29 +21,35 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from . import xp, c, dref, util, DataRef
+from . import utils, xp, c, dref, DataRef
 
 
 class Weather:
     """Sets x-plane weather from GFS parsed data"""
 
-    alt = 0.0
-    ref_winds = {}
-    lat, lon, last_lat, last_lon = 99, 99, False, False
-
     # snow default values
-    snow_default_values = {
+    SNOW_DEFAULT_VALUES = {
         'frozen_water': 0,
         'tarmac_snow_width': 0.25,
         'tarmac_snow_scale': 500,
         'tarmac_snow_noise': 0.04
     }
 
+    # weather data further than this from the aircraft (nm) is the data of a previous place, i.e. right after an airport change
+    STALE_DATA_NM = 30
+
     def __init__(self, conf) -> None:
+
+        self.alt = 0.0
+        self.ref_winds = {}
+        self.lat = 99.0
+        self.lon = 99.0
+        self.last_lat = False
+        self.last_lon = False
 
         self.conf = conf
         self.data = dref.Dref()
-        self.lastMetarStation = False
+        self.last_metar_station = False
 
         # runway friction values
         self.xp_runway_friction = None
@@ -52,8 +57,8 @@ class Weather:
         self.adjusted_friction = None
 
         # Data
-        self.weatherData = False
-        self.weatherClientThread = False
+        self.weather_data = False
+        self.weather_client_thread = False
 
         self.windAlts = -1
         self.nearest_snow = False
@@ -64,7 +69,7 @@ class Weather:
         self._last_logged_val = None
 
         # Response queue for user queries
-        self.queryResponses = []
+        self.query_response = []
 
         # Create client socket
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -72,26 +77,30 @@ class Weather:
         self.die = threading.Event()
         self.lock = threading.Lock()
 
-        self.newData = False
+        self.new_data = False
 
         # keep the handle: the server watches our end of its stdin pipe, closing it would stop the server
-        self.serverProcess = None
-        self.startWeatherServer()
+        self.server_process = None
+        self.start_weather_server()
 
-    def startWeatherClient(self ) -> None:
-        thread = self.weatherClientThread
+    def start_weather_client(self ) -> None:
+        thread = self.weather_client_thread
         if not (thread and thread.is_alive()):
             self.die.clear()
             self.sock.settimeout(1.0)  # lets the client thread notice self.die
             # daemon: a stuck client can never keep X-Plane from exiting
-            self.weatherClientThread = threading.Thread(target=self.weatherClient, name='noaaweather-client', daemon=True)
-            self.weatherClientThread.start()
+            self.weather_client_thread = threading.Thread(
+                target=self.weather_client,
+                name='noaaweather-client',
+                daemon=True
+            )
+            self.weather_client_thread.start()
 
-    def weatherClient(self) -> None:
+    def weather_client(self) -> None:
         """Weather client thread fetches weather from Weather Server"""
 
         # Send something for windows to bind
-        self.weatherClientSend('!ping')
+        self.weather_client_send('!ping')
 
         while not self.die.is_set():
             try:
@@ -100,65 +109,91 @@ class Weather:
                 continue
             except OSError as e:
                 if not self.die.is_set():
-                    xp.log(f"weather client socket error: {e!r}")
+                    xp.log(f" *** Weather client socket error: {e!r}")
                     self.die.wait(1)
                 continue
+
+            if self.conf.verbose:
+                xp.log(
+                    f"Weather client received datagram: "
+                    f"{len(received)} bytes, "
+                    f"content={received[:120]!r}"
+                )
 
             try:
                 wdata = json.loads(received)
             except Exception as e:
-                # corrupted datagram: skip it, the thread must survive
-                xp.log(f"weather client: discarded a bad datagram ({len(received)} bytes): {e!r}")
+                xp.log(f" *** Weather client JSON error: {e!r}")
                 continue
 
+            if self.conf.verbose:
+                xp.log(
+                    f"Weather response type: {type(wdata).__name__}, "
+                    f"keys: {list(wdata.keys()) if isinstance(wdata, dict) else wdata!r}"
+                )
+
             if wdata == '!bye':
+                xp.log(" * Weather client received: server is shutting down")
                 break
             elif not isinstance(wdata, dict):
-                xp.log(f"weather client: discarded a bad datagram ({len(received)} bytes): not a dict")
+                # corrupted datagram: skip it, the thread must survive
+                xp.log(f" * Weather client: discarded a bad datagram ({len(received)} bytes): not a dict")
                 continue
             elif 'info' not in wdata:
                 # A metar query response
-                self.queryResponses.append(wdata)
+                self.query_response.append(wdata)
             else:
-                self.weatherData = wdata
-                self.newData = True
+                self.weather_data = wdata
+                self.new_data = True
+                xp.log(" * Weather data successfully received and stored.")
 
-    def weatherClientSend(self, msg: str) -> None:
-        if self.weatherClientThread:
+    def weather_client_send(self, msg: str) -> None:
+        if self.weather_client_thread:
             self.sock.sendto(msg.encode('utf-8'), ('127.0.0.1', self.conf.server_port))
 
-    def startWeatherServer(self) -> None:
+    def start_weather_server(self) -> None:
         DETACHED_PROCESS = 0x00000008
-        args = [xp.pythonExecutable, Path(self.conf.respath, 'weatherServer.py'), self.conf.syspath, '--parent-pipe']
+
+        server_script = Path(self.conf.scripts_path, 'weatherserver.py')
+        args = [
+            xp.pythonExecutable,
+            server_script,
+            self.conf.xplane_path,
+            '--parent-pipe'
+        ]
         # the server stops by itself when this pipe closes, i.e. when X-Plane exits or crashes
         kwargs = {'close_fds': True, 'stdin': subprocess.PIPE}
         try:
             if self.conf.spinfo:
-                kwargs.update({'startupinfo': self.conf.spinfo, 'creationflags': DETACHED_PROCESS})
-            xp.log(f"Starting Weather Server using: {args} {kwargs}")
-            self.serverProcess = subprocess.Popen(args, **kwargs)
+                kwargs.update({
+                    'startupinfo': self.conf.spinfo,
+                    'creationflags': DETACHED_PROCESS
+                })
+            xp.log(f" * Starting Weather Server using: {args} {kwargs}")
+            self.server_process = subprocess.Popen(args, **kwargs)
+            xp.log(f" * Weather Server process created: PID={self.server_process.pid}")
         except Exception as e:
-            print(f"Exception while executing subprocess: {e}")
+            xp.log(f" *** Exception while executing subprocess: {e!r}")
 
     def shutdown(self) -> None:
         """Shutdown client and server"""
 
-        self.weatherClientSend('!shutdown')
+        self.weather_client_send('!shutdown')
 
-        self.weatherClientThread = False
+        self.weather_client_thread = False
         self.die.set()
 
         # Signal EOF to the weather server's parent-watch thread.
-        if self.serverProcess and self.serverProcess.stdin:
+        if self.server_process and self.server_process.stdin:
             try:
-                self.serverProcess.stdin.close()
+                self.server_process.stdin.close()
             except OSError:
                 pass
 
     def get_XP12_METAR(self, icao: str) -> str:
         return xp.getMETARForAirport(icao)
 
-    def setSnow(self, elapsed: float) -> None:
+    def set_snow(self, elapsed: float) -> None:
         """ Set snow cover
             X-Plane version < 12.4:
             Dref value goes from 1.25 to 0.01
@@ -185,7 +220,7 @@ class Weather:
             # something went wrong initializing snow datarefs
             return
 
-        data = ((self.weatherData or {}).get('rw') or {}).get('surface')
+        data = ((self.weather_data or {}).get('rw') or {}).get('surface')
         if not data or 'snow' not in data or 'temp' not in data:
             # no Real Weather surface data (yet): files still downloading or no SNOD in them
             return
@@ -198,6 +233,13 @@ class Weather:
         lon = self.data.londr.value if isinstance(self.data.londr.value, (int, float)) else 0.0
         temp = c.kel2cel(data['temp'])
         transitions_speed = 0.25 if self.data.on_ground else 0.01
+
+        # The data belongs to the position it was requested for. After an airport change (or any jump) it is still the
+        # data of the previous place until the new response arrives: using it would remember the old snow depth at the new position
+        info = self.weather_data.get('info') or {}
+        dlat, dlon = info.get('lat', lat), info.get('lon', lon)
+        if c.m2nm(c.greatCircleDistance((lat, lon), (dlat, dlon))) > self.STALE_DATA_NM:
+            return
 
         # over water, or where is not received, GFS data have a value of 9.999e+20
         # if there is already a snow value, it will keep that one in a radius of 300nm, 
@@ -233,8 +275,8 @@ class Weather:
             self.nearest_snow = False
         elif snow > 0:
             self.nearest_snow = {
-                'lat': lat,
-                'lon': lon,
+                'lat': dlat,
+                'lon': dlon,
                 'depth': snow
             }
 
@@ -243,7 +285,7 @@ class Weather:
         # ------------------------------------------------------------------
         if snow <= 0.0:
             val = 0.0
-            frozen_water, noise, scale, width = self.snow_default_values.values()
+            frozen_water, noise, scale, width = self.SNOW_DEFAULT_VALUES.values()
             ice = puddles = 0.0
 
         else:
@@ -294,9 +336,9 @@ class Weather:
                     transitions_speed
                 )
 
-                self.setDrefIfDiff(self.data.tarmac_snow_noise, noise)
-                self.setDrefIfDiff(self.data.tarmac_snow_scale, scale)
-                self.setDrefIfDiff(self.data.tarmac_snow_width, width)
+                self.set_dref_if_different(self.data.tarmac_snow_noise, noise)
+                self.set_dref_if_different(self.data.tarmac_snow_scale, scale)
+                self.set_dref_if_different(self.data.tarmac_snow_width, width)
 
                 # log only when change is visible
                 if self._last_logged_val is None or abs(val - self._last_logged_val) > 0.01:
@@ -311,10 +353,10 @@ class Weather:
         # ------------------------------------------------------------------
         # Inject secondary drefs
         # ------------------------------------------------------------------
-        self.setDrefIfDiff(self.data.iced_tarmac, ice)
-        self.setDrefIfDiff(self.data.puddles, puddles)
+        self.set_dref_if_different(self.data.iced_tarmac, ice)
+        self.set_dref_if_different(self.data.puddles, puddles)
 
-    def setRunwayFriction(self, elapsed: float) -> None:
+    def set_runway_friction(self, elapsed: float) -> None:
         """
             As of XP version 12.4, runway friction still needs to be adjusted as it 
             uses high values of friction (icy tarmac) on any airport, so even international airports are affected.
@@ -370,7 +412,7 @@ class Weather:
             except SystemError as e:
                 xp.log(f"[RF] ERROR injecting runway friction: {e}")
 
-    def setDrefIfDiff(self, dref, value: float, max_diff: Optional[float] = False) -> bool:
+    def set_dref_if_different(self, dref, value: float, max_diff: Optional[float] = False) -> bool:
         """ Set a Dataref if the current value differs
             Returns True if value was updated """
 
@@ -390,15 +432,16 @@ class Weather:
             self.nearest_snow = False
         c.transitionClearReferences()
 
-    def weatherInfo(self, chars: int = 80) -> list[str]:
+    def weather_info(self, chars: int = 80) -> list[str]:
         """Return an array of strings with formatted weather data"""
         verbose = self.conf.verbose
+        rw_enabled = self.data.real_weather_enabled
         sysinfo = [f"XPNoaaWeather for XP12 {self.conf.__VERSION__} Status:"]
 
-        if not self.weatherData:
+        if not self.weather_data:
             sysinfo += ['* Data not ready. Please wait...']
         else:
-            wdata = self.weatherData
+            wdata = self.weather_data
             if 'info' in wdata:
                 lat, lon = self.data.latdr.value, self.data.londr.value
                 sysinfo += [
@@ -407,7 +450,7 @@ class Weather:
                         c.m2ft(self.data.altdr.value) / 100, self.data.mag_deviation.value)
                 ]
                 if not self.data.real_weather_enabled:
-                    sysinfo += [f"   XP12 Real Weather is not active (value = {self.data.xp_weather_source.value})"]
+                    sysinfo += ["   XP12 Real Weather IS NOT ACTIVE" + ("" if not verbose else f" (value = {self.data.xp_weather_source.value})")]
                 elif 'None' in wdata['info']['gfs_cycle']:
                     sysinfo += ['   XP12 is still downloading weather info ...']
                 elif self.conf.use_real_weather_data:
@@ -422,7 +465,7 @@ class Weather:
                 ]
                 # Split metar if needed
                 metar = f"{wdata['metar']['icao']} {wdata['metar']['metar']}"
-                sysinfo += util.format_text(metar, chars, 3)
+                sysinfo += utils.format_text(metar, chars, 3)
 
                 if self.conf.metar_decode:
                     # METAR Decoding Section
@@ -460,31 +503,32 @@ class Weather:
                             clouds = '   Clouds and Visibility OK'
                         sysinfo += [clouds]
 
-                if 'rwmetar' in wdata and self.conf.use_real_weather_data:
+                if 'rwmetar' in wdata and rw_enabled and self.conf.use_real_weather_data:
                     if not wdata['rwmetar'].get('file_time'):
                         sysinfo += ['XP12 REAL WEATHER METAR:', '   no METAR file, still downloading...']
                     else:
                         sysinfo += [f"XP12 REAL WEATHER METAR ({wdata['rwmetar']['file_time']}):"]
                         line = f"{wdata['rwmetar']['result'][0]} {wdata['rwmetar']['result'][1]}"
-                        sysinfo += util.format_text(line, chars, 3)
-                    # check actual pressure and adjusted friction
-                    sysinfo += ['', 'XP12 REAL WEATHER LIVE PARAMETERS:']
-                    wind_d = round(self.data.wind_dir.value)
-                    wind_s = round(c.ms2knots(self.data.wind_spd.value))
-                    line = f"   Wind {wind_d} at {wind_s}"
-                    vis_m, vis_sm = round(c.sm2m(self.data.visibility.value)), round(self.data.visibility.value, 1)
-                    line += f" | Vis: {vis_m}m ({vis_sm}sm)"
-                    temp = round(self.data.temp.value, 1)
-                    line += f" | Temp {temp}C"
-                    pressure = self.data.pressure.value / 100  # mb
-                    pressure_inHg = c.mb2inHg(pressure)
-                    line += f" | Press. at sea lvl: {pressure:.1f}mb ({pressure_inHg:.2f}inHg)"
-                    sysinfo += [line]
-                    friction = self.data.runwayFriction.value
-                    line = f"   Runway Friction: {friction:02}"
-                    if self.adjusted_friction is not None:
-                        line += f" (adjusted from {self.xp_runway_friction:02})"
-                    sysinfo += [line, '']
+                        sysinfo += utils.format_text(line, chars, 3)
+
+            # check actual pressure and adjusted friction
+            sysinfo += ['', f'XP12 {"REAL" if rw_enabled else "CUSTOM"} WEATHER LIVE PARAMETERS:']
+            wind_d = round(self.data.wind_dir.value)
+            wind_s = round(c.ms2knots(self.data.wind_spd.value))
+            line = f"   Wind {wind_d} at {wind_s}"
+            vis_m, vis_sm = round(c.sm2m(self.data.visibility.value)), round(self.data.visibility.value, 1)
+            line += f" | Vis: {vis_m}m ({vis_sm}sm)"
+            temp = round(self.data.temp.value, 1)
+            line += f" | Temp {temp}C"
+            pressure = self.data.pressure.value / 100  # mb
+            pressure_inHg = c.mb2inHg(pressure)
+            line += f" | Press. at sea lvl: {pressure:.1f}mb ({pressure_inHg:.2f}inHg)"
+            sysinfo += [line]
+            friction = self.data.runwayFriction.value
+            line = f"   Runway Friction: {friction:02}"
+            if self.adjusted_friction is not None:
+                line += f" (adjusted from {self.xp_runway_friction:02})"
+            sysinfo += [line, '']
 
             if not self.conf.meets_wgrib2_requirements:
                 '''not a compatible OS with wgrib2'''
@@ -510,7 +554,7 @@ class Weather:
                     # at the moment we are not using GFS data, but we could use it in the future
                     pass
 
-                if 'rw' in wdata and self.conf.use_real_weather_data:
+                if rw_enabled and self.conf.use_real_weather_data and'rw' in wdata:
                     # XP12 Real Weather is enabled
                     rw = wdata['rw']
 
@@ -608,12 +652,12 @@ class Weather:
         for dr in datarefs:
             xp.unregisterDataAccessor(dr)
 
-    def dumpLog(self) -> Path:
+    def dump_log(self) -> Path:
         """Dumps all the information to a file to report bugs"""
         import platform
         from pprint import pprint
 
-        dumpath = Path(self.conf.cachepath, 'dumplogs')
+        dumpath = Path(self.conf.cache_path, 'dumplogs')
         dumpath.mkdir(parents=True, exist_ok=True)
 
         dumplog = Path(dumpath, datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%SZdump.txt'))
@@ -631,7 +675,7 @@ class Weather:
             '\n--- Weather Status ---\n'
         ]
 
-        for line in self.weatherInfo():
+        for line in self.weather_info():
             output.append(f"{line}\n")
 
         output += ['\n--- Weather Data ---\n']
@@ -639,7 +683,7 @@ class Weather:
         for line in output:
             f.write(line)
 
-        pprint(self.weatherData, f, width=160)
+        pprint(self.weather_data, f, width=160)
         f.write('\n--- Transition data Data --- \n')
         pprint(c.transrefs, f, width=160)
 
@@ -656,26 +700,16 @@ class Weather:
         pprint(vars, f, width=160)
 
         # Append tail of PythonInterface log files
-        logfiles = [
-            'PythonInterfaceLog.txt',
-            'PythonInterfaceOutput.txt',
-            Path('noaaweather', 'weatherServerLog.txt'),
-        ]
+        logfile = self.conf.server_log_file
 
-        for logfile in logfiles:
-            try:
-                filepath = Path(xp.PLUGINSPATH, logfile)
-            except ImportError:
-                filepath = Path(self.conf.syspath, 'Resources', 'plugins', 'PythonScripts', logfile)
-            if filepath.is_file():
-
-                lfsize = filepath.stat().st_size
-                # binary: a text mode seek can land inside a multi-byte character (i.e. the arrow in our own log lines)
-                with open(filepath, 'rb') as lf:
-                    lf.seek(lfsize - c.limit(1024 * 6, lfsize))
-                    tail = lf.read().decode('utf-8', errors='replace')
-                f.write(f"\n--- {logfile} ---\n\n")
-                f.write(tail.replace('\r\n', '\n'))
+        if logfile.is_file():
+            lfsize = logfile.stat().st_size
+            # binary: a text mode seek can land inside a multi-byte character (i.e. the arrow in our own log lines)
+            with open(logfile, 'rb') as lf:
+                lf.seek(lfsize - c.limit(1024 * 6, lfsize))
+                tail = lf.read().decode('utf-8', errors='replace')
+            f.write(f"\n--- {logfile} ---\n\n")
+            f.write(tail.replace('\r\n', '\n'))
 
         f.close()
 

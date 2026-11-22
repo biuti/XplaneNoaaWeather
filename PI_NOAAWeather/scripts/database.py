@@ -22,14 +22,14 @@ class Database:
     or rollback() in one thread would commit or discard the pending writes of the other.
     """
 
-    def __init__(self, dbfile: Path | None = None) -> None:
-        self._dbfile = None
+    def __init__(self, db_file: Path | None = None) -> None:
+        self._db_file = None
         self._local = threading.local()
         self._connections = []
         self._lock = threading.Lock()
 
-        if dbfile:
-            self.open(dbfile)
+        if db_file:
+            self.open(db_file)
 
     def __enter__(self):
         return self
@@ -40,12 +40,12 @@ class Database:
     @property
     def conn(self) -> sqlite3.Connection | None:
         """Connection of the calling thread, opened on first use"""
-        if self._dbfile is None:
+        if self._db_file is None:
             return None
         conn = getattr(self._local, 'conn', None)
         if conn is None:
             # every connection is used by its own thread only: check_same_thread=False just lets close() reach them all
-            conn = sqlite3.connect(self._dbfile, timeout=10, check_same_thread=False)
+            conn = sqlite3.connect(self._db_file, timeout=10, check_same_thread=False)
             try:
                 conn.execute('PRAGMA journal_mode=WAL')  # readers do not block the writer
                 conn.execute('PRAGMA synchronous=NORMAL')
@@ -61,12 +61,12 @@ class Database:
         if conn:
             conn.commit()
 
-    def open(self, dbfile: Path) -> None:
-        self._dbfile = dbfile
+    def open(self, db_file: Path) -> None:
+        self._db_file = db_file
         try:
             self.create_database()
         except sqlite3.Error as e:
-            print(f"SQLite Error connecting to {Path(dbfile).name}: {e}")
+            print(f"SQLite Error connecting to {Path(db_file).name}: {e}")
 
     def close(self) -> None:
         with self._lock:
@@ -128,7 +128,7 @@ class Database:
         try:
             conn = self.conn
         except sqlite3.Error as e:
-            print(f"SQLite Error connecting to {self._dbfile}: {e}")
+            print(f"SQLite Error connecting to {self._db_file}: {e}")
             conn = None
 
         fallback = conn is None

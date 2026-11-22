@@ -17,7 +17,7 @@ from pathlib import Path
 from textwrap import wrap
 
 
-class util:
+class utils:
 
     @staticmethod
     def remove(filepath: Path) -> None:
@@ -44,18 +44,18 @@ class util:
     @staticmethod
     def rename(opath: Path, dpath: Path) -> None:
         if dpath.exists():
-            util.remove(dpath)
+            utils.remove(dpath)
         try:
             opath.rename(dpath)
         except OSError:
             print(f"Can't rename: {opath.name} to {dpath.name}, trying to copy/remove")
-            util.copy(opath, dpath)
-            util.remove(opath)
+            utils.copy(opath, dpath)
+            utils.remove(opath)
 
     @staticmethod
     def copy(opath: Path, dpath: Path) -> None:
         if dpath.exists():
-            util.remove(dpath)
+            utils.remove(dpath)
         try:
             shutil.copyfile(opath, dpath)
         except OSError as e:

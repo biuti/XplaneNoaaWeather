@@ -27,7 +27,7 @@ from tempfile import TemporaryFile
 from pathlib import Path
 from typing import NamedTuple
 
-from . import c, util, Conf
+from . import c, Conf, utils
 
 
 # Variables that drive turbulence/icing vs. wind/temp/humidity handling
@@ -48,7 +48,21 @@ class GribRecord(NamedTuple):
     @classmethod
     def parse(cls, line: str) -> 'GribRecord':
         r = line.split(':')
-        return cls(r[2].split('=')[1], r[3], tuple(r[4].split(' ')), r[5], r[7].split(',')[2].split('=')[1])
+        # return cls(r[2].split('=')[1], r[3], tuple(r[4].split(' ')), r[5], r[7].split(',')[2].split('=')[1])
+
+        # test to understand what's the issue in Windows with wgrib2 output
+        try:
+            return cls(
+                r[2].split('=')[1],
+                r[3],
+                tuple(r[4].split(' ')),
+                r[5],
+                r[7].split(',')[2].split('=')[1]
+            )
+        except IndexError:
+            print(f'GribRecord.parse failed: len={len(r)} line={line!r}')
+            print(f"Fields: {r!r}")
+            raise
 
 
 class WeatherSource:
@@ -59,7 +73,7 @@ class WeatherSource:
         self.conf = conf
         self.die = threading.Event()
 
-        self.cache_path = Path(self.conf.cachepath)
+        self.cache_path = Path(self.conf.cache_path)
         if not self.cache_path.exists():
             self.cache_path.mkdir(parents=True, exist_ok=True)
 
@@ -72,14 +86,36 @@ class WeatherSource:
             '-lon',
             f"{lon}",
             f"{lat}",
-            file
+            str(file)
         ]
 
-        kwargs = {'stdout': subprocess.PIPE, 'text': True}
-        if self.conf.spinfo:
-            kwargs.update({'startupinfo': self.conf.spinfo, 'shell': True})
+        # kwargs = {'stdout': subprocess.PIPE, 'text': True}
+        # if self.conf.spinfo:
+        #     kwargs.update({'startupinfo': self.conf.spinfo, 'shell': True})
 
-        return subprocess.run(args, **kwargs).stdout.splitlines()
+        # return subprocess.run(args, **kwargs).stdout.splitlines()
+
+        kwargs = {
+            'stdout': subprocess.PIPE,
+            'stderr': subprocess.PIPE,
+            'stdin': subprocess.DEVNULL,
+            'text': True,
+        }
+        if self.conf.spinfo:
+            kwargs.update({
+                'startupinfo': self.conf.spinfo,
+                'creationflags': 0x08000000,  # CREATE_NO_WINDOW, no shell=True needed
+            })
+
+        res = subprocess.run(args, **kwargs)
+        lines = res.stdout.splitlines()
+
+        if res.returncode or res.stderr.strip() or any(len(l.split(':')) < 8 for l in lines):
+            print(f"wgrib2 args: {args!r}")
+            print(f"wgrib2 returncode: {res.returncode}")
+            print(f"wgrib2 stderr: {res.stderr!r}")
+            print(f"wgrib2 first lines: {lines[:3]!r}")
+        return lines
 
     def shutdown(self) -> None:
         """Stop pending processes"""
@@ -125,7 +161,7 @@ class GribWeatherSource(WeatherSource):
     ]
 
     def __init__(self, conf) -> None:
-        self.cache_path = Path(conf.cachepath, 'gfs')
+        self.cache_path = Path(conf.cache_path, 'gfs')
 
         super().__init__(conf)
 
@@ -274,7 +310,19 @@ class GribWeatherSource(WeatherSource):
         turb = {}
         checked = False
 
-        for rec in map(GribRecord.parse, lines):
+        # for rec in map(GribRecord.parse, lines):
+        #     level, variable, value = rec.level, rec.variable, rec.value
+
+        # new code to test issues on windows with wgrib2 output
+        for i, line in enumerate(lines):
+            try:
+                rec = GribRecord.parse(line)
+            except Exception:
+                print(f"GRIB parse error at record {i}")
+                print(f"Record: {line!r}")
+                print(f"Fields: {line.split(':')!r}")
+                raise
+
             level, variable, value = rec.level, rec.variable, rec.value
 
             match level:
@@ -317,6 +365,8 @@ class GribWeatherSource(WeatherSource):
                 case ('mean', 'sea', 'level'):
                     if variable == 'PRMSL':
                         pressure = c.pa2inhg(float(value))
+
+        print(f"GRIB records processed: {i} lines")
 
         # 2 m / 10 m readings stand in for what the real levels don't provide: the surface level
         # (Real Weather srfc files have no surface temperature, wind or humidity) and the 1000 mb bucket.
@@ -385,13 +435,13 @@ class GribWeatherSource(WeatherSource):
                 self.download.join()
                 if isinstance(self.download.result, Exception):
                     print(f"Error Downloading Grib file: {self.download.result}.")
-                    util.remove(cache_file_path)
+                    utils.remove(cache_file_path)
                     # wait a try again
                     self.download_wait = 60
                 else:
                     # New file available
                     if not self.conf.keepOldFiles and self.last_grib:
-                        util.remove(Path(self.cache_path, self.last_grib))
+                        utils.remove(Path(self.cache_path, self.last_grib))
                     self.last_grib = self.download.result.name
                     print(f"{self.last_grib} successfully downloaded.")
 
@@ -461,6 +511,7 @@ class AsyncTask(threading.Thread):
         try:
             self.result = self.task(*self.args, **self.kwargs)
         except Exception as result:
+            traceback.print_exc()
             self.result = result
         return
 
@@ -564,7 +615,7 @@ class GribDownloader:
         return False
 
     @classmethod
-    def gen_chunk_list(cls, grib_index: list, variable_list: list) -> list:
+    def generate_chunk_list(cls, grib_index: list, variable_list: list) -> list:
         """Returns a download list from a grib index and a variable list
 
         Args:
@@ -657,7 +708,7 @@ class GribDownloader:
                 idx_file.seek(0)
 
                 index = cls.parse_grib_index(idx_file)
-                chunk_list = cls.gen_chunk_list(index, variable_list)
+                chunk_list = cls.generate_chunk_list(index, variable_list)
 
         flags = 'wb' if binary else 'w'
 
@@ -681,7 +732,7 @@ class GribDownloader:
             try:
                 file_path.rename(tmp_file)
                 cls.decompress_grib(tmp_file, file_path, wgrib2, spinfo)
-                util.remove(tmp_file)
+                utils.remove(tmp_file)
             except OSError as e:
                 raise GribDownloaderError(f"Unable to decompress: {file_path.name} \n\t{repr(e)}") from e
 

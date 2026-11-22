@@ -18,18 +18,19 @@ import re
 
 from pathlib import Path
 
-from . import c
+from . import __version__, c
 
 
 class Conf:
     """Loads and saves configuration variables"""
-    syspath, dirsep = '', os.sep
-    printableChars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ '
-
-    __VERSION__ = '12.4.4-beta.3'  # plugin version
+    xplane_path, dirsep = '', os.sep
+    printable_chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ '
 
     # Dref and Command parameters
     plugin_command_origin = 'XPNOAAWeather'
+
+    # Load the version from the version.txt file if it exists
+    __VERSION__ = __version__
 
     GFS_JSON_HELP = '''Here you can edit which wind levels will be downloaded from NOAA without hacking the code.
                     Keep the list short to optimize the download size and parsing times.
@@ -41,37 +42,56 @@ class Conf:
 
                     Refer to the following list for millibar Flight Level conversion:'''
 
-    def __init__(self, xplane_path: str | Path | bool = False) -> None:
+    def __init__(self, xplane_path: str | Path) -> None:
         """The plugin uses wgrib2 utility to decode GFS files
         - Compiled version: v3.1.0"""
 
-        if xplane_path:
-            self.syspath = xplane_path
-            self.respath = Path(xplane_path, 'Resources', 'plugins', 'PythonPlugins', 'noaaweather')
-        else:
-            self.respath = Path(__file__).resolve().parent
-            self.syspath = self.respath.parents[3]
+        # X-Plane
+        self.xplane_path = Path(xplane_path)
+        self.rw_path = Path(self.xplane_path, 'Output', 'real weather')
+        self.pref_path = Path(self.xplane_path, 'Output', 'preferences')
 
-        self.wpath = Path(self.syspath, 'Output', 'real weather')
-        self.settingsfile = Path(self.respath, 'settings.pkl')
-        self.serverSettingsFile = Path(self.respath, 'weatherServer.pkl')
-        self.gfsLevelsFile = Path(self.respath, 'gfs_levels_config.json')
+        # Plugin
+        self.plugin_path = Path(xplane_path, 'Resources', 'plugins', 'PythonPlugins', 'PI_NOAAWeather')
+        self.scripts_path = Path(self.plugin_path, 'scripts')
+        self.bin_path = Path(self.plugin_path, 'bin')
 
-        self.cachepath = Path(self.respath, 'cache')
-        self.cachepath.mkdir(parents=True, exist_ok=True)
+        # Runtime
+        self.cache_path = Path(self.plugin_path, 'cache')
+        self.cache_path.mkdir(parents=True, exist_ok=True)
 
-        self.dbfile = Path(self.cachepath, 'metar', 'metar.db')
-        self.dbfile.parent.mkdir(parents=True, exist_ok=True)
+        self.db_file = Path(self.cache_path, 'metar', 'metar.db')
+        self.db_file.parent.mkdir(parents=True, exist_ok=True)
 
-        self.setDefaults()
-        self.pluginLoad()
-        self.serverLoad()
+        # Settings files
+        self.settings_file = Path(self.plugin_path, 'settings.pkl')
+        self.server_settings_file = Path(self.plugin_path, 'weather_server_state.pkl')
+        self.gfs_levels_file = Path(self.plugin_path, 'gfs_levels_config.json')
+        self.version_file = Path(self.plugin_path, 'version.txt')
+
+        # Log file
+        self.server_log_file = Path(self.plugin_path, 'weather_server_log.txt')
+
+        # read settings files
+        self.set_defaults()
+        self.load_plugin_settings()
+        self.load_server_settings()
 
         # verbose mode
         self.verbose = any(el in self.__VERSION__ for el in ["alpha", "beta"])
+        if self.verbose:
+            print(f"NOAA plugin version: {self.__VERSION__}")
+            print(f"X-Plane path: {self.xplane_path}")
+            print(f"Plugin path: {self.plugin_path}")
+            print(f"Cache path: {self.cache_path}")
+            print(f"Settings file: {self.settings_file}")
+            print(f"GFS levels file: {self.gfs_levels_file}")
+            print(f"Database file: {self.db_file}")
+            print(f"Log file: {self.server_log_file}")
+            print(f"Real Weather path: {self.rw_path} - Exists: {self.rw_path.is_dir()}")
 
         # Config Overrides
-        self.parserate = 1
+        self.parse_rate = 1
         # self.metar_agl_limit = 10
 
         # Selects the appropriate wgrib binary
@@ -81,6 +101,7 @@ class Conf:
         self.spinfo = False
         self.wgrib2bin = None
 
+        # Select the appropriate wgrib2 binary for the current platform
         wgbin = False
         if self.platform == 'darwin' and self.version >= 18.0:  # Mojave and above
             # 18.0 Mojave (MacOS 10.14)
@@ -106,7 +127,7 @@ class Conf:
             wgbin = 'linux-wgrib2'  # compiled in Ubuntu 20.04 LTS
 
         if wgbin:
-            self.wgrib2bin = Path(self.respath, 'bin', wgbin)
+            self.wgrib2bin = Path(self.bin_path, wgbin)
             # Enforce execution rights
             try:
                 self.wgrib2bin.chmod(0o775)
@@ -123,7 +144,7 @@ class Conf:
     def wafs_variable_list(self) -> list[dict]:
         return self.wafs_levels_real_weather() if self.use_real_weather_data else self.wafs_levels_default()
 
-    def setDefaults(self) -> None:
+    def set_defaults(self) -> None:
         """Default settings"""
         print("Loading defaults settings ...")
 
@@ -139,7 +160,7 @@ class Conf:
         #   5       6           STRATUS
         # cover value changes automatically, default value for type 1 is 2
         # changed Dataref from type to coverage
-        self.xpClouds = {
+        self.xp_clouds = {
             'CIRRUS': [1, c.f2m(1000)],
             'FEW': [2, c.f2m(2000)],
             'SCT': [3, c.f2m(4000)],
@@ -149,7 +170,7 @@ class Conf:
         }
 
         # Minimum redraw difference per layer (legacy cloud layers procedure)
-        self.minRedraw = [
+        self.min_redraw = [
             c.f2m(500),
             c.f2m(5000),
             c.f2m(10000)
@@ -198,7 +219,7 @@ class Conf:
         # keep a surface wind layer with current METAR to get correct ATIS info
         self.surface_wind_layer_limit = 600  # In meters over first GFS layer for smooth transition
 
-        self.parserate = 1
+        self.parse_rate = 1
         self.updaterate = 1
         self.keepOldFiles = False
 
@@ -216,11 +237,11 @@ class Conf:
         self.lastwafsgrib = False
         self.ms_update = 0
 
-        self.weatherServerPid = False
+        self.weather_server_pid = False
 
         # Surface wind random variability range
-        self.maxRandomWindHdg = 5  # degrees
-        self.maxRandomWindGust = 5  # kt
+        self.max_random_wind_heading = 5  # degrees
+        self.max_random_wind_gust = 5  # kt
 
         # Max Turbulence (1 = severe turbulence)
         self.max_turbulence = 0.9
@@ -241,14 +262,14 @@ class Conf:
         self.metar_window_position = [10, 900]
         self.config_window_position = [200, 640]
 
-    def saveSettings(self, filepath: Path, settings: dict) -> None:
+    def save_settings(self, filepath: Path, settings: dict) -> None:
         try:
             with open(filepath, 'wb') as f:
                 pickle.dump(settings, f)
         except (OSError, pickle.PicklingError, AttributeError, TypeError) as e:
             print(f"ERROR saving settings to {filepath.name}: {e}")
 
-    def loadSettings(self, filepath: Path) -> None:
+    def load_settings(self, filepath: Path) -> None:
         if filepath.is_file():
             try:
                 with open(filepath, 'rb') as f:
@@ -279,7 +300,7 @@ class Conf:
                 elif var in self.__dict__:
                     self.__dict__[var] = settings[var]
 
-    def pluginSave(self) -> None:
+    def save_plugin_settings(self) -> None:
         """Save plugin settings"""
         settings = {
             'version': self.__VERSION__,
@@ -313,34 +334,33 @@ class Conf:
             'metar_window_position': self.metar_window_position,
             'config_window_position': self.config_window_position
         }
-        self.saveSettings(self.settingsfile, settings)
+        self.save_settings(self.settings_file, settings)
 
-    def pluginLoad(self) -> None:
-        self.loadSettings(self.settingsfile)
+    def load_plugin_settings(self) -> None:
+        self.load_settings(self.settings_file)
 
         if self.metar_source == 'NOAA':
             self.metar_updaterate = 5
         else:
             self.metar_updaterate = 10
 
-    def serverSave(self) -> None:
+    def save_server_settings(self) -> None:
         """Save weather server settings"""
         server_conf = {
             'version': self.__VERSION__,
             'lastgrib': self.lastgrib,
             'lastwafsgrib': self.lastwafsgrib,
             'ms_update': self.ms_update,
-            'weatherServerPid': self.weatherServerPid,
+            'weather_server_pid': self.weather_server_pid,
         }
-        self.saveSettings(self.serverSettingsFile, server_conf)
+        self.save_settings(self.server_settings_file, server_conf)
 
-    def serverLoad(self) -> None:
-        self.pluginLoad()
-        self.loadSettings(self.serverSettingsFile)
+    def load_server_settings(self) -> None:
+        self.load_settings(self.server_settings_file)
 
         # Load the GFS levels file or create a new one.
-        if self.gfsLevelsFile.is_file():
-            self.gfs_levels = self.load_gfs_levels(self.gfsLevelsFile)
+        if self.gfs_levels_file.is_file():
+            self.gfs_levels = self.load_gfs_levels(self.gfs_levels_file)
         else:
             self.gfs_levels = self.gfs_levels_defaults()
             self.save_gfs_levels(self.gfs_levels)
@@ -470,7 +490,7 @@ class Conf:
 
     def save_gfs_levels(self, levels: list[dict]) -> None:
         """Save gfs levels settings to a json file"""
-        with open(self.gfsLevelsFile, 'w', encoding='UTF-8') as f:
+        with open(self.gfs_levels_file, 'w', encoding='UTF-8') as f:
             config = {
                 'comment': [line.strip() for line in iter(self.GFS_JSON_HELP.splitlines())],
                 'config': levels,

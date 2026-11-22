@@ -41,14 +41,14 @@ Anyway, be respectful of other users, you are the one using wrong data.
 - MacOS 10.14, Windows 7 and Linux kernel 4.0 and above
 (tested using macOS 14.8.9)
 - X-Plane **12.4.4 and above** (not tested with previous versions, probably won't work) 
-- pbuckner's [XPPython3 plugin **4.6.0 or above**](https://xppython3.readthedocs.io/en/latest/index.html) (tested using version 4.8.0)
+- pbuckner's [XPPython3 plugin **4.8.0 or above**](https://xppython3.readthedocs.io/en/latest/index.html) (tested using version 4.8.0)
 
 > [!NOTE]
 > **(*) Latest XPPython3 [plugin version (4.3.0 and above)](https://xppython3.readthedocs.io/en/latest/index.html) will contain all python needed libraries, so it won't be necessary to install Python on the machine anymore. Read carefully XPPython3 plugin documentation**
 
 > [!IMPORTANT]
-> **Starting from version 12.3, NOAAWeather requires XPPython3 version 4.6.0 or above!\
-If you wish to keep using previous versions (you really shouldn't), use NOAAWeather 12.1**
+> **Starting from version 12.4.4-beta.4, NOAAWeather requires XPPython3 version 4.8.0 or above!\
+If you wish to keep using previous versions (you really shouldn't), use NOAAWeather 12.4**
 
 **Wgrib2**: 
 the plugin has been built in MacOS Big Sur, Windows 11 and Ubuntu 20.04 LTS.
@@ -56,13 +56,21 @@ Wgrib uses cygwin on windows, the .dll is provided on the
 bin folder and there's no need to install it.
 
 ## Installation
-Copy the zip file contents to your X-Plane/Resources/plugins/PythonPlugins folder.
+Copy PI_NOAAWeather folder to your X-Plane/Resources/plugins/PythonPlugins folder.
 The resulting installation should look like:
 
+    X-Plane/Resources/plugins/PythonPlugins/
+                                └── PI_NOAAWeather/
+                                    ├── PI_NOAAWeather.py
+                                    ├── bin/
+                                    ├── scripts/
+                                    └── version.txt
+
+
+> [!WARNING]
+> Be sure to delete completely (not overwrite) any previous release of NOAA plugin in PythonPlugins folder. The plugin has been refactored to be contained in a folder, so these have to be removed:
     X-Plane/Resources/plugins/PythonPlugins/noaaweather/
     X-Plane/Resources/plugins/PythonPlugins/PI_noaaWeather.py
-
-Please delete completely (not overwrite) any previous release of NOAA plugin in PythonPlugins folder.
 
 ## RESOURCES
 
