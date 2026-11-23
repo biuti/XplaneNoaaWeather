@@ -124,7 +124,6 @@ class c:
         if alt > tropo_alt:
             return oat + 71.5
         gradient = (tropo_temp - oat) / (alt - tropo_alt)
-        # print(f"tropo temp {tropo_temp} oat {oat} alt {alt} tropo alt {tropo_alt} grad {gradient}")
         return oat + gradient * alt
 
     @staticmethod
@@ -516,7 +515,7 @@ class c:
 
     @staticmethod
     def strFloat(i: float | bool, false_label: str='na') -> str:
-        """Print a float or na if False"""
+        """return a float or na if False"""
         if i is False:
             return false_label
         else:
@@ -524,7 +523,7 @@ class c:
 
     @staticmethod
     def str03d(i: float | bool, false_label: str='na') -> str:
-        """Print a 3 digit string with leading zeroes"""
+        """return a 3 digit string with leading zeroes"""
         return false_label if i is False else f"{i:03.0F}"
 
     @classmethod
@@ -677,19 +676,15 @@ class c:
     @staticmethod
     def evaluate_clouds_redrawing(clouds: list, xp_clouds: list, alt: float) -> bool:
         """returns if clouds layers redraw is necessary: True or False"""
-        print(f"evaluate redraw")
+
         for i, layer in enumerate(xp_clouds):
             if len(clouds) > i:
                 base, top, cover = clouds[i]
                 distance = abs(base - alt)
-                print(f"layer {i}: base {base}, cover {cover}, xp: {layer['bottom'].value}, {layer['coverage'].value}")
                 if (not c.isclose(layer['bottom'].value, base, distance * 0.1)
                         or cover != layer['coverage'].value):
-                    print(f"Too much Difference in base or cover: REDRAW")
                     return True
-                print(f"OK")
             elif layer['coverage'].value > 0:
-                print(f"Different layers number: {len(clouds)}, {len(xp_clouds)}, REDRAW")
                 return True
         return False
 

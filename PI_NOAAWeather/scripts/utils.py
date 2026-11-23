@@ -32,8 +32,8 @@ class utils:
                 if not npath.exists():
                     try:
                         filepath.rename(npath)
-                    except Exception as e:
-                        print(f"can't rename {filepath.name}: {e}")
+                    except Exception as err:
+                        print(f"can't rename {filepath.name}: {err}")
                         if sys.platform == 'win32':
                             import ctypes
                             print(f"{filepath.name} marked for deletion on reboot.")
