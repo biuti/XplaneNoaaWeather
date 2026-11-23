@@ -8,7 +8,7 @@ as published by the Free Software Foundation; either version 2
 of the License, or any later version.
 """
 
-from . import find_dataref
+from . import find_dataref, log
 
 
 class Dref:
@@ -89,7 +89,7 @@ class Dref:
         self.mag_deviation = find_dataref('sim/flightmodel/position/magnetic_variation')
         self.acf_vy = find_dataref('sim/flightmodel/position/local_vy')
 
-        # print(self.dump())
+        # log.debug(self.dump())
 
     @property
     def real_weather_enabled(self) -> bool:
@@ -118,8 +118,8 @@ class Dref:
                 self.tarmac_snow_noise = find_dataref('sim/private/controls/twxr/snow/noise_depth')
                 self.puddles = find_dataref('sim/private/controls/wxr/puddles_now')
                 self.iced_tarmac = find_dataref('sim/private/controls/wxr/ice_now')
-            except (SystemError, Exception) as e:
-                print(f"ERROR initializing snow drefs: {e}")
+            except Exception:
+                log.exception("ERROR initializing snow drefs")
                 return False
         return True
 

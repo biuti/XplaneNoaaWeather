@@ -10,10 +10,11 @@ of the License, or any later version.
 
 import sqlite3
 import threading
-import traceback
 
 from contextlib import contextmanager
 from pathlib import Path
+
+from . import log
 
 
 class Database:
@@ -49,8 +50,8 @@ class Database:
             try:
                 conn.execute('PRAGMA journal_mode=WAL')  # readers do not block the writer
                 conn.execute('PRAGMA synchronous=NORMAL')
-            except sqlite3.Error as e:
-                print(f"SQLite: can't set WAL mode: {e}")
+            except sqlite3.Error:
+                log.exception(f"SQLite: can't set WAL mode")
             self._local.conn = conn
             with self._lock:
                 self._connections.append(conn)
@@ -65,8 +66,8 @@ class Database:
         self._db_file = db_file
         try:
             self.create_database()
-        except sqlite3.Error as e:
-            print(f"SQLite Error connecting to {Path(db_file).name}: {e}")
+        except sqlite3.Error:
+            log.exception(f"SQLite Error connecting to {db_file.name}")
 
     def close(self) -> None:
         with self._lock:
@@ -75,8 +76,8 @@ class Database:
             try:
                 conn.commit()
                 conn.close()
-            except sqlite3.Error as e:
-                print(f"SQLite Error closing connection: {e}")
+            except sqlite3.Error:
+                log.exception(f"SQLite Error closing connection to {self._db_file.name}")
         self._local = threading.local()
 
     def create_database(self) -> None:
@@ -127,8 +128,8 @@ class Database:
 
         try:
             conn = self.conn
-        except sqlite3.Error as e:
-            print(f"SQLite Error connecting to {self._db_file}: {e}")
+        except sqlite3.Error:
+            log.exception(f"SQLite Error connecting to {self._db_file}")
             conn = None
 
         fallback = conn is None
@@ -139,7 +140,7 @@ class Database:
             yield conn
             conn.commit()
         except sqlite3.Error:
-            traceback.print_exc()
+            log.exception("SQLite error on %s, rolling back", self._db_file.name)
             conn.rollback()
         finally:
             if fallback:

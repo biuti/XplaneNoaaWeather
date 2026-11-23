@@ -29,10 +29,15 @@ try:
     import xp
     from XPPython3.utils.commands import create_command
     from XPPython3.utils.datarefs import DataRef, find_dataref
-    xp.log(f"XPython3 module correctly imported: {xp.VERSION}")
-except ImportError as e:
-    print(f"error import xp: {e}")
-    pass
+except ImportError:
+    xp = None  # weatherserver.py runs as a subprocess, outside X-Plane
+
+# logging needs xp and __version__ from above: keep this after them, before the other imports
+from .logger import setup
+
+log = setup()
+if xp:
+    log.info("XPython3 module correctly imported: %s", xp.VERSION)
 
 from .c import c
 from .utils import utils

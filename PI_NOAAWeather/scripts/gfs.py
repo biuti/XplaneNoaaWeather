@@ -14,7 +14,7 @@ of the License, or any later version.
 
 from itertools import chain
 
-from . import c
+from . import c, log
 from .weathersource import GribWeatherSource
 
 GFS_GRID_M = 28_000         # GFS 0.25 degree grid is ~27.75 km
@@ -73,5 +73,5 @@ class GFS(GribWeatherSource):
             if val is not None and not c.is_exponential(val):
                 prediction = {'lat': new_lat, 'lon': new_lon, 'depth': val}
                 surface['prediction'] = prediction
-                print(f"check_snow_values: prediction: {prediction}")
+                log.debug(f"check_snow_values: prediction: {prediction}")
                 return

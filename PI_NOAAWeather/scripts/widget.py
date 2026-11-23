@@ -10,7 +10,7 @@ of the License, or any later version.
 
 import time
 
-from . import utils, xp, Conf, c, dref, weather, create_command
+from . import utils, xp, Conf, weather, log, create_command
 
 
 class Widget:
@@ -76,11 +76,11 @@ class Widget:
 
         self.newAptLoaded = False
 
-        xp.log(f" * * * GFS Download Activated: {self.conf.download_GFS}")
-        xp.log(f" * * * WAFS Download Activated: {self.conf.download_WAFS}")
-        xp.log(f" * * * Snow Cover Activated: {self.conf.set_snow}")
-        xp.log(f" * * * Water Patches Activated: {self.conf.set_patches}")
-        xp.log(f" * * * Runway Friction Fix Activated: {self.conf.set_friction}")
+        log.debug(f"GFS Download Activated: {self.conf.download_GFS}")
+        log.debug(f"WAFS Download Activated: {self.conf.download_WAFS}")
+        log.debug(f"Snow Cover Activated: {self.conf.set_snow}")
+        log.debug(f"Water Patches Activated: {self.conf.set_patches}")
+        log.debug(f"Runway Friction Fix Activated: {self.conf.set_friction}")
 
     def create_main_menu(self) -> None:
 
@@ -503,7 +503,7 @@ class Widget:
 
                 # Save config and tell server to reload it
                 self.conf.save_plugin_settings()
-                xp.log("Config saved. Weather client reloading ...")
+                log.info("Config saved. Weather client reloading ...")
                 self.weather.weather_client_send('!reload')
 
                 # If metar source has changed tell server to reinit metar database
@@ -553,7 +553,7 @@ class Widget:
             self.conf.metar_window_position = xp.getWidgetGeometry(self.metar_window_widget)[:2]
         if self.config_window:
             self.conf.config_window_position = xp.getWidgetGeometry(self.config_window_widget)[:2]
-        xp.log(f"saved positions: {self.conf.info_window_position}, {self.conf.metar_window_position}, {self.conf.config_window_position}")
+        log.debug(f"saved positions: {self.conf.info_window_position}, {self.conf.metar_window_position}, {self.conf.config_window_position}")
 
     def updateStatus(self) -> None:
         """Updates status window"""

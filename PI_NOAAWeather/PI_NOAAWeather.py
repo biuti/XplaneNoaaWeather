@@ -24,7 +24,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 """
 
-from .scripts import xp, widget
+from .scripts import xp, widget, log
 
 
 # XPython3 required plugin parameters
@@ -94,7 +94,7 @@ class PythonInterface(widget.Widget):
 
         if self.conf.use_real_weather_data:
             if self.newAptLoaded:
-                xp.log(f" *** NEW APT LOADED ***")
+                log.info(" *** NEW APT LOADED ***")
                 self.weather.reset_weather()
                 self.newAptLoaded = False
             if self.conf.set_snow:
@@ -104,23 +104,13 @@ class PythonInterface(widget.Widget):
                 self.weather.set_runway_friction(elapsed=elapsedMe)
             if self.weather.new_data:
                 # Real Weather active
-                # check Dref values, RW overwrites them. Probably needed for any change to Real Weather data
-                # looking at actual weather, does not seem to have any impact tho.
-                # if not self.data.metar_runwayFriction.value or self.weather.runwayFriction.value != self.data.metar_runwayFriction.value:
-                #     self.data.metar_runwayFriction.value = self.weather.runwayFriction.value
-                # if self.weather.runwayFriction.value > 6:
-                #     # set runway friction to Puddly, to avoid extreme and unrealistic slippery conditions.
-                #     self.weather.friction = self.weather.runwayFriction.value
-                #     self.weather.runwayFriction.value = 6 if self.weather.friction < 10 else 9
-                # xp.log(f"New GFS data downloaded: {self.weather.data}")
-                # Clear transitions on airport load
                 pass
 
         ''' Data set on new weather Data '''
         if not self.conf.use_real_weather_data and self.weather.new_data:
-            pass
             # Update Dataref data
             # self.data.updateData(wdata)
+            pass
 
         self.weather.new_data = False
         return -1

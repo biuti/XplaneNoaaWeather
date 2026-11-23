@@ -18,7 +18,7 @@ import re
 
 from pathlib import Path
 
-from . import __version__, c
+from . import __version__, c, log
 
 
 class Conf:
@@ -77,18 +77,15 @@ class Conf:
         self.load_plugin_settings()
         self.load_server_settings()
 
-        # verbose mode
-        self.verbose = any(el in self.__VERSION__ for el in ["alpha", "beta"])
-        if self.verbose:
-            print(f"NOAA plugin version: {self.__VERSION__}")
-            print(f"X-Plane path: {self.xplane_path}")
-            print(f"Plugin path: {self.plugin_path}")
-            print(f"Cache path: {self.cache_path}")
-            print(f"Settings file: {self.settings_file}")
-            print(f"GFS levels file: {self.gfs_levels_file}")
-            print(f"Database file: {self.db_file}")
-            print(f"Log file: {self.server_log_file}")
-            print(f"Real Weather path: {self.rw_path} - Exists: {self.rw_path.is_dir()}")
+        log.debug(f"NOAA plugin version: {self.__VERSION__}")
+        log.debug(f"X-Plane path: {self.xplane_path}")
+        log.debug(f"Plugin path: {self.plugin_path}")
+        log.debug(f"Cache path: {self.cache_path}")
+        log.debug(f"Settings file: {self.settings_file}")
+        log.debug(f"GFS levels file: {self.gfs_levels_file}")
+        log.debug(f"Database file: {self.db_file}")
+        log.debug(f"Log file: {self.server_log_file}")
+        log.debug(f"Real Weather path: {self.rw_path} - Exists: {self.rw_path.is_dir()}")
 
         # Config Overrides
         self.parse_rate = 1
@@ -146,7 +143,7 @@ class Conf:
 
     def set_defaults(self) -> None:
         """Default settings"""
-        print("Loading defaults settings ...")
+        log.debug("Loading defaults settings ...")
 
         '''XP cloud cover'''
         # in XP 11.50+ cloud coverage and type goes:
@@ -266,30 +263,29 @@ class Conf:
         try:
             with open(filepath, 'wb') as f:
                 pickle.dump(settings, f)
-        except (OSError, pickle.PicklingError, AttributeError, TypeError) as e:
-            print(f"ERROR saving settings to {filepath.name}: {e}")
+        except (OSError, pickle.PicklingError, AttributeError, TypeError):
+            log.exception(f"ERROR saving settings to {filepath.name}")
 
     def load_settings(self, filepath: Path) -> None:
         if filepath.is_file():
             try:
                 with open(filepath, 'rb') as f:
                     settings = pickle.load(f)
-            except (pickle.UnpicklingError, EOFError, ValueError) as e:
-                print(f"{filepath.name}: Corrupted pickle data ({e}), deleting ...")
+            except (pickle.UnpicklingError, EOFError, ValueError):
+                log.exception(f"{filepath.name}: Corrupted pickle data, deleting ...")
                 filepath.unlink(missing_ok=True)
                 return
-            except OSError as e:
-                print(f"{filepath.name}: I/O error reading pickle file ({e}), skipping ...")
+            except OSError:
+                log.exception(f"{filepath.name}: I/O error reading pickle file, skipping ...")
                 return
-            except Exception as e:
-                print(f"{filepath.name}: Unexpected error loading pickle file ({e}), deleting ...")
+            except Exception:
+                log.exception(f"{filepath.name}: Unexpected error loading pickle file, deleting ...")
                 filepath.unlink(missing_ok=True)
                 return
 
-            # print(f"Conf settings Version: {conf['version']}")
             # Reset settings on different versions.
             if 'version' not in settings or self.version_tuple(settings['version']) < (12, 0, 0):
-                print("Saved settings version unknown or very old, skipping ...")
+                log.info("Saved settings version unknown or very old, skipping ...")
                 return
 
             # may be "dangerous" if someone messes our config file
@@ -364,7 +360,7 @@ class Conf:
         else:
             self.gfs_levels = self.gfs_levels_defaults()
             self.save_gfs_levels(self.gfs_levels)
-        print(f"XP12 Real Weather Mode: {self.use_real_weather_data}")
+        log.debug(f"XP12 Real Weather Mode: {self.use_real_weather_data}")
 
     @staticmethod
     def gfs_levels_defaults() -> list[dict]:
@@ -505,12 +501,12 @@ class Conf:
         with open(json_file, 'r', encoding='UTF-8') as f:
             try:
                 return json.load(f)['config']
-            except (json.JSONDecodeError, KeyError, TypeError) as e:
-                print(f"Format ERROR parsing gfs levels file: {e}")
-            except OSError as e:
-                print(f"I/O ERROR reading gfs levels file: {e}")
-            except Exception as e:
-                print(f"Unexpected ERROR loading gfs levels file: {e}")
+            except (json.JSONDecodeError, KeyError, TypeError):
+                log.exception("Format ERROR parsing gfs levels file")
+            except OSError:
+                log.exception("I/O ERROR reading gfs levels file")
+            except Exception:
+                log.exception("Unexpected ERROR loading gfs levels file")
             return self.gfs_levels_defaults()
 
     @staticmethod

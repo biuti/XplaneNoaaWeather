@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from . import utils, xp, c, dref, DataRef
+from . import utils, xp, c, dref, DataRef, log
 
 
 class Weather:
@@ -107,37 +107,35 @@ class Weather:
                 received = self.sock.recv(65535)  # max UDP datagram: nothing gets truncated
             except socket.timeout:
                 continue
-            except OSError as e:
+            except OSError:
                 if not self.die.is_set():
-                    xp.log(f" *** Weather client socket error: {e!r}")
+                    log.exception("Weather client socket error")
                     self.die.wait(1)
                 continue
 
-            if self.conf.verbose:
-                xp.log(
-                    f"Weather client received datagram: "
-                    f"{len(received)} bytes, "
-                    f"content={received[:120]!r}"
-                )
+            log.debug(
+                f"Weather client received datagram: "
+                f"{len(received)} bytes, "
+                f"content={received[:120]!r}"
+            )
 
             try:
                 wdata = json.loads(received)
-            except Exception as e:
-                xp.log(f" *** Weather client JSON error: {e!r}")
+            except Exception:
+                log.exception("Weather client JSON error")
                 continue
 
-            if self.conf.verbose:
-                xp.log(
-                    f"Weather response type: {type(wdata).__name__}, "
-                    f"keys: {list(wdata.keys()) if isinstance(wdata, dict) else wdata!r}"
-                )
+            log.debug(
+                f"Weather response type: {type(wdata).__name__}, "
+                f"keys: {list(wdata.keys()) if isinstance(wdata, dict) else wdata!r}"
+            )
 
             if wdata == '!bye':
-                xp.log(" * Weather client received: server is shutting down")
+                log.info("Weather client received: server is shutting down")
                 break
             elif not isinstance(wdata, dict):
                 # corrupted datagram: skip it, the thread must survive
-                xp.log(f" * Weather client: discarded a bad datagram ({len(received)} bytes): not a dict")
+                log.debug(f"Weather client: discarded a bad datagram ({len(received)} bytes): not a dict")
                 continue
             elif 'info' not in wdata:
                 # A metar query response
@@ -145,7 +143,7 @@ class Weather:
             else:
                 self.weather_data = wdata
                 self.new_data = True
-                xp.log(" * Weather data successfully received and stored.")
+                log.debug("Weather data successfully received and stored.")
 
     def weather_client_send(self, msg: str) -> None:
         if self.weather_client_thread:
@@ -169,11 +167,11 @@ class Weather:
                     'startupinfo': self.conf.spinfo,
                     'creationflags': DETACHED_PROCESS
                 })
-            xp.log(f" * Starting Weather Server using: {args} {kwargs}")
+            log.info(f"Starting Weather Server using: {args} {kwargs}")
             self.server_process = subprocess.Popen(args, **kwargs)
-            xp.log(f" * Weather Server process created: PID={self.server_process.pid}")
-        except Exception as e:
-            xp.log(f" *** Exception while executing subprocess: {e!r}")
+            log.debug(f"Weather Server process created: PID={self.server_process.pid}")
+        except Exception:
+            log.exception("Exception while executing subprocess")
 
     def shutdown(self) -> None:
         """Shutdown client and server"""
@@ -216,6 +214,7 @@ class Weather:
             0.5     ~0.1
             1+      ~0.05
         """
+
         if not self.data.check_snow_dref():
             # something went wrong initializing snow datarefs
             return
@@ -342,13 +341,13 @@ class Weather:
 
                 # log only when change is visible
                 if self._last_logged_val is None or abs(val - self._last_logged_val) > 0.01:
-                    xp.log(
+                    log.debug(
                         f" Snow cover: {val:.3f} | depth {snow:.2f} m | lat {lat:.1f} | temp {temp:.1f}C"
                     )
                     self._last_logged_val = val
 
-            except SystemError as e:
-                xp.log(f"ERROR injecting snow_cover: {e}")
+            except SystemError:
+                log.exception("ERROR injecting snow_cover")
 
         # ------------------------------------------------------------------
         # Inject secondary drefs
@@ -368,6 +367,7 @@ class Weather:
             - 12 and 13          : snowy/icy -> set to snowy (8)
             - friction > 13      : heavy snow / ice -> set to heavy snow (9)
         """
+
         # # get current friction values
         # # Dry = 0, wet(1-3), puddly(4-6), snowy(7-9), icy(10-12), snowy/icy(13-15)
         friction = self.data.runwayFriction.value
@@ -392,7 +392,7 @@ class Weather:
         # -----------------------------
         if desired is None:
             if self.adjusted_friction is not None:
-                xp.log("[RF] releasing friction override")
+                log.debug("[RF] releasing friction override")
                 self.adjusted_friction = None
                 self.xp_runway_friction = None
             return
@@ -408,9 +408,9 @@ class Weather:
         if friction != desired:
             try:
                 self.data.runwayFriction.value = desired
-                xp.log(f"[RF] adjusted {friction:.1f} → {desired}")
-            except SystemError as e:
-                xp.log(f"[RF] ERROR injecting runway friction: {e}")
+                log.debug(f"[RF] adjusted {friction:.1f} → {desired}")
+            except SystemError:
+                log.exception("[RF] ERROR injecting runway friction")
 
     def set_dref_if_different(self, dref, value: float, max_diff: Optional[float] = False) -> bool:
         """ Set a Dataref if the current value differs
@@ -434,7 +434,6 @@ class Weather:
 
     def weather_info(self, chars: int = 80) -> list[str]:
         """Return an array of strings with formatted weather data"""
-        verbose = self.conf.verbose
         rw_enabled = self.data.real_weather_enabled
         sysinfo = [f"XPNoaaWeather for XP12 {self.conf.__VERSION__} Status:"]
 
@@ -450,7 +449,7 @@ class Weather:
                         c.m2ft(self.data.altdr.value) / 100, self.data.mag_deviation.value)
                 ]
                 if not self.data.real_weather_enabled:
-                    sysinfo += ["   XP12 Real Weather IS NOT ACTIVE" + ("" if not verbose else f" (value = {self.data.xp_weather_source.value})")]
+                    sysinfo += ["   XP12 Real Weather IS NOT ACTIVE"]
                 elif 'None' in wdata['info']['gfs_cycle']:
                     sysinfo += ['   XP12 is still downloading weather info ...']
                 elif self.conf.use_real_weather_data:
@@ -661,7 +660,7 @@ class Weather:
         dumpath.mkdir(parents=True, exist_ok=True)
 
         dumplog = Path(dumpath, datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%SZdump.txt'))
-        xp.log(f"creating dumplog file: {dumplog}")
+        log.info(f"creating dumplog file: {dumplog}")
 
         f = open(dumplog, 'w', encoding='utf-8')
 

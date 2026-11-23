@@ -14,20 +14,18 @@ import threading
 import ssl
 import zlib
 import subprocess
-import sys
 import traceback
 
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from itertools import chain
 from urllib.request import Request, urlopen
-from urllib.error import URLError
 from datetime import datetime, timedelta, timezone
 from tempfile import TemporaryFile
 from pathlib import Path
 from typing import NamedTuple
 
-from . import c, Conf, utils
+from . import c, Conf, utils, log
 
 
 # Variables that drive turbulence/icing vs. wind/temp/humidity handling
@@ -48,21 +46,7 @@ class GribRecord(NamedTuple):
     @classmethod
     def parse(cls, line: str) -> 'GribRecord':
         r = line.split(':')
-        # return cls(r[2].split('=')[1], r[3], tuple(r[4].split(' ')), r[5], r[7].split(',')[2].split('=')[1])
-
-        # test to understand what's the issue in Windows with wgrib2 output
-        try:
-            return cls(
-                r[2].split('=')[1],
-                r[3],
-                tuple(r[4].split(' ')),
-                r[5],
-                r[7].split(',')[2].split('=')[1]
-            )
-        except IndexError:
-            print(f'GribRecord.parse failed: len={len(r)} line={line!r}')
-            print(f"Fields: {r!r}")
-            raise
+        return cls(r[2].split('=')[1], r[3], tuple(r[4].split(' ')), r[5], r[7].split(',')[2].split('=')[1])
 
 
 class WeatherSource:
@@ -89,33 +73,28 @@ class WeatherSource:
             str(file)
         ]
 
-        # kwargs = {'stdout': subprocess.PIPE, 'text': True}
-        # if self.conf.spinfo:
-        #     kwargs.update({'startupinfo': self.conf.spinfo, 'shell': True})
-
-        # return subprocess.run(args, **kwargs).stdout.splitlines()
-
         kwargs = {
+            'stdin': subprocess.DEVNULL,   # don't leak the parent-pipe to wgrib2
+            'stderr': subprocess.DEVNULL,  # valid handle, we never read it anyway
             'stdout': subprocess.PIPE,
-            'stderr': subprocess.PIPE,
-            'stdin': subprocess.DEVNULL,
             'text': True,
         }
-        if self.conf.spinfo:
-            kwargs.update({
-                'startupinfo': self.conf.spinfo,
-                'creationflags': 0x08000000,  # CREATE_NO_WINDOW, no shell=True needed
-            })
+        if self.conf.spinfo:  # Windows
+            kwargs.update(startupinfo=self.conf.spinfo, creationflags=subprocess.CREATE_NO_WINDOW)
 
-        res = subprocess.run(args, **kwargs)
+        try:
+            res = subprocess.run(args, timeout=30, **kwargs)
+        except (OSError, subprocess.SubprocessError):   # includes TimeoutExpired
+            log.exception(f"wgrib2 failed on {Path(file).name}")
+            return []
+
         lines = res.stdout.splitlines()
+        records = [l for l in lines if l.count(':') >= 7 and 'val=' in l]  # real `-s -lon` records have 8+ fields
 
-        if res.returncode or res.stderr.strip() or any(len(l.split(':')) < 8 for l in lines):
-            print(f"wgrib2 args: {args!r}")
-            print(f"wgrib2 returncode: {res.returncode}")
-            print(f"wgrib2 stderr: {res.stderr!r}")
-            print(f"wgrib2 first lines: {lines[:3]!r}")
-        return lines
+        if res.returncode or len(records) != len(lines):
+            log.debug(f"wgrib2 rc={res.returncode}, {len(lines) - len(records)} malformed line(s) in {Path(file).name}: {lines[:2]!r}")
+
+        return records
 
     def shutdown(self) -> None:
         """Stop pending processes"""
@@ -310,19 +289,7 @@ class GribWeatherSource(WeatherSource):
         turb = {}
         checked = False
 
-        # for rec in map(GribRecord.parse, lines):
-        #     level, variable, value = rec.level, rec.variable, rec.value
-
-        # new code to test issues on windows with wgrib2 output
-        for i, line in enumerate(lines):
-            try:
-                rec = GribRecord.parse(line)
-            except Exception:
-                print(f"GRIB parse error at record {i}")
-                print(f"Record: {line!r}")
-                print(f"Fields: {line.split(':')!r}")
-                raise
-
+        for rec in map(GribRecord.parse, lines):
             level, variable, value = rec.level, rec.variable, rec.value
 
             match level:
@@ -365,8 +332,6 @@ class GribWeatherSource(WeatherSource):
                 case ('mean', 'sea', 'level'):
                     if variable == 'PRMSL':
                         pressure = c.pa2inhg(float(value))
-
-        print(f"GRIB records processed: {i} lines")
 
         # 2 m / 10 m readings stand in for what the real levels don't provide: the surface level
         # (Real Weather srfc files have no surface temperature, wind or humidity) and the 1000 mb bucket.
@@ -418,7 +383,7 @@ class GribWeatherSource(WeatherSource):
 
             # Trigger new download
             url = self.get_download_url(datecycle, cycle, forecast)
-            print(f"Downloading: {url}")
+            log.debug(f"Downloading: {url}")
             self.download = AsyncTask(
                 GribDownloader.download,
                 url,
@@ -434,16 +399,17 @@ class GribWeatherSource(WeatherSource):
             if not self.download.pending():
                 self.download.join()
                 if isinstance(self.download.result, Exception):
-                    print(f"Error Downloading Grib file: {self.download.result}.")
+                    log.error(f"Error Downloading Grib file: {self.download.result}.")
                     utils.remove(cache_file_path)
                     # wait a try again
                     self.download_wait = 60
                 else:
                     # New file available
                     if not self.conf.keepOldFiles and self.last_grib:
+                        log.debug(f"Removing old file: {self.last_grib}")
                         utils.remove(Path(self.cache_path, self.last_grib))
                     self.last_grib = self.download.result.name
-                    print(f"{self.last_grib} successfully downloaded.")
+                    log.debug(f"{self.last_grib} successfully downloaded.")
 
                 # reset download
                 self.download = False
@@ -475,7 +441,7 @@ class Worker(threading.Thread):
                     worker.run(self.rate)
                 except Exception:
                     # a failing source must not stop the other ones, nor its own next run
-                    traceback.print_exc()
+                    log.exception(f"Worker {worker.__class__.__name__} failed on run()")
 
         if self.die.is_set():
             for worker in self.workers:
@@ -511,7 +477,7 @@ class AsyncTask(threading.Thread):
         try:
             self.result = self.task(*self.args, **self.kwargs)
         except Exception as result:
-            traceback.print_exc()
+            log.exception(f"AsyncTask {self.task.__name__} failed")
             self.result = result
         return
 
@@ -526,16 +492,16 @@ class GribDownloader:
 
     @staticmethod
     def decompress_grib(path_in: Path, path_out: Path, wgrib2bin, spinfo=False) -> None:
-        """Unpacks grib file using wgrib2 binary
-        """
-        args = [wgrib2bin, path_in, '-set_grib_type', 'simple', '-grib_out', path_out]
-        kwargs = {'stdout': sys.stdout, 'stderr': sys.stderr}
-
+        """Unpacks grib file using wgrib2 binary"""
+        args = [str(wgrib2bin), str(path_in), '-set_grib_type', 'simple', '-grib_out', str(path_out)]
+        kwargs = {'stdin': subprocess.DEVNULL, 'stdout': subprocess.DEVNULL,
+                  'stderr': subprocess.PIPE, 'text': True}
         if spinfo:
-            kwargs.update({'shell': True, 'startupinfo': spinfo})
+            kwargs.update(startupinfo=spinfo, creationflags=subprocess.CREATE_NO_WINDOW)
 
-        p = subprocess.Popen(args, **kwargs)
-        p.wait()
+        res = subprocess.run(args, timeout=120, **kwargs)
+        if res.returncode or not path_out.is_file():
+            raise GribDownloaderError(f"wgrib2 decompress failed (rc={res.returncode}): {res.stderr.strip()[:300]}")
 
     @staticmethod
     def download_part(url: str, file_out, start: int = 0, end: int = 0, **kwargs) -> None:
@@ -578,33 +544,29 @@ class GribDownloader:
         else:
             params = {}
 
-        print(f"Downloading part of {url} with params: {params}")
-        response = urlopen(req, **params)
+        log.debug(f"Downloading part of {url} with params: {params}")
+        with urlopen(req, timeout=30, **params) as response:
+            gz = False
+            if url[-3:] == '.gz' or response.headers.get('content-encoding', '').find('gzip') > -1:
+                gz = zlib.decompressobj(16 + zlib.MAX_WBITS)
 
-        gz = False
-        if url[-3:] == '.gz' or response.headers.get('content-encoding', '').find('gzip') > -1:
-            gz = zlib.decompressobj(16 + zlib.MAX_WBITS)
+            cancel = kwargs.pop('cancel_event', False)
 
-        cancel = kwargs.pop('cancel_event', False)
+            while True:
+                if cancel and cancel.is_set():
+                    raise GribDownloaderCancel("Download canceled by user.")
 
-        while True:
-            if cancel and cancel.is_set():
-                raise GribDownloaderCancel("Download canceled by user.")
+                data = response.read(1024 * 128)
+                if not data:
+                    # End of file
+                    break
+                if gz:
+                    data = gz.decompress(data)
 
-            data = response.read(1024 * 128)
-            if not data:
-                # End of file
-                break
-            if gz:
-                data = gz.decompress(data)
-            try:
                 if isinstance(file_out, io.TextIOBase):
                     file_out.write(str(data))
                 else:
                     file_out.write(data)
-            except Exception as e:
-                print(f"Failed to write out bit: {e}")
-                raise e
 
     @staticmethod
     def to_download(level, var, variable_list: list) -> bool:
@@ -661,15 +623,10 @@ class GribDownloader:
         index = []
         for line in index_file:
             cols = line.decode('utf-8').split(':')
-            if len(cols) != 7:
-                raise RuntimeError(f"Bad GRIB file index format: Missing columns. Expected 7,  Found {len(cols)} columns: {cols}")
-            try:
-                cols[1] = int(cols[1])
-            except ValueError as e:
-                raise RuntimeError(f"Bad GRIB file index format: Bad integer, found: {cols[1]}") from e
-
+            if len(cols) != 7 or not cols[1].isdecimal():
+                raise GribDownloaderError(f"Bad GRIB index line: {line!r}")
+            cols[1] = int(cols[1])
             index.append(cols)
-
         return index
 
     @classmethod
@@ -685,6 +642,7 @@ class GribDownloader:
                 cancel_event (threading.Event): Set the flat to cancel the download at any time
                 variable_list (list): List of variables dicts ex: [{'level': ['500mb', ], 'vars': 'TMP'}, ]
                 decompress (str): Path to the wgrib2 to decompress the file.
+                spinfo: startup info for the wgrib2 subprocess (Windows)
 
             Returns:
                 Path: the path to the final file on success
@@ -694,47 +652,41 @@ class GribDownloader:
                 GribDownloaderCancel: on cancel.
         """
 
+        try:
+            return cls._download(url, file_path, binary, **kwargs)
+        except (OSError, subprocess.SubprocessError) as e:   # URLError is an OSError too
+            raise GribDownloaderError(f"Download failed for {url}: {e!r}") from e
+
+    @classmethod
+    def _download(cls, url, file_path: Path, binary: bool, **kwargs) -> Path:
         variable_list = kwargs.pop('variable_list', [])
 
         if variable_list:
             # Download the index and create a chunk list
             with TemporaryFile('w+b') as idx_file:
+                cls.download_part(f"{url}.idx", idx_file, **kwargs)
                 idx_file.seek(0)
-                try:
-                    cls.download_part(f"{url}.idx", idx_file, **kwargs)
-                except URLError as e:
-                    raise GribDownloaderError(f"Unable to download index file for: {url} - Error: {repr(e)}") from e
-
-                idx_file.seek(0)
-
                 index = cls.parse_grib_index(idx_file)
                 chunk_list = cls.generate_chunk_list(index, variable_list)
 
         flags = 'wb' if binary else 'w'
-
         with open(file_path, flags) as grib_file:
             if not variable_list:
-                # Fake chunk list for non filtered files
-                chunk_list = [[False, False]]
-
+                chunk_list = [[False, False]]   # fake chunk list for non filtered files
             for chunk in chunk_list:
-                print(f"downloading ...")
-                try:
-                    cls.download_part(str(url), grib_file, start=chunk[0], end=chunk[1], **kwargs)
-                except URLError as e:
-                    raise GribDownloaderError(f"Unable to open url: {url} \n\t{repr(e)}") from e
+                log.debug("downloading ...")
+                cls.download_part(str(url), grib_file, start=chunk[0], end=chunk[1], **kwargs)
+        log.debug("download ended")
 
-        print(f"download ended")
         wgrib2 = kwargs.pop('decompress', False)
         spinfo = kwargs.pop('spinfo', False)
         if wgrib2:
             tmp_file = Path(f"{file_path}.tmp")
+            file_path.replace(tmp_file)
             try:
-                file_path.rename(tmp_file)
                 cls.decompress_grib(tmp_file, file_path, wgrib2, spinfo)
-                utils.remove(tmp_file)
-            except OSError as e:
-                raise GribDownloaderError(f"Unable to decompress: {file_path.name} \n\t{repr(e)}") from e
+            finally:
+                utils.remove(tmp_file)   # also cleans up when decompression fails
 
         return file_path
 

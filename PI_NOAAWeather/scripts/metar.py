@@ -15,16 +15,15 @@ import math
 import time
 import base64
 import json
-import traceback
 
 from collections.abc import Iterable, Iterator
 from datetime import datetime, timedelta, timezone
 from itertools import batched
 from pathlib import Path
 
-from . import c, utils
+from . import c, utils, log
 from .database import Database
-from .weathersource import WeatherSource, GribDownloaderError, GribDownloader, AsyncTask
+from .weathersource import WeatherSource, GribDownloader, AsyncTask
 
 
 class Metar(WeatherSource):
@@ -403,28 +402,28 @@ class Metar(WeatherSource):
                 self.ms_download = False
 
                 if isinstance(stations, Exception):
-                    print(f"Error downloading metar stations file: {stations!r}")
+                    log.error(f"Error downloading metar stations file: {stations!r}")
 
                     if self.ms_url == self.METAR_STATIONS_GZIP:
-                        print("Trying backup static url")
+                        log.debug("Trying backup static url")
                         self.download_stations(
                             url=self.METAR_STATIONS_BACKUP_URL,
                             filename='stations.txt'
                         )
                 else:
-                    print('Updating metar stations.')
+                    log.info('Updating metar stations.')
                     try:
                         nstations = self.update_stations(stations)
-                        print(
-                            f"**** {datetime.now(timezone.utc).strftime('%H:%M:%S')} "
+                        log.debug(
+                            f"{datetime.now(timezone.utc).strftime('%H:%M:%S')} "
                             f"{nstations} metar stations updated."
                         )
                     except Exception:
-                        traceback.print_exc()
+                        log.exception("Error updating metar stations")
 
             else:
-                print(
-                    f" **** {datetime.now(timezone.utc).strftime('%H:%M:%S')} "
+                log.debug(
+                    f"{datetime.now(timezone.utc).strftime('%H:%M:%S')} "
                     "waiting stations download ... "
                 )
 
@@ -434,7 +433,7 @@ class Metar(WeatherSource):
                 metar_file = self.download.result
                 self.download.join()
                 if isinstance(metar_file, Exception):
-                    print(f"Error downloading METAR: {metar_file!r}")
+                    log.error(f"Error downloading METAR: {metar_file!r}")
                 else:
                     self.update_metar(metar_file)
                 self.download = False
@@ -453,7 +452,7 @@ class Metar(WeatherSource):
         source = self.conf.metar_source
 
         if (url := self.METAR_URLS.get(source)) is None:
-            print(f"Unknown METAR source: {source!r}")
+            log.debug(f"Unknown METAR source: {source!r}")
             return
 
         self.downloading = True

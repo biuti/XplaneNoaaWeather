@@ -13,13 +13,12 @@ of the License, or any later version.
 """
 
 import time
-import traceback
 
 from collections.abc import Iterator, Sequence
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
-from . import c, utils
+from . import c, utils, log
 from .database import Database
 from .weathersource import GribWeatherSource
 
@@ -124,7 +123,7 @@ class RealWeather(GribWeatherSource):
     @property
     def wafs_download_needed(self) -> bool:
         wafs_run = self.wafs_run if self.latest_wafs_checked == self.idx_ahead else self.check_latest_wafs()
-        print(f"idx_ahead: {self.idx_ahead} | latest checked: {self.latest_wafs_checked} | wafs_run: {wafs_run}")
+        log.debug(f"idx_ahead: {self.idx_ahead} | latest checked: {self.latest_wafs_checked} | wafs_run: {wafs_run}")
         return self.gfs_run is not None and wafs_run is not None and int(self.gfs_run) - int(wafs_run) > 100
 
     def update_rwmetar(self, batch: int = 100) -> tuple[int, int]:
@@ -236,34 +235,35 @@ class RealWeather(GribWeatherSource):
         # no info about snow here, probably over or near water: probe around and ahead
         if prediction := self.find_snow(lat, lon, hdg, [grib_file]):
             surface['prediction'] = prediction
-            print(f"check_snow_values: prediction: {prediction}")
+            log.debug(f"check_snow_values: prediction: {prediction}")
 
     def check_latest_wafs(self) -> str | None:
         """reads the run data from latest WAFS grib file """
 
         file = next((f for f in self.conf.rw_path.iterdir() if 'ctrb' in f.name and self.base_ahead in f.name), None)
-        print(f"check_latest_wafs: {file}")
+        log.debug(f"check_latest_wafs: {file}")
         if file:
             it = self.read_grib_file(file)
             for line in it:
                 try:
                     r = line.split(':')
                     self.latest_wafs_checked = self.idx_ahead
-                    print(f"WAFS Checked: {file.name} | latest checked: {self.latest_wafs_checked} | wafs_run: {r[2].split('=')[1]}")
+                    log.debug(f"WAFS Checked: {file.name} | latest checked: {self.latest_wafs_checked} | wafs_run: {r[2].split('=')[1]}")
                     return r[2].split('=')[1]
-                except Exception as e:
+                except Exception:
+                    log.exception("Error checking latest WAFS file")
                     continue
         return None
 
     def update_wafs_files(self, grib_file: Path) -> bool:
         """takes the downloaded WAFS file and copies it to the XP12 Real Weather folder"""
         if self.starting:
-            print(f"Need to change both ahead and behind files")
+            log.debug(f"Need to change both ahead and behind files")
             files = [f for f in self.conf.rw_path.iterdir() if 'ctrb' in f.name and (self.base_behind in f.name or self.base_ahead in f.name)]
         else:
             files = [f for f in self.conf.rw_path.iterdir() if 'ctrb' in f.name and self.base_ahead in f.name]
         for file in files:
-            print(f"copying {grib_file.name} over {file.name}")
+            log.debug(f"copying {grib_file.name} over {file.name}")
             utils.copy(grib_file, file)
         return len(files) > 1
 
@@ -273,13 +273,13 @@ class RealWeather(GribWeatherSource):
         if self.time_to_update_rwmetar:
             # update real weather metar database
             try:
-                print("Updating Real Weather DB ...")
+                log.info("Updating Real Weather DB ...")
                 self.update_rwmetar()
-                print(f"*** RW METAR DB updated: {datetime.now(timezone.utc).strftime('%H:%M:%S')} ***")
+                log.debug(f"RW METAR DB updated: {datetime.now(timezone.utc).strftime('%H:%M:%S')} ***")
                 self.last_rwmetar = time.time()
                 self.next_rwmetar = self.last_rwmetar + self.RWMETAR_CHECK_INTERVAL
             except Exception:
-                traceback.print_exc()
+                log.exception("Error updating Real Weather DB")
 
     def shutdown(self) -> None:
         super().shutdown()

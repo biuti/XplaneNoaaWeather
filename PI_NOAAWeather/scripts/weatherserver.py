@@ -25,28 +25,29 @@ import socketserver as SocketServer
 
 from pathlib import Path
 from datetime import datetime
-
-# try:
-#     from . import Conf
-# except ImportError:
-#     __package__ = 'scripts'
-#     this_dir = Path(__file__).resolve().parent
-#     sys.path.append(str(this_dir.parent))
-#     from .conf import Conf
+from contextlib import contextmanager
 
 if not __package__:
     package_root = Path(__file__).resolve().parent.parent
     sys.path.insert(0, str(package_root))
     __package__ = 'scripts'
 
-from .conf import Conf
-
-from . import c
+from . import Conf, c, log
 from .metar import Metar
 from .realweather import RealWeather
 from .gfs import GFS
 from .wafs import WAFS
 from .weathersource import Worker
+
+
+@contextmanager
+def guarded(section: str):
+    """A failing data source degrades to an empty section instead of killing the whole reply"""
+    try:
+        yield
+    except Exception:
+        log.exception(f"{section} failed:")
+
 
 def ask_to_quit(port: int) -> None:
     """Asks a weather server left over from a previous run, still listening on our port, to stop"""
@@ -72,7 +73,7 @@ def open_server(conf):
     try:
         return SocketServer.UDPServer(address, ClientHandler)
     except socket.error:
-        print(f"Can't bind address: localhost, port: {conf.server_port}.")
+        log.exception(f"Can't bind address: localhost, port: {conf.server_port}.")
 
     def retry(seconds: float):
         deadline = time.time() + seconds
@@ -89,11 +90,11 @@ def open_server(conf):
     if (server := retry(5)) is None:
         pid = conf.weather_server_pid
         if pid and is_weather_server(pid):
-            print(f"Old server does not answer, killing pid {pid}")
+            log.debug(f"Old server does not answer, killing pid {pid}")
             os.kill(pid, signal.SIGTERM)
             server = retry(3)
         elif pid:
-            print(f"pid {pid} is not a weather server, leaving it alone")
+            log.debug(f"pid {pid} is not a weather server, leaving it alone")
     return server
 
 
@@ -103,7 +104,7 @@ def exit_with_parent(srv) -> None:
         sys.stdin.buffer.read()
     except Exception:
         pass
-    # print("Parent process is gone, shutting down")
+    log.debug("Parent process is gone, shutting down")
     srv.shutdown()
 
 
@@ -157,35 +158,38 @@ class ClientHandler(SocketServer.BaseRequestHandler):
         }
 
         # Parse gfs and wafs
-        if conf.meets_wgrib2_requirements and conf.use_real_weather_data:
-            rw.get_real_weather_forecast()
-            if rw.grib_files:
-                response['rw'] = rw.parse_grib_data(lat, lon)
-                response['info']['rw_gfs_cycle'] = f"{rw.gfs_run}: {rw.gfs_fcst}" if rw.gfs_run else 'na'
-                response['info']['rw_wafs_cycle'] = f"{rw.wafs_run}: {rw.wafs_fcst}" if rw.wafs_run else 'na'
-                if conf.set_snow:
-                    # we could need to check for nearby snow depth values
-                    rw.check_snow_values(lat, lon, hdg, response['rw'])
-                if conf.download_GFS and gfs.last_grib:
-                    filepath = Path(gfs.cache_path, gfs.last_grib)
-                    response['gfs'] = gfs.parse_grib_data(filepath, lat, lon)
-                if conf.download_WAFS and rw.wafs_download_needed and wafs.last_grib:
-                    # TURB data is not up-to-date, download GRIB file needed
-                    print(f"TURB data is not up-to-date, download GRIB file needed ...")
-                    wafs_file = Path(wafs.cache_path, wafs.last_grib)
-                    if wafs_file.is_file():
-                        print(f"Turbulence updated from WFS data: {wafs_file.name}")
-                        response['wafs'] = wafs.parse_grib_data(wafs_file, lat, lon)
-                        print(f"response['wafs']: {response['wafs']}")
-                        response['info']['wafs_cycle'] = f"{wafs.wafs_run}: {wafs.wafs_fcst}" if wafs.wafs_run else 'na'
+        with guarded('rw'):
+            if conf.meets_wgrib2_requirements and conf.use_real_weather_data:
+                rw.get_real_weather_forecast()
+                if rw.grib_files:
+                    response['rw'] = rw.parse_grib_data(lat, lon)
+                    response['info']['rw_gfs_cycle'] = f"{rw.gfs_run}: {rw.gfs_fcst}" if rw.gfs_run else 'na'
+                    response['info']['rw_wafs_cycle'] = f"{rw.wafs_run}: {rw.wafs_fcst}" if rw.wafs_run else 'na'
+                    if conf.set_snow:
+                        # we could need to check for nearby snow depth values
+                        rw.check_snow_values(lat, lon, hdg, response['rw'])
+                    if conf.download_GFS and gfs.last_grib:
+                        filepath = Path(gfs.cache_path, gfs.last_grib)
+                        response['gfs'] = gfs.parse_grib_data(filepath, lat, lon)
+                    if conf.download_WAFS and rw.wafs_download_needed and wafs.last_grib:
+                        # TURB data is not up-to-date, download GRIB file needed
+                        log.debug("TURB data is not up-to-date, download GRIB file needed ...")
+                        wafs_file = Path(wafs.cache_path, wafs.last_grib)
+                        if wafs_file.is_file():
+                            log.info(f"Turbulence updated from WFS data: {wafs_file.name}")
+                            response['wafs'] = wafs.parse_grib_data(wafs_file, lat, lon)
+                            log.debug(f"response['wafs']: {response['wafs']}")
+                            response['info']['wafs_cycle'] = f"{wafs.wafs_run}: {wafs.wafs_fcst}" if wafs.wafs_run else 'na'
 
         # Parse metar
-        apt = metar.get_closest_station(lat, lon)
-        if apt and len(apt) > 4:
-            response['metar'] = metar.parse_metar(apt[0], apt[5], apt[3])
-            response['metar']['latlon'] = (apt[1], apt[2])
-            response['metar']['distance'] = c.greatCircleDistance((lat, lon), (apt[1], apt[2]))
-            response['rwmetar'] = dict(zip(('file_time', 'result'), [rw.metar_file_time, rw.get_rwmetar(apt[0])]))
+        with guarded('metar'):
+            apt = metar.get_closest_station(lat, lon)
+            if apt and len(apt) > 4:
+                response['metar'] = metar.parse_metar(apt[0], apt[5], apt[3])
+                response['metar']['latlon'] = (apt[1], apt[2])
+                response['metar']['distance'] = c.greatCircleDistance((lat, lon), (apt[1], apt[2]))
+                response['rwmetar'] = dict(zip(('file_time', 'result'), [rw.metar_file_time, rw.get_rwmetar(apt[0])]))
+
         return response
 
     def shutdown(self) -> None:
@@ -253,10 +257,10 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             try:
                 socket.sendto(response + b"\n", self.client_address)
                 nbytes = len(response)
-            except OSError as e:
-                print(f"can't send {len(response)} bytes to {self.client_address}: {e}")
+            except OSError:
+                log.exception(f"can't send {len(response)} bytes to {self.client_address}")
 
-        print(f"{self.client_address[0]}:{data}: {nbytes} bytes sent.")
+        log.debug(f"{self.client_address[0]}:{data}: {nbytes} bytes sent.")
 
 
 if __name__ == "__main__":
@@ -268,19 +272,19 @@ if __name__ == "__main__":
     sys.stderr = logfile
     sys.stdout = logfile
 
-    print(f"NOAA plugin version: {conf.__VERSION__}")
-    print('---------------')
-    print('Starting server')
-    print('---------------')
-    print(sys.argv)
-    print(f"__file__: {__file__}")
-    print(f"__package__: {__package__}")
-    print(f"sys.path[0]: {sys.path[0]}")
-    print(f"package root: {Path(__file__).resolve().parent.parent}")
+    log.info(f"NOAA plugin version: {conf.__VERSION__}")
+    log.info('-----------------------')
+    log.info('Starting Weather Server')
+    log.info('-----------------------')
+    log.debug(sys.argv)
+    log.debug(f"__file__: {__file__}")
+    log.debug(f"__package__: {__package__}")
+    log.debug(f"sys.path[0]: {sys.path[0]}")
+    log.debug(f"package root: {Path(__file__).resolve().parent.parent}")
 
     server = open_server(conf)
     if server is None:
-        print("Can't start the weather server: the port is busy")
+        log.critical("Can't start the weather server: the port is busy")
         sys.exit(1)
 
     parent_watch = None
@@ -317,8 +321,8 @@ if __name__ == "__main__":
     worker.start()
 
     if not conf.meets_wgrib2_requirements:
-        print('*** OS does not meet minimum requirements. GRIB data download disabled ***')
-    print('Server started.')
+        log.info('*** OS does not meet minimum requirements. GRIB data download disabled ***')
+    log.info('Weather server started.')
 
     # Server loop
     try:
@@ -334,7 +338,7 @@ if __name__ == "__main__":
     worker.shutdown()
     conf.save_server_settings()
 
-    print('Server stopped.')
+    log.info('Weather server stopped.')
 
 
     sys.stdout.flush()
