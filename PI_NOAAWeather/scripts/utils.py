@@ -16,8 +16,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from textwrap import wrap
 
+from . import log
+
 
 class utils:
+    '''collection of utilities'''
 
     @staticmethod
     def remove(filepath: Path) -> None:
@@ -25,7 +28,7 @@ class utils:
         try:
             filepath.unlink(missing_ok=True)
         except Exception as e:
-            print(f"can't remove {filepath.name}: {e}")
+            log.warning(f"can't remove {filepath.name}: {e}")
             i = 1
             while True:
                 npath = Path(f"{filepath}-{i}")
@@ -33,10 +36,10 @@ class utils:
                     try:
                         filepath.rename(npath)
                     except Exception as err:
-                        print(f"can't rename {filepath.name}: {err}")
+                        log.warning(f"can't rename {filepath.name}: {err}")
                         if sys.platform == 'win32':
                             import ctypes
-                            print(f"{filepath.name} marked for deletion on reboot.")
+                            log.info(f"{filepath.name} marked for deletion on reboot.")
                             ctypes.windll.kernel32.MoveFileExW(str(filepath), None, 4)
                     break
                 i += 1
@@ -48,7 +51,7 @@ class utils:
         try:
             opath.rename(dpath)
         except OSError:
-            print(f"Can't rename: {opath.name} to {dpath.name}, trying to copy/remove")
+            log.warning(f"Can't rename: {opath.name} to {dpath.name}, trying to copy/remove")
             utils.copy(opath, dpath)
             utils.remove(opath)
 
@@ -58,8 +61,8 @@ class utils:
             utils.remove(dpath)
         try:
             shutil.copyfile(opath, dpath)
-        except OSError as e:
-            print(f"Can't copy {opath.name} to {dpath.name}: {e}")
+        except OSError:
+            log.exception(f"Can't copy {opath.name} to {dpath.name}")
 
     @staticmethod
     def date_info() -> tuple[str, str, str]:
@@ -74,10 +77,8 @@ class utils:
         """ Get list of METARs from XP12 real Weather metar file,
             ordered by ICAO, time desc"""
 
-        lines = [
-            x for x in (set(open(metar_file, encoding='utf-8', errors='replace')))
-            if x[0].isalpha() and len(x) > 11 and x[11] == 'Z'
-        ]
+        with open(metar_file, encoding='utf-8', errors='replace') as f:
+            lines = [x for x in set(f) if x[0].isalpha() and len(x) > 11 and x[11] == 'Z']
         lines.sort(key=lambda x: (x[0:4], -int(x[5:10])))
         return lines
 
