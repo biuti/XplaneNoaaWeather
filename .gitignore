@@ -10,6 +10,7 @@
 # Python environments and cache
 # ============================================================
 /venv/
+.venv/
 __pycache__/
 *.py[cod]
 *$py.class
@@ -45,12 +46,12 @@ dist/
 # ============================================================
 # METAR and station data
 # ============================================================
-*metars*
-stations.txt
-stations.json
+/*metars*
+/stations.txt
+/stations.json
 
 # ============================================================
 # Tests and temporary files
 # ============================================================
-*test*
+/*test*.*
 *.org*

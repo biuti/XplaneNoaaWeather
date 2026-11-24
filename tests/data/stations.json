@@ -1,0 +1,9 @@
+[
+  {"icaoId": "LIML", "lat": 45.4451, "lon": 9.2767, "elev": 107},
+  {"icaoId": "KJFK", "lat": 40.6392, "lon": -73.7639, "elev": 4},
+  {"icaoId": "EGLL", "lat": 51.4775, "lon": -0.4614, "elev": 25},
+  {"icaoId": "LIMC", "lat": 45.6306, "lon": 8.7281, "elev": 234},
+  {"icaoId": "12AB", "lat": 10.0, "lon": 10.0, "elev": 1},
+  {"icaoId": "TOOLONG", "lat": 10.0, "lon": 10.0, "elev": 1},
+  {"icaoId": null, "lat": 10.0, "lon": 10.0, "elev": 1}
+]

@@ -1,0 +1,19 @@
+[project]
+name = "xplane-noaaweather-dev"
+version = "0.0.0"
+requires-python = ">=3.12"          # plugin uses itertools.batched
+
+[tool.uv]
+package = false                      # dev environment only, nothing to build/install
+
+[dependency-groups]
+dev = ["pytest>=8", "pytest-cov"]
+
+[tool.pytest.ini_options]
+pythonpath = [".", "tests"]          # "." makes `PI_NOAAWeather.scripts...` importable, "tests" gives `fakes.xp`
+testpaths = ["tests"]
+addopts = "-ra"
+markers = [
+    "wgrib2: needs the bundled wgrib2 binary to run on this machine",
+    "integration: runs the plugin against the fake X-Plane API",
+]
