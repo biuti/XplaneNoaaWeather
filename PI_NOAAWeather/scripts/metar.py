@@ -217,7 +217,7 @@ class Metar(WeatherSource):
         with self.db.session() as db:
             return db.execute(query, tuple(bindings)).fetchone()
 
-    def get_metar(self, icao: str) -> tuple[str, str]:
+    def get_metar(self, icao: str) -> tuple[str, float, float, int, int, str] | tuple[str, str]:
         """Returns the METAR from an airport icao code"""
         return self.db.get(self.table, icao)
 

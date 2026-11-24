@@ -92,7 +92,7 @@ class Database:
             for query in queries:
                 db.execute(query)
 
-    def get(self, table: str, icao: str) -> tuple[str, str]:
+    def get(self, table: str, icao: str) -> tuple[str, float, float, int, int, str] | tuple[str, str]:
 
         query = '''SELECT * FROM {} WHERE icao = ?'''.format(table)
         met = (icao, 'not found')
