@@ -372,7 +372,7 @@ class Metar(WeatherSource):
                 heading = int(heading)
 
             speed = int(speed)
-            gust = int(gust[1:]) - speed if gust else 0
+            gust = 0 if not (gust and gust[1:]) else int(gust[1:])
 
             wind = [heading, cls._to_knots(speed, unit), cls._to_knots(gust, unit)]
 

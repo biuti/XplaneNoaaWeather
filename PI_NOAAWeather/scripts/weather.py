@@ -479,7 +479,7 @@ class Weather:
 
                     wind = f"   Wind:  {wdata['metar']['wind'][0]} {wdata['metar']['wind'][1]}kt"
                     if wdata['metar']['wind'][2]:
-                        wind += f", gust {wdata['metar']['wind'][2]}kt"
+                        wind += f", gusting {wdata['metar']['wind'][2]}kt"
                     if 'variable_wind' in wdata['metar'] and wdata['metar']['variable_wind']:
                         wind += f" Variable: {wdata['metar']['variable_wind'][0]}-{wdata['metar']['variable_wind'][1]}"
                     sysinfo += [wind]
