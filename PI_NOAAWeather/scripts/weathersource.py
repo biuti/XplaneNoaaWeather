@@ -34,6 +34,31 @@ WIND_VARS = frozenset(('UGRD', 'VGRD', 'TMP', 'RH'))
 # raw GRIB surface keys -> names used downstream ('PRES' is also converted Pa -> hPa)
 SURFACE_RENAME = {'PRES': 'press', 'TMP': 'temp', 'HGT': 'alt', 'SNOD': 'snow', 'APCP': 'apcp'}
 
+def run_wgrib2(wgrib2bin, *args, spinfo=False, timeout: float = 30, capture: bool = False) -> subprocess.CompletedProcess:
+    """Run wgrib2 and return the CompletedProcess (OSError / SubprocessError, TimeoutExpired included, propagate).
+
+    stdin is closed (don't leak the parent-pipe to wgrib2) and, on Windows, no console window shows up (spinfo).
+    stdout is kept only with `capture`: a decompression prints one inventory line per record, nobody needs them.
+    """
+    kwargs = {
+        'stdin': subprocess.DEVNULL,
+        'stdout': subprocess.PIPE if capture else subprocess.DEVNULL,
+        'stderr': subprocess.PIPE,
+        'text': True,
+        'errors': 'replace',
+    }
+    if spinfo:  # Windows OS
+        kwargs.update(startupinfo=spinfo, creationflags=subprocess.CREATE_NO_WINDOW)
+
+    return subprocess.run([str(wgrib2bin), *map(str, args)], timeout=timeout, **kwargs)
+
+
+def decompress_grib(path_in: Path, path_out: Path, wgrib2bin, spinfo=False) -> None:
+    """Unpacks grib file using wgrib2 binary"""
+    res = run_wgrib2(wgrib2bin, path_in, '-set_grib_type', 'simple', '-grib_out', path_out, spinfo=spinfo, timeout=120)
+    if res.returncode or not path_out.is_file():
+        raise GribDownloaderError(f"wgrib2 decompress failed (rc={res.returncode}): {res.stderr.strip()[:300]}")
+
 
 class GribRecord(NamedTuple):
     """One wgrib2 inventory line, reduced to the fields we use"""
@@ -64,26 +89,8 @@ class WeatherSource:
     def read_grib_file(self, file: Path, lat: float = 46, lon: float = 9) -> list[str]:
         """Executes wgrib2 on given GRIB file and returns its output lines"""
 
-        args = [
-            self.conf.wgrib2bin,
-            '-s',
-            '-lon',
-            f"{lon}",
-            f"{lat}",
-            str(file)
-        ]
-
-        kwargs = {
-            'stdin': subprocess.DEVNULL,   # don't leak the parent-pipe to wgrib2
-            'stderr': subprocess.DEVNULL,  # valid handle, we never read it anyway
-            'stdout': subprocess.PIPE,
-            'text': True,
-        }
-        if self.conf.spinfo:  # Windows
-            kwargs.update(startupinfo=self.conf.spinfo, creationflags=subprocess.CREATE_NO_WINDOW)
-
         try:
-            res = subprocess.run(args, timeout=30, **kwargs)
+            res = run_wgrib2(self.conf.wgrib2bin, '-s', '-lon', lon, lat, file, spinfo=self.conf.spinfo, capture=True)
         except (OSError, subprocess.SubprocessError):   # includes TimeoutExpired
             log.exception(f"wgrib2 failed on {Path(file).name}")
             return []
@@ -92,7 +99,7 @@ class WeatherSource:
         records = [l for l in lines if l.count(':') >= 7 and 'val=' in l]  # real `-s -lon` records have 8+ fields
 
         if res.returncode or len(records) != len(lines):
-            log.debug(f"wgrib2 rc={res.returncode}, {len(lines) - len(records)} malformed line(s) in {Path(file).name}: {lines[:2]!r}")
+            log.debug(f"wgrib2 rc={res.returncode}, {len(lines) - len(records)} malformed line(s) in {Path(file).name}: {lines[:2]!r} | stderr: {res.stderr.strip()[:200]}")
 
         return records
 
@@ -491,19 +498,6 @@ class GribDownloader:
     """Grib download utilities"""
 
     @staticmethod
-    def decompress_grib(path_in: Path, path_out: Path, wgrib2bin, spinfo=False) -> None:
-        """Unpacks grib file using wgrib2 binary"""
-        args = [str(wgrib2bin), str(path_in), '-set_grib_type', 'simple', '-grib_out', str(path_out)]
-        kwargs = {'stdin': subprocess.DEVNULL, 'stdout': subprocess.DEVNULL,
-                  'stderr': subprocess.PIPE, 'text': True}
-        if spinfo:
-            kwargs.update(startupinfo=spinfo, creationflags=subprocess.CREATE_NO_WINDOW)
-
-        res = subprocess.run(args, timeout=120, **kwargs)
-        if res.returncode or not path_out.is_file():
-            raise GribDownloaderError(f"wgrib2 decompress failed (rc={res.returncode}): {res.stderr.strip()[:300]}")
-
-    @staticmethod
     def download_part(url: str, file_out, start: int = 0, end: int = 0, **kwargs) -> None:
         """File Downloader supports gzip and cancel
 
@@ -684,7 +678,7 @@ class GribDownloader:
             tmp_file = Path(f"{file_path}.tmp")
             file_path.replace(tmp_file)
             try:
-                cls.decompress_grib(tmp_file, file_path, wgrib2, spinfo)
+                decompress_grib(tmp_file, file_path, wgrib2, spinfo)
             finally:
                 utils.remove(tmp_file)   # also cleans up when decompression fails
 

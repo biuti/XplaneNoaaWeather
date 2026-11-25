@@ -25,7 +25,7 @@ import socketserver as SocketServer
 
 from pathlib import Path
 from datetime import datetime
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 
 if not __package__:
     package_root = Path(__file__).resolve().parent.parent
@@ -264,6 +264,11 @@ class ClientHandler(SocketServer.BaseRequestHandler):
 
 
 if __name__ == "__main__":
+    # reduce process race for CPU time
+    if hasattr(os, 'nice'):   # macOS / Linux; on Windows the plugin sets the class at launch
+        with suppress(OSError):
+            os.nice(5)
+
     # Get the X-Plane path from the arguments
     path = sys.argv[1]
     conf = Conf(path)

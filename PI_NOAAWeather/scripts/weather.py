@@ -151,6 +151,7 @@ class Weather:
 
     def start_weather_server(self) -> None:
         DETACHED_PROCESS = 0x00000008
+        BELOW_NORMAL_PRIORITY_CLASS = 0x00004000
 
         server_script = Path(self.conf.scripts_path, 'weatherserver.py')
         args = [
@@ -165,7 +166,7 @@ class Weather:
             if self.conf.spinfo:
                 kwargs.update({
                     'startupinfo': self.conf.spinfo,
-                    'creationflags': DETACHED_PROCESS
+                    'creationflags': DETACHED_PROCESS | BELOW_NORMAL_PRIORITY_CLASS,
                 })
             log.info(f"Starting Weather Server using: {args} {kwargs}")
             self.server_process = subprocess.Popen(args, **kwargs)
