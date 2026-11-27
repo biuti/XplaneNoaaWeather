@@ -23,6 +23,8 @@ PRODUCT = REPO / "PI_NOAAWeather"
 NAME = "NOAAWeather"
 # ALWAYS the production depot, whatever branch you are on (PUBLISHING.md 1.6): the cfg is copied to users.
 MODULE = "https://raw.githubusercontent.com/biuti/XplaneNoaaWeather/xp12-master/PI_NOAAWeather"
+# Beta channel: same cfg, different branch (the docstring's "beta channel").
+BETA_MODULE = "https://raw.githubusercontent.com/biuti/XplaneNoaaWeather/xp12-dev/PI_NOAAWeather"
 
 CFG = PRODUCT / "skunkcrafts_updater.cfg"
 WHITELIST = PRODUCT / "skunkcrafts_updater_whitelist.txt"
@@ -50,7 +52,14 @@ def render() -> dict[Path, str]:
         white.append(f"{rel}|{zlib.crc32(data) & 0xFFFFFFFF}")
         sizes.append(f"{rel}|{len(data)}")
     black = BLACKLIST_SOURCE.read_text(encoding="utf-8").splitlines() if BLACKLIST_SOURCE.exists() else []
-    cfg = f"name|{NAME}\nmodule|{MODULE}\nversion|{version}\nlocked|false\nzone|custom\n"
+    cfg = (
+        f"name|{NAME}\n"
+        f"module|{MODULE}\n"
+        f"version|{version}\n"
+        f"locked|false\n"
+        f"zone|custom\n"
+        f"channel.Beta|{BETA_MODULE}\n"
+    )
     nl = lambda lines: "".join(f"{line}\n" for line in lines if line.strip())
     return {CFG: cfg, WHITELIST: nl(white), SIZES: nl(sizes), BLACKLIST: nl(black)}
 
