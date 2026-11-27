@@ -4,6 +4,7 @@
 /docs export-ignore
 /pyproject.toml export-ignore
 /uv.lock export-ignore
+/.githooks export-ignore
 /.python-version export-ignore
 /.vscode export-ignore
 /.vscode_suggested export-ignore
