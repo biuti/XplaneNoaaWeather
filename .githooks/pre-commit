@@ -1,0 +1,6 @@
+#!/bin/sh
+# Regenerate the SkunkCrafts depot files whenever something in PI_NOAAWeather/ is staged
+if git diff --cached --name-only | grep -q '^PI_NOAAWeather/'; then
+    /usr/local/bin/uv run python tools/make_depot.py --staged || exit 1
+    git add PI_NOAAWeather/skunkcrafts_updater.cfg PI_NOAAWeather/skunkcrafts_updater_*.txt
+fi

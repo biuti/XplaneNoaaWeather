@@ -19,6 +19,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 PRODUCT = REPO / "PI_NOAAWeather"
+STAGED = "--staged" in sys.argv
 
 NAME = "NOAAWeather"
 # ALWAYS the production depot, whatever branch you are on (PUBLISHING.md 1.6): the cfg is copied to users.
@@ -43,12 +44,20 @@ def published_files() -> list[Path]:
                   and not any(part.startswith(".") for part in f.relative_to(PRODUCT).parts))
 
 
+def read_bytes(f: Path) -> bytes:
+    if STAGED:
+        rel = f.relative_to(REPO).as_posix()
+        return subprocess.run(["git", "show", f":{rel}"], cwd=REPO, check=True,
+                              capture_output=True).stdout
+    return f.read_bytes()
+
+
 def render() -> dict[Path, str]:
-    version = (PRODUCT / "version.txt").read_text(encoding="utf-8").strip()
+    version = read_bytes(PRODUCT / "version.txt").decode("utf-8").strip()
     white, sizes = [], []
     for f in published_files():
         rel = f.relative_to(PRODUCT).as_posix()
-        data = f.read_bytes()
+        data = read_bytes(f)
         white.append(f"{rel}|{zlib.crc32(data) & 0xFFFFFFFF}")
         sizes.append(f"{rel}|{len(data)}")
     black = BLACKLIST_SOURCE.read_text(encoding="utf-8").splitlines() if BLACKLIST_SOURCE.exists() else []
