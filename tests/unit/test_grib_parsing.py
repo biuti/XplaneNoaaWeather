@@ -12,7 +12,6 @@ from PI_NOAAWeather.scripts.gfs import GFS
 
 # index:offset:d=run:VAR:level:forecast::lon=..,lat=..,val=..
 CANNED = """\
-1:0:d=2026111412:PRES:surface:3 hour fcst::lon=9,lat=46,val=95000
 2:1:d=2026111412:TMP:surface:3 hour fcst::lon=9,lat=46,val=275.5
 3:2:d=2026111412:SNOD:surface:3 hour fcst::lon=9,lat=46,val=0.25
 4:3:d=2026111412:PRMSL:mean sea level:3 hour fcst::lon=9,lat=46,val=101300
@@ -39,14 +38,14 @@ def gfs_with_stub_wgrib2(conf, tmp_path):
 def test_surface_values_are_renamed_and_converted(gfs_with_stub_wgrib2):
     gfs, grib = gfs_with_stub_wgrib2
     surface = gfs.parse_grib_data(46, 9, files=[grib])["surface"]
-    assert surface["press"] == pytest.approx(950.0)      # Pa -> hPa
+    assert surface["press"] == pytest.approx(101300)  # PRMSL, sea level pressure in Pa
     assert surface["temp"] == pytest.approx(275.5)
     assert surface["snow"] == pytest.approx(0.25)
 
 
 def test_msl_pressure_is_converted_to_inhg(gfs_with_stub_wgrib2):
     gfs, grib = gfs_with_stub_wgrib2
-    assert gfs.parse_grib_data(46, 9, files=[grib])["pressure"] == pytest.approx(c.pa2inhg(101300))
+    assert "pressure" not in gfs.parse_grib_data(46, 9, files=[grib]).
 
 
 def test_wind_levels_are_built_from_pressure_levels(gfs_with_stub_wgrib2):
@@ -54,6 +53,13 @@ def test_wind_levels_are_built_from_pressure_levels(gfs_with_stub_wgrib2):
     winds = gfs.parse_grib_data(46, 9, files=[grib])["winds"]
     assert winds, "expected at least the 500 mb layer"
     assert gfs.gfs_run == "2026111412"
+
+
+def test_msl_pressure_is_a_surface_value_in_pa(gfs_with_stub_wgrib2):
+    gfs, grib = gfs_with_stub_wgrib2
+    data = gfs.parse_grib_data(46, 9, files=[grib])
+    assert data["surface"]["press"] == pytest.approx(101300)
+    assert "pressure" not in data
 
 
 def test_wgrib2_crash_returns_no_data_instead_of_raising(conf, tmp_path):

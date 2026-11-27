@@ -34,10 +34,18 @@ def plugin_env(xplane_root, monkeypatch):
     plugin = importlib.import_module(f"{PKG}.{PKG}")
     scripts_weather = importlib.import_module(f"{PKG}.scripts.weather")
 
-    # never spawn the real weatherserver.py subprocess from a test
+    # never spawn the real weatherserver.py subprocess from a test (test_weather_server.py puts it back on purpose)
+    real_start_weather_server = scripts_weather.Weather.start_weather_server
     monkeypatch.setattr(scripts_weather.Weather, "start_weather_server", lambda self: None)
 
-    yield SimpleNamespace(plugin=plugin, sim=fake_xp.sim, xp=fake_xp, root=xplane_root)
+    yield SimpleNamespace(
+        plugin=plugin,
+        sim=fake_xp.sim,
+        xp=fake_xp,
+        root=xplane_root,
+        weather=scripts_weather,
+        start_weather_server=real_start_weather_server
+    )
 
     fake_xp.uninstall()
     for k in [k for k in sys.modules if _is_plugin_module(k)]:
