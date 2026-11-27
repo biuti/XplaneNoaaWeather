@@ -20,11 +20,16 @@ from datetime import datetime, timedelta, timezone
 
 from . import c, utils, log
 from .database import Database
-from .weathersource import GribWeatherSource
+from .weathersource import GribWeatherSource, GRID_STEP, tile
 
 
 GFS_GRID_M = 28_000         # GFS 0.25 degree grid is ~27.75 km
 SNOW_LOOKAHEAD_M = 60_000   # how far ahead along the track we look for a valid snow value
+
+# 1 degree files (checked with `wgrib2 -grid`), every other one is 0.25. A suffix not listed counts
+# as dense, the safe side: a finer tile only means reading more often, never stale data.
+COARSE_SUFFIXES = frozenset({'dewp', 'prcp', 'pres', 'srfc', 'temp', 'trop', 'wind'})
+COARSE_STEP = 1.0
 
 
 class RealWeather(GribWeatherSource):
@@ -55,6 +60,8 @@ class RealWeather(GribWeatherSource):
     RWMETAR_CHECK_INTERVAL = 300  # 5 minutes
 
     def __init__(self, conf) -> None:
+        self._snow_key = None
+        self._snow_prediction = None
         self.starting = True
         self.zulu_time = None
         self.idx_behind = None
@@ -125,6 +132,12 @@ class RealWeather(GribWeatherSource):
         wafs_run = self.wafs_run if self.latest_wafs_checked == self.idx_ahead else self.check_latest_wafs()
         log.debug(f"idx_ahead: {self.idx_ahead} | latest checked: {self.latest_wafs_checked} | wafs_run: {wafs_run}")
         return self.gfs_run is not None and wafs_run is not None and int(self.gfs_run) - int(wafs_run) > 100
+
+    @staticmethod
+    def grid_step(file: Path) -> float:
+        """GRIB-2026-11-25-09.00-ZULU-dewp-v2.grib -> dewp"""
+        suffix = file.name.partition('-ZULU-')[2].partition('-')[0].partition('.')[0]
+        return COARSE_STEP if suffix in COARSE_SUFFIXES else GRID_STEP
 
     def update_rwmetar(self, batch: int = 100) -> tuple[int, int]:
         """Updates metar table from Metar file"""
@@ -210,7 +223,9 @@ class RealWeather(GribWeatherSource):
             new_lon, new_lat = c.great_circle_destination(lon, lat, bearing, dist)
             val = self.parse_grib_data(new_lat, new_lon, files)['surface'].get('snow')
             if val is not None and not c.is_exponential(val):
+                log.debug(f"find_snow {lat:.2f}/{lon:.2f} hdg {hdg:.0f}: found depth {val}")
                 return {'lat': new_lat, 'lon': new_lon, 'depth': val}
+        log.debug(f"find_snow {lat:.2f}/{lon:.2f} hdg {hdg:.0f}: nothing found")
         return None
 
     def check_snow_values(self, lat: float, lon: float, hdg: float, data: dict) -> None:
@@ -233,9 +248,12 @@ class RealWeather(GribWeatherSource):
             return
 
         # no info about snow here, probably over or near water: probe around and ahead
-        if prediction := self.find_snow(lat, lon, hdg, [grib_file]):
-            surface['prediction'] = prediction
-            log.debug(f"check_snow_values: prediction: {prediction}")
+        key = (*tile(lat, lon, GRID_STEP), grib_file.stat().st_mtime_ns, int(hdg // 45))   # snod is a 0.25 file
+        if key != self._snow_key:
+            self._snow_key, self._snow_prediction = key, self.find_snow(lat, lon, hdg, [grib_file])
+        if self._snow_prediction:
+            surface['prediction'] = dict(self._snow_prediction)
+            log.debug(f"check_snow_values: prediction: {dict(self._snow_prediction)}")
 
     def check_latest_wafs(self) -> str | None:
         """reads the run data from latest WAFS grib file """

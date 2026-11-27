@@ -14,10 +14,9 @@ import threading
 import ssl
 import zlib
 import subprocess
-import traceback
 
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Sequence, Callable
 from itertools import chain
 from urllib.request import Request, urlopen
 from datetime import datetime, timedelta, timezone
@@ -31,8 +30,11 @@ from . import c, Conf, utils, log
 # Variables that drive turbulence/icing vs. wind/temp/humidity handling
 WIND_VARS = frozenset(('UGRD', 'VGRD', 'TMP', 'RH'))
 
-# raw GRIB surface keys -> names used downstream ('PRES' is also converted Pa -> hPa)
-SURFACE_RENAME = {'PRES': 'press', 'TMP': 'temp', 'HGT': 'alt', 'SNOD': 'snow', 'APCP': 'apcp'}
+# raw GRIB surface keys -> names used downstream. PRMSL (sea level pressure) stays in Pa, like the qnh_pas dataref
+SURFACE_RENAME = {'PRMSL': 'press', 'TMP': 'temp', 'HGT': 'alt', 'SNOD': 'snow', 'APCP': 'apcp'}
+
+GRID_STEP = 0.25   # degrees, the GFS grid; Real Weather files mix it with a 1 degree one (see RealWeather.grid_step)
+
 
 def run_wgrib2(wgrib2bin, *args, spinfo=False, timeout: float = 30, capture: bool = False) -> subprocess.CompletedProcess:
     """Run wgrib2 and return the CompletedProcess (OSError / SubprocessError, TimeoutExpired included, propagate).
@@ -59,6 +61,51 @@ def decompress_grib(path_in: Path, path_out: Path, wgrib2bin, spinfo=False) -> N
     if res.returncode or not path_out.is_file():
         raise GribDownloaderError(f"wgrib2 decompress failed (rc={res.returncode}): {res.stderr.strip()[:300]}")
 
+
+def tile(lat: float, lon: float, step: float) -> tuple[int, int]:
+    """Index of the grid point nearest to (lat, lon). Longitudes wrap like the grids do (0..360)."""
+    return round(lat / step), round((lon % 360) / step) % round(360 / step)
+
+
+class GribCache:
+    """What wgrib2 returned for each file at the last position it was read.
+
+    Files come in different densities, so each one has its own tile: a 0.25 degree file is read again
+    after a quarter degree, a 1 degree one after a degree. stale() says which files need it, refresh()
+    reads just those, the rest is served from here. parse_grib_data() knows nothing about this cache,
+    so the snow search can call it for any position without touching what is cached.
+    """
+
+    def __init__(self, step_of: Callable[[Path], float]) -> None:
+        self.step_of = step_of
+        self._entries: dict[str, tuple[tuple, list[str]]] = {}   # file name -> (key, wgrib2 lines)
+
+    def _key(self, file: Path, lat: float, lon: float) -> tuple | None:
+        try:
+            return tile(lat, lon, self.step_of(file)), file.stat().st_mtime_ns   # mtime: a new cycle rewrites the file
+        except OSError:   # the file is being replaced right now
+            return None
+
+    def stale(self, lat: float, lon: float, files: Iterable[Path]) -> list[Path]:
+        """Files to read again: new tile for their grid, rewritten, or never read. Empty list: nothing to do."""
+        return [f for f in files if (entry := self._entries.get(f.name)) is None or entry[0] != self._key(f, lat, lon)]
+
+    def refresh(self, lat: float, lon: float, files: Iterable[Path], reader: Callable[..., list[str]]) -> None:
+        for file in files:
+            key = self._key(file, lat, lon)   # taken before reading: a file rewritten meanwhile is read again next time
+            lines = reader(file, lat, lon)
+            if key is not None and lines:     # a failed or empty read is never remembered: retried at the next request
+                self._entries[file.name] = (key, lines)
+
+    def lines(self, files: Sequence[Path]) -> list[str]:
+        """The wgrib2 lines of `files`, in that order. Forgets the files that are gone (previous cycles)."""
+        names = {f.name for f in files}
+        for gone in self._entries.keys() - names:
+            del self._entries[gone]
+        return [line for f in files for line in self._entries.get(f.name, (None, []))[1]]
+
+    def clear(self) -> None:
+        self._entries.clear()
 
 class GribRecord(NamedTuple):
     """One wgrib2 inventory line, reduced to the fields we use"""
@@ -147,6 +194,7 @@ class GribWeatherSource(WeatherSource):
     ]
 
     def __init__(self, conf) -> None:
+        self.cache = GribCache(self.grid_step)
         self.cache_path = Path(conf.cache_path, 'gfs')
 
         super().__init__(conf)
@@ -196,11 +244,10 @@ class GribWeatherSource(WeatherSource):
 
         return f"{cnow:%Y%m%d}", lcycle, forecast
 
-    def _track_gfs_run(self, rec: GribRecord) -> None:
-        """Keeps the cycle / forecast info of the wind data read"""
-        if rec.run != self.gfs_run:
-            self.gfs_run = rec.run
-            self.gfs_fcst = rec.fcst
+    @staticmethod
+    def grid_step(file: Path) -> float:
+        """Grid step in degrees of a file: sources with a mixed density override this"""
+        return GRID_STEP
 
     @staticmethod
     def _convert_winds(wind: dict[str, dict]) -> tuple[list, list]:
@@ -267,30 +314,23 @@ class GribWeatherSource(WeatherSource):
 
     @staticmethod
     def _convert_surface(surface: dict[str, str]) -> dict:
-        """Surface values: renamed + float-converted for the SURFACE_RENAME keys (pressure Pa -> hPa),
+        """Surface values: renamed + float-converted for the SURFACE_RENAME keys,
         everything else is passed through untouched"""
         out = {k: v for k, v in surface.items() if k not in SURFACE_RENAME}
-        for raw_key, key in SURFACE_RENAME.items():
-            if raw_key in surface:
-                val = float(surface[raw_key])
-                out[key] = val * 0.01 if raw_key == 'PRES' else val
+        out |= {key: float(surface[raw_key]) for raw_key, key in SURFACE_RENAME.items() if raw_key in surface}
         return out
 
-    def parse_grib_data(self, lat: float, lon: float, files: Iterable[Path] | None = None) -> dict:
-        """Executes wgrib2 and parses its output
+    def _track_gfs_run(self, rec: GribRecord) -> None:
+        """Keeps the cycle / forecast info of the wind data read"""
+        if rec.run != self.gfs_run:
+            self.gfs_run = rec.run
+            self.gfs_fcst = rec.fcst
 
-        files: grib files to read. Defaults to every file of the current base
-               (self.grib_files); pass a subset (e.g. only the snod file) to
-               avoid decoding files you don't need.
-        """
-
-        files = self.grib_files if files is None else files
-        lines = chain.from_iterable(self.read_grib_file(f, lat, lon) for f in files)
-
+    def parse_lines(self, lines: Iterable[str]) -> dict:
+        """Builds the weather data from wgrib2 output lines (read now, or kept by GribCache)"""
         wind = defaultdict(dict)    # one bucket per pressure level (mb)
         ground = {}                 # 2 m / 10 m above ground readings, see below
         clouds = {}
-        pressure = False
         tropo = {}
         surface = {}
         turb = {}
@@ -338,7 +378,7 @@ class GribWeatherSource(WeatherSource):
 
                 case ('mean', 'sea', 'level'):
                     if variable == 'PRMSL':
-                        pressure = c.pa2inhg(float(value))
+                        surface['PRMSL'] = value   # raw Pa
 
         # 2 m / 10 m readings stand in for what the real levels don't provide: the surface level
         # (Real Weather srfc files have no surface temperature, wind or humidity) and the 1000 mb bucket.
@@ -360,10 +400,13 @@ class GribWeatherSource(WeatherSource):
             'clouds': self._convert_clouds(clouds),
             'temperature': templevels,
             'turbulence': self._convert_turbulence(turb),
-            'pressure': pressure,
             'tropo': self._convert_tropo(tropo),
             'surface': self._convert_surface(surface),
         }
+
+    def parse_grib_data(self, lat, lon, files=None) -> dict:
+        files = self.grib_files if files is None else files
+        return self.parse_lines(chain.from_iterable(self.read_grib_file(f, lat, lon) for f in files))
 
     def run(self, elapsed: int) -> None:
         """Worker function called by a worker thread to update the data"""

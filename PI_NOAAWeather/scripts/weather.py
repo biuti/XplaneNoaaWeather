@@ -563,6 +563,7 @@ class Weather:
                         sysinfo += ['XP12 REAL WEATHER SURFACE DATA:']
                         s = rw['surface']
                         elev = 'na' if s.get('alt') is None else round(s.get('alt'))
+                        pressure = 'na' if s.get('press') is None else round(s.get('press') * 0.01, 1)
                         surface_temp = 'na' if s.get('temp') is None else round(c.kel2cel(s.get('temp')), 1)
                         snow = s.get('snow')
                         d = 0
@@ -577,7 +578,7 @@ class Weather:
                         snow_depth = f"{'na' if snow is None or snow < 0 else round(snow, 2)}{'' if not d else f' ({d} nm from present position)'}"
                         # acc_precip = 'na' if (s.get('acc_precip') is None or s.get('acc_precip') < 0) else round(s.get('acc_precip'), 2)
                         sysinfo += [
-                            f"   elev. (ft): {elev} | temp (C): {surface_temp} | snow depth (m): {snow_depth}",
+                            f"   elev. (ft): {elev} | pressure (hPa): {pressure} | temp (C): {surface_temp} | snow depth (m): {snow_depth}",
                             ''
                         ]
                     else:

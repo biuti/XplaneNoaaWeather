@@ -34,10 +34,10 @@ if not __package__:
 
 from . import Conf, c, log
 from .metar import Metar
-from .realweather import RealWeather
+from .realweather import RealWeather, COARSE_STEP
 from .gfs import GFS
 from .wafs import WAFS
-from .weathersource import Worker
+from .weathersource import Worker, GRID_STEP, tile
 
 
 @contextmanager
@@ -161,8 +161,14 @@ class ClientHandler(SocketServer.BaseRequestHandler):
         with guarded('rw'):
             if conf.meets_wgrib2_requirements and conf.use_real_weather_data:
                 rw.get_real_weather_forecast()
-                if rw.grib_files:
-                    response['rw'] = rw.parse_grib_data(lat, lon)
+                files = rw.grib_files   # one directory scan per request
+                if files:
+                    if outdated := rw.cache.stale(lat, lon, files):
+                        # yay: only the files whose tile or data changed are read again
+                        rw.cache.refresh(lat, lon, outdated, rw.read_grib_file)
+                    # nay: nothing to read, everything comes from the cache
+                    response['rw'] = rw.parse_lines(rw.cache.lines(files))
+
                     response['info']['rw_gfs_cycle'] = f"{rw.gfs_run}: {rw.gfs_fcst}" if rw.gfs_run else 'na'
                     response['info']['rw_wafs_cycle'] = f"{rw.wafs_run}: {rw.wafs_fcst}" if rw.wafs_run else 'na'
                     if conf.set_snow:
@@ -180,6 +186,15 @@ class ClientHandler(SocketServer.BaseRequestHandler):
                             response['wafs'] = wafs.parse_grib_data(wafs_file, lat, lon)
                             log.debug(f"response['wafs']: {response['wafs']}")
                             response['info']['wafs_cycle'] = f"{wafs.wafs_run}: {wafs.wafs_fcst}" if wafs.wafs_run else 'na'
+
+                    surface = response['rw'].get('surface', {})
+                    log.debug(
+                        f"rw {lat:.2f}/{lon:.2f} hdg {hdg:.0f}"
+                        f"t{GRID_STEP:g}={tile(lat, lon, GRID_STEP)} t{COARSE_STEP:g}={tile(lat, lon, COARSE_STEP)}"
+                        f" press={surface.get('press')} alt={surface.get('alt')}"
+                        f" read={len(outdated)} snow={surface.get('snow')}"
+                        f" pred={'yes' if 'prediction' in surface else '-'}"
+                    )
 
         # Parse metar
         with guarded('metar'):
